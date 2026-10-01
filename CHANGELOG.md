@@ -34,3 +34,7 @@ All notable changes to Verdra are recorded here. The format follows
 - Background jobs (S-04): one worker pool with progress, cancellation, results delivered on the
   UI thread, announcements for jobs that run longer than 2 seconds, and a 3-second grace period
   on quit.
+- App shell (S-01, first part): main window with sidebar, header, status pill and its popover,
+  screens with their empty states, theme from the design tokens with live light/dark switching,
+  text size, density and reduced motion, the splash with the growing logo, toasts, the tray
+  icon and menu, keyboard shortcuts, single instance, and the startup and shutdown order.

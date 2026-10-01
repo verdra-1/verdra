@@ -11,7 +11,7 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | Module | Built from | Libraries |
 | --- | --- | --- |
 | `verdra/` | Reference R1 (module tree) | Standard library (`importlib.metadata`) |
-| `verdra/__main__.py` | Reference R1 | Standard library |
+| `verdra/__main__.py` | Reference R1, spec S-01 | Standard library |
 | `verdra/bark/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/bark/husk.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/bark/nectar.py` | Reference R1 (job line only; no code yet) | — |
@@ -24,15 +24,15 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/canopy/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/crown/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/crown/about.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/dew.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/header.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/crown/dew.py` | Master plan 6.6, 7.1, specs S-01, S-03, S-04 | PySide6 |
+| `verdra/canopy/crown/header.py` | Master plan 7.1, message catalogue (M-STATUS-03), spec S-01 | PySide6 |
 | `verdra/canopy/crown/seedling.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/shortcuts.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/sidebar.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/splash.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/theme.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/tray.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/crown/window.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/crown/shortcuts.py` | Master plan 7.1, spec S-01 | PySide6 |
+| `verdra/canopy/crown/sidebar.py` | Master plan 6.8, 7.1, spec S-01 | PySide6 |
+| `verdra/canopy/crown/splash.py` | Master plan 4.5, 6.6, spec S-01 | PySide6 (QtSvg) |
+| `verdra/canopy/crown/theme.py` | Master plan 5.6, 6.1 to 6.8, spec S-01 | PySide6 (QtCore, QtGui, QtSvg, QtWidgets) |
+| `verdra/canopy/crown/tray.py` | Master plan 4.6, 7.10, message catalogue (M-STATUS-02), spec S-01 | PySide6 |
+| `verdra/canopy/crown/window.py` | Master plan 7.1, spec S-01 | PySide6 |
 | `verdra/canopy/glade/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/glade/audio.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/glade/font.py` | Reference R1 (job line only; no code yet) | — |
@@ -41,28 +41,28 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/canopy/glade/model.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/glade/motion.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/leaves/` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/leaves/badge.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/leaves/badge.py` | Master plan 5.5, 7.1, message catalogue (M-RISK-02) | PySide6 |
 | `verdra/canopy/leaves/dialogs.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/leaves/drawer.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/leaves/empty.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/leaves/empty.py` | Master plan 7.2, 7.3 | PySide6 |
 | `verdra/canopy/leaves/fields.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/leaves/notice.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/leaves/progress.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/leaves/progress.py` | Master plan UI language (brand system), 6.6 | PySide6 |
 | `verdra/canopy/leaves/switch.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/leaves/tables.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/screens/` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/garden.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/screens/garden.py` | Master plan 14 (milestone versions); placeholder | PySide6 |
 | `verdra/canopy/screens/grafts/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/screens/grafts/editor.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/screens/grafts/imports.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/screens/grafts/presets.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/screens/grafts/preview.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/grafts/screen.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/hive.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/rings.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/seedbank.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/settings.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/canopy/screens/streams.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/canopy/screens/grafts/screen.py` | Master plan 7.2 (empty state), message catalogue (M-EMPTY-01) | PySide6 |
+| `verdra/canopy/screens/hive.py` | Master plan 14 (milestone versions); placeholder | PySide6 |
+| `verdra/canopy/screens/rings.py` | Placeholder until the Activity screen (spec S-03) | PySide6 |
+| `verdra/canopy/screens/seedbank.py` | Master plan 7.3 (empty state), message catalogue (M-EMPTY-02) | PySide6 |
+| `verdra/canopy/screens/settings.py` | Placeholder until the Settings screen (spec S-02) | PySide6 |
+| `verdra/canopy/screens/streams.py` | Master plan 14 (milestone versions); placeholder | PySide6 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/roots/gardener.py` | Reference R1 (job line only; no code yet) | — |
@@ -85,7 +85,7 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/seedbank/vault.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/atomic.py` | Master plan 9.7, decision record 0005, spec S-02; POSIX `rename`/`fsync` and Python `os.replace` documentation | Standard library |
-| `verdra/soil/humus.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS); Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION), macOS `com.apple.universalaccess reduceMotion`, GNOME `enable-animations` documentation | Standard library (`ctypes`, `subprocess`) |
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/meadow/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/meadow/autostart.py` | Reference R1 (job line only; no code yet) | — |
@@ -141,8 +141,8 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/trunk/budding.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/rings.py` | Spec S-03, Master plan 13.9 (support bundle), Reference R2 (`advanced.detailed_logging`) | Standard library (`logging.handlers`, `zipfile`), PySide6 (QtCore) |
 | `verdra/trunk/sapwood/` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/sapwood/cli.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/sapwood/shutdown.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/sapwood/single.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/sapwood/startup.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/trunk/sapwood/cli.py` | Reference R1, spec S-01 | Standard library (`argparse`) |
+| `verdra/trunk/sapwood/shutdown.py` | Master plan 8.4, specs S-01, S-04 | Standard library |
+| `verdra/trunk/sapwood/single.py` | Reference R3 (channel name), spec S-01 | PySide6 (QtNetwork) |
+| `verdra/trunk/sapwood/startup.py` | Master plan 8.4, 12.4, spec S-01 | PySide6 |
 | `verdra/trunk/tendrils.py` | Spec S-04, Master plan 8.3 (one worker pool) and 12.4 (idle CPU) | Standard library (`threading`, `queue`), PySide6 (QtCore) |

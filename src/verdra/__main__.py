@@ -7,7 +7,10 @@ import sys
 
 def main() -> int:
     """Start Verdra and return its exit code."""
-    return 0
+    from verdra.canopy.crown.window import Shell  # noqa: PLC0415 - keep `--help`-style paths light
+    from verdra.trunk.sapwood import startup  # noqa: PLC0415
+
+    return startup.run(sys.argv, Shell)
 
 
 if __name__ == "__main__":

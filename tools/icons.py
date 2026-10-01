@@ -97,10 +97,11 @@ def svg(view_box: str, body: str) -> str:
 def symbol_elements(palette: Palette, node_radius: float = NODE[2]) -> str:
     """Return the three shapes of the Living V."""
     cx, cy, _ = NODE
+    # The ids let the splash animate each part separately (Master plan 4.5).
     return (
-        f'  <path fill="{palette.leaves}" d="{LEFT_LEAF}"/>\n'
-        f'  <path fill="{palette.leaves}" d="{RIGHT_LEAF}"/>\n'
-        f'  <circle fill="{palette.node}" cx="{cx:g}" cy="{cy:g}" r="{node_radius:g}"/>\n'
+        f'  <path id="left-leaf" fill="{palette.leaves}" d="{LEFT_LEAF}"/>\n'
+        f'  <path id="right-leaf" fill="{palette.leaves}" d="{RIGHT_LEAF}"/>\n'
+        f'  <circle id="node" fill="{palette.node}" cx="{cx:g}" cy="{cy:g}" r="{node_radius:g}"/>\n'
     )
 
 

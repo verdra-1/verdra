@@ -195,6 +195,8 @@ layers = [
 name = "The UI talks only to trunk"
 type = "forbidden"
 source_modules = ["verdra.canopy"]
+# canopy → trunk → bark is the intended path; only direct imports are forbidden.
+allow_indirect_imports = true
 forbidden_modules = ["verdra.roots", "verdra.seedbank", "verdra.strata", "verdra.bark"]
 
 [[tool.importlinter.contracts]]
