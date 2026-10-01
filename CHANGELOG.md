@@ -31,3 +31,6 @@ All notable changes to Verdra are recorded here. The format follows
 - Settings store (S-02): every setting from the reference with its type, range and default;
   key-by-key validation; atomic, debounced saves with a `.bak` copy; recovery from a damaged
   file; read-only files from newer versions; migrations; `state.json` for window state.
+- Activity log (S-03): one redaction filter for every output, rotating log files written off the
+  UI thread, the last 5,000 records in memory for the Activity screen, detailed logging that turns
+  itself off after 24 hours, and the support bundle.
