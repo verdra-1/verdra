@@ -159,11 +159,16 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 qt_api = "pyside6"
 markers = [
   "slow: long-running property and fuzz tests, run nightly",
+  "spec(spec_id, *numbers): the acceptance tests of a spec in docs/specs/ this test covers",
 ]
 
 [tool.coverage.run]
 source = ["verdra"]
 branch = true
+
+[tool.coverage.paths]
+# Combine reports from the Windows, macOS and Linux runners.
+source = ["src/verdra", "*/src/verdra", "*\\src\\verdra"]
 
 [tool.coverage.report]
 show_missing = true
@@ -172,6 +177,22 @@ exclude_also = [
   "if TYPE_CHECKING:",
   "raise NotImplementedError",
 ]
+
+# ---------------------------------------------------------------------------------------------
+# Layering (Master plan 8.2). Checked by lint-imports.
+# ---------------------------------------------------------------------------------------------
+
+[tool.importlinter]
+root_package = "verdra"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+# Parsers never unpickle (Master plan 10.7); the UI binding is PySide6 only (8.1). Qt modules
+# outside the allowed list are checked by tools/licenses.py.
+name = "No unsafe deserialisers or other Qt bindings"
+type = "forbidden"
+source_modules = ["verdra"]
+forbidden_modules = ["pickle", "marshal", "shelve", "PyQt5", "PyQt6"]
 
 # ---------------------------------------------------------------------------------------------
 # Licence allowlist (Master plan 12.3, Reference R4). Checked by tools/licenses.py.
@@ -213,6 +234,11 @@ numpy = "BSD-3-Clause. Linux wheels bundle libgfortran: GPL-3.0 with GCC Runtime
 # lists them separately.
 [tool.verdra.licenses.qt-exceptions]
 "AFL-2.1" = "The libdbus-1 headers inside Qt D-Bus (qtbase/src/dbus/dbus_minimal_p.h), dual-licensed AFL-2.1 OR GPL-2.0-or-later; verified in Qt's source and qt_attribution.json."
+
+# Spelling gate (tools/check_spelling.py, decision record 0010): user-facing text uses US
+# spelling. Words that must keep another spelling go here, each with a reason.
+[tool.verdra.spelling]
+allow = {}
 
 # Qt modules the app may import (Master plan 8.1). Anything else, and every GPL-only add-on, fails CI.
 [tool.verdra.qt]

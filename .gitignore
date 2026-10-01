@@ -16,6 +16,7 @@ dist/
 .coverage
 .coverage.*
 coverage.xml
+coverage.json
 htmlcov/
 
 # Generated at build time (tools/icons.py, tools/notices.py). The compiled message catalogue
