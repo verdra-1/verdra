@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 The Verdra Authors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path fill="#FFFFFF" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/>
-  <path fill="#FFFFFF" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/>
-  <circle fill="#FFFFFF" cx="32" cy="59.6" r="3.4"/>
+  <path id="left-leaf" fill="#FFFFFF" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/>
+  <path id="right-leaf" fill="#FFFFFF" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/>
+  <circle id="node" fill="#FFFFFF" cx="32" cy="59.6" r="3.4"/>
 </svg>

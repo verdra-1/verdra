@@ -1,6 +1,6 @@
 # S-03 Activity log
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M0
 **Risk badge:** none
 **Plan sections:** 7.7, 9.1, 10.6, 13.9, Reference R2 (`advanced.detailed_logging`)
