@@ -1,0 +1,39 @@
+# Local checks from Master plan 13.3: format, lint, gitleaks and the colour-literal check.
+# Ruff and the colour check run from the locked environment (uv run), so they match CI exactly.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=no]
+      - id: trailing-whitespace
+        exclude: \.md$
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: colour-literals
+        name: no colour literals outside tokens.json
+        entry: uv run --frozen python tools/check_colours.py
+        language: system
+        files: \.(py|qss|css|svg|ui|json|toml|ya?ml|html)$
