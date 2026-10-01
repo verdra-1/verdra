@@ -324,3 +324,14 @@ allowed-modules = [
   "QtSvg",
   "QtMultimedia",
 ]
+
+# Qt libraries the allowed modules load internally. All six are built from qtbase sources whose
+# SPDX headers read LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only (checked in decision record
+# 0010). Only tools/check_build.py reads this list; the app never imports these.
+[tool.verdra.qt.build-support]
+DBus = "Qt Base: desktop integration on Linux (platform theme, tray, notifications)."
+XcbQpa = "Qt Base: the X11 platform plugin."
+EglFSDeviceIntegration = "Qt Base: the EGLFS platform plugin."
+EglFsKmsSupport = "Qt Base: the EGLFS platform plugin on KMS."
+WaylandClient = "Qt Wayland client (in qtbase as of Qt 6.11): the Wayland platform plugin."
+WlShellIntegration = "Qt Wayland client: Wayland shell integration for that plugin."

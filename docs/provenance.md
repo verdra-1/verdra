@@ -147,3 +147,20 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/sapwood/single.py` | Reference R3 (channel name), spec S-01 | PySide6 (QtNetwork) | 2026-10-01 |
 | `verdra/trunk/sapwood/startup.py` | Master plan 8.4, 12.4, spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/trunk/tendrils.py` | Spec S-04, Master plan 8.3 (one worker pool) and 12.4 (idle CPU) | Standard library (`threading`, `queue`), PySide6 (QtCore) | 2026-10-01 |
+
+## Tools and build files
+
+Not part of the app, but written under the same clean-room rules (review finding M15).
+
+| File | Built from | Libraries | Date |
+| --- | --- | --- | --- |
+| `tools/check_build.py` | Master plan 8.1, 12.3, 12.4, 13.4, 13.6, risk R-07, decision records 0002 and 0010; PyInstaller one-folder layout as documented | Standard library | 2026-10-02 |
+| `tools/check_colors.py` | Master plan 5.6, 12.3 | Standard library | 2026-10-01 |
+| `tools/check_docs.py` | Master plan 3.1, 12.3, 12.6, Reference R1 | Standard library (`ast`) | 2026-10-01 |
+| `tools/check_spelling.py` | Master plan 4.3, 16.2, decision record 0010; Qt Linguist `.ts` format documentation | Standard library | 2026-10-02 |
+| `tools/check_strings.py` | Master plan 4.3, 12.3, Reference R5; Qt translation documentation | Standard library (`ast`) | 2026-10-01 |
+| `tools/coverage_floors.py` | Master plan 12.1 | coverage.py JSON report format | 2026-10-01 |
+| `tools/i18n.py` | Master plan 12.3, Reference R5; `pyside6-lupdate` documentation | PySide6 tools | 2026-10-01 |
+| `tools/icons.py` | Master plan 4.4, 4.6, design system logo rules; SVG, ICO and ICNS file format documentation | fontTools, uharfbuzz, PySide6 (QtSvg, QtGui) | 2026-10-01 |
+| `tools/licenses.py` | Master plan 8.1, 12.3, Reference R4, decision record 0010 | pip-licenses, packaging | 2026-10-01 |
+| `packaging/verdra.spec` | Master plan 13.6, Reference R3, decision records 0002 and 0010; PyInstaller spec-file documentation | PyInstaller | 2026-10-02 |

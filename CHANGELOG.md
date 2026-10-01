@@ -38,10 +38,15 @@ All notable changes to Verdra are recorded here. The format follows
   UI thread, announcements for jobs that run longer than 2 seconds, and a 3-second grace period
   on quit.
 - App shell (S-01, first part): main window with sidebar, header, status pill and its popover,
-  screens with their empty states (M-SOON-01 for parts not built yet), theme from the design tokens with live light/dark switching,
-  text size, density and reduced motion, the splash with the growing logo, toasts, the tray
-  icon and menu, keyboard shortcuts, single instance, and the startup and shutdown order.
+  screens with their empty states (M-SOON-01 where a part isn't built yet), theme from the
+  design tokens with live light/dark switching, text size, density and reduced motion, the
+  splash with the growing logo, toasts, the tray icon and menu, keyboard shortcuts, a focus
+  ring with a 2 px offset, single instance, and the startup and shutdown order.
 - App shell (S-01, second part): the Settings screen with every setting and per-group reset,
   the Activity screen with filters, search, copy and the support bundle, first-run setup, the
-  About dialog with the notice and the license, third-party and privacy texts, the shared risk, explanation and
-  confirmation dialogs, the switch and inline notices, and the message catalogue.
+  About dialog with the notice and the license, third-party notices and privacy texts, the
+  shared risk, explanation and confirmation dialogs, the switch and inline notices, and the
+  message catalogue with its plural forms.
+- Build check: a PyInstaller one-folder build (`packaging/verdra.spec`) on every system in CI,
+  which fails if the built folder holds any Qt library, plugin or QML file outside the allowed
+  Qt modules, and starts the built app once.

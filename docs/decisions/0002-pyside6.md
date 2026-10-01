@@ -16,6 +16,12 @@ format code. The interface toolkit's licence must allow shipping inside an Apach
 - Import only these Qt modules: Core, Gui, Widgets, Network, OpenGL, OpenGLWidgets, Svg,
   Multimedia. GPL-only add-ons (Charts, Data Visualization, Graphs, Quick 3D, Virtual Keyboard and
   others) are never used. CI checks every `PySide6.Qt*` import (`tools/licenses.py`).
+- The PySide6 Addons wheel installs those GPL-only modules alongside the allowed ones, so they
+  are blocked three times: importing them fails CI, the PyInstaller build leaves them out
+  (`packaging/verdra.spec`), and CI checks the built folder on every system and fails if any Qt
+  library, plugin or QML file outside the allowed modules is present (`tools/check_build.py`).
+  The check is an allowlist: Qt-internal libraries the allowed modules load (Qt Base and the
+  Qt Wayland client) are named, with a reason, in `[tool.verdra.qt.build-support]`.
 - Use the Fusion style on every platform, with a palette and one stylesheet generated from
   `tokens.json` (5.6), so controls look the same everywhere and follow the tokens exactly.
 - Ship with PyInstaller in one-folder mode, so the Qt libraries stay separate, replaceable files.
