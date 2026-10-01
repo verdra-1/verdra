@@ -21,7 +21,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/bark/resin.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/scar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/seal.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/bark/veil.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/bark/veil.py` | Master plan 10.6 (header list, login-token pattern), spec S-03; the token's public warning prefix as Roblox documents it to users | Standard library (`re`, `logging`) | 2026-10-01 |
 | `verdra/canopy/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/crown/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/crown/about.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -140,7 +140,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/branches/trails.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/transplant.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/budding.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/rings.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/rings.py` | Spec S-03, Master plan 13.9 (support bundle), Reference R2 (`advanced.detailed_logging`) | Standard library (`logging.handlers`, `zipfile`), PySide6 (QtCore) | 2026-10-01 |
 | `verdra/trunk/sapwood/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/sapwood/cli.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/sapwood/shutdown.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
