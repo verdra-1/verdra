@@ -1,0 +1,7 @@
+<!-- SPDX-FileCopyrightText: 2026 The Verdra Authors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M11 19C6.5 16.5 4 11.5 4 4c4.5 2 7 7.5 7 15z" />
+  <path d="M13 19c4-2.5 6.5-7 7-13-4 2-7 6.5-7 13z" />
+  <circle cx="12" cy="21.5" r="0.5" />
+</svg>

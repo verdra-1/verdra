@@ -1,6 +1,6 @@
 # S-04 Background jobs
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M0
 **Risk badge:** none
 **Plan sections:** 8.3, 8.4, 12.4, Reference R2 (`advanced.worker_threads`)
