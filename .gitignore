@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Generated at build time (tools/icons.py, tools/notices.py). The compiled message catalogue
+# (assets/i18n/*.qm) is committed, and CI checks it is current (Reference R1).
+src/verdra/assets/brand/generated/
+THIRD_PARTY_NOTICES.md
+
+# Editors and systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Never commit the old archive or anything derived from it
+/archive/
