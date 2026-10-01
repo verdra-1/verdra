@@ -8,6 +8,7 @@ import random
 import subprocess
 import sys
 import textwrap
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -382,6 +383,41 @@ def test_state_store_round_trip_and_damage(tmp_path: Path) -> None:
     (tmp_path / "state.json").write_text("{broken", encoding="utf-8")
     again.load()
     assert again.get("window", "fallback") == "fallback"
+
+
+def test_saves_run_in_the_background_in_order(
+    path: Path, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Spec S-01 rule: the UI thread never waits on the disk (finding M7)."""
+    from verdra.trunk import tendrils  # noqa: PLC0415 - only this test needs the executor
+
+    writes: list[tuple[bool, str]] = []
+    real_write = atomic.write_atomic
+
+    def recording_write(target: Path, data: bytes, **kwargs: Any) -> None:
+        if target == path:  # not the .bak copy, which goes through the same helper
+            theme = json.loads(data)["appearance"]["theme"]
+            writes.append((threading.current_thread() is threading.main_thread(), theme))
+        real_write(target, data, **kwargs)
+
+    monkeypatch.setattr(atomic, "write_atomic", recording_write)
+    store = loaded(path)
+    executor = tendrils.Tendrils(workers=2)
+    store.save_in_background(executor.submit)
+    for theme in ("dark", "light", "dark"):
+        store.set("appearance.theme", theme)
+        store.flush()
+    qtbot.waitUntil(lambda: not store._saving and store._latest is None, timeout=5000)  # noqa: SLF001
+    assert writes, "nothing was written"
+    assert not any(on_main for on_main, _ in writes)
+    assert writes[-1][1] == "dark"
+    assert json.loads(path.read_text(encoding="utf-8"))["appearance"]["theme"] == "dark"
+    # On quit the executor stops first; the final flush writes what is still pending, here.
+    store.set("appearance.theme", "light")
+    executor.shutdown()
+    store.flush(final=True)
+    assert writes[-1] == (True, "light")
+    assert json.loads(path.read_text(encoding="utf-8"))["appearance"]["theme"] == "light"
 
 
 def test_a_migrated_file_is_written_back_once(path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
