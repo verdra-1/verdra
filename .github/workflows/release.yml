@@ -1,0 +1,39 @@
+# Release pipeline (Master plan 13.5). Stub at M0: it builds the Python distribution so the
+# workflow, its trigger and the release environment exist. Packaging, THIRD_PARTY_NOTICES.md,
+# the CycloneDX SBOM, SHA256SUMS, provenance attestations, signing and the draft release are
+# added with spec S-80 at M8.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Check the tag matches the version in pyproject.toml
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(uv version --short)"
+          [ "v${version}" = "$TAG" ] || { echo "Tag $TAG doesn't match version $version"; exit 1; }
+      - name: Build
+        run: uv build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error

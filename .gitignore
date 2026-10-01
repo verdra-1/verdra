@@ -14,6 +14,7 @@ dist/
 .coverage
 .coverage.*
 coverage.xml
+coverage.json
 htmlcov/
 
 # Generated at build time (tools/icons.py, lrelease, tools/notices.py)
