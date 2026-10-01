@@ -1,0 +1,31 @@
+name: Feature idea
+description: Suggest a change. Before 1.0, Verdra builds only what its 32 specs describe.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How Verdra could help
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Which risk level would it carry?
+      options:
+        - Cosmetic
+        - Client behaviour
+        - Account-sensitive
+        - Moderation risk
+        - Not sure
+  - type: checkboxes
+    id: goals
+    attributes:
+      label: Non-goals
+      options:
+        - label: This gives no gameplay advantage, changes nothing other players see and needs no game-memory access.
+          required: true

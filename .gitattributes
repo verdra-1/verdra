@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+*.png  binary
+*.ico  binary
+*.icns binary
+*.ttf  binary
+*.otf  binary
+*.woff2 binary
+*.qm   binary
+*.mesh binary
+*.rbxm binary
+*.ktx2 binary
+*.verdrapack binary
+
+*.bat  text eol=crlf
+*.iss  text eol=crlf
+
+uv.lock linguist-generated=true

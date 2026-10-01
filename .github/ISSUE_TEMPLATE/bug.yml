@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in Verdra doesn't work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security problems, don't open an issue. Follow SECURITY.md instead.
+        Support bundles are redacted, but check them before attaching.
+  - type: input
+    id: version
+    attributes:
+      label: Verdra version
+      description: Shown in About, for example 0.1.0 (a1b2c3d).
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Linux (Sober)
+    validations:
+      required: true
+  - type: dropdown
+    id: routing
+    attributes:
+      label: Routing mode
+      options:
+        - Per app
+        - Hosts file
+        - Not routing
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open Replacements\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected and what happened
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Activity log excerpt
+      description: From Activity › Copy. Secrets are redacted, but check before posting.
+      render: text
