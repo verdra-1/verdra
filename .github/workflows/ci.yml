@@ -76,7 +76,7 @@ jobs:
       matrix:
         include:
           - { runner: windows-latest, system: windows }
-          - { runner: macos-latest, system: macos }
+          - { runner: macos-15, system: macos }
           - { runner: macos-15-intel, system: macos }
           - { runner: ubuntu-24.04, system: linux }
     env:
