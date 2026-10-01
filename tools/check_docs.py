@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Docs gate: provenance entries for every module, tests for every built spec.
+"""Docs gate: module tree, provenance entries for every module, tests for every built spec.
 
-Master plan 12.3 ("Docs") and 3.1 (process control 3):
+Master plan 12.3 ("Docs"), 3.1 (process control 3) and Reference R1:
 
-1. Every module under `src/verdra/` is named in `docs/provenance.md`, by its path relative to
+1. The module tree in `docs/architecture.md` and the modules under `src/verdra/` match both ways,
+   and every module's docstring starts with its job from the tree.
+2. Every module under `src/verdra/` is named in `docs/provenance.md`, by its path relative to
    `src/` (`verdra/trunk/rings.py`); a package's `__init__.py` may be named by its folder
    (`verdra/trunk/`). Every entry ends with the date it was written (`| 2026-10-01 |`).
-2. Every spec in `docs/specs/` whose status is Built or Verified has each automatable acceptance
+3. Every spec in `docs/specs/` whose status is Built or Verified has each automatable acceptance
    test referenced by a test marked `@pytest.mark.spec("S-02", 3)`.
 
 Usage: python tools/check_docs.py
@@ -23,6 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 PROVENANCE = ROOT / "docs" / "provenance.md"
+ARCHITECTURE = ROOT / "docs" / "architecture.md"
 SPECS = ROOT / "docs" / "specs"
 TESTS = ROOT / "tests"
 DATED_ENTRY = re.compile(r"^\|\s*`[^`]+`\s*\|.*\|\s*\d{4}-\d{2}-\d{2}\s*\|$")
@@ -30,6 +33,63 @@ DATED_ENTRY = re.compile(r"^\|\s*`[^`]+`\s*\|.*\|\s*\d{4}-\d{2}-\d{2}\s*\|$")
 STATUS = re.compile(r"^\*\*Status:\*\*\s*(\w+)", re.MULTILINE)
 ACCEPTANCE = re.compile(r"^## Acceptance tests\s*$(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
 NUMBERED = re.compile(r"^(\d+)\.\s+(.*)$", re.MULTILINE)
+TREE_BLOCK = re.compile(r"^```text\nsrc/verdra/\n(.*?)^```", re.MULTILINE | re.DOTALL)
+TREE_LINE = re.compile(r"^([│ ]*)[├└]── (\S+)\s*(.*)$")
+# The tree lists the OS adapter modules once, under tundra/; meadow/ and orchard/ have the same.
+OS_PACKAGES = ("meadow", "orchard", "tundra")
+
+
+def squash(text: str) -> str:
+    """Collapse runs of whitespace, so wrapped docstrings compare equal to one-line jobs."""
+    return " ".join(text.split())
+
+
+def module_tree() -> dict[str, str]:
+    """Return {module path relative to src/: job} from the tree in docs/architecture.md."""
+    match = TREE_BLOCK.search(ARCHITECTURE.read_text(encoding="utf-8"))
+    if match is None:
+        return {}
+    tree: dict[str, str] = {}
+    stack: list[str] = []
+    for line in match.group(1).splitlines():
+        entry = TREE_LINE.match(line)
+        if entry is None:
+            continue
+        depth = len(entry.group(1)) // 4
+        name, job = entry.group(2), squash(entry.group(3))
+        stack = stack[:depth]
+        if name.endswith("/"):
+            stack.append(name[:-1])
+            if stack[0] != "assets":
+                tree["/".join(["verdra", *stack, "__init__.py"])] = job
+        elif stack[:1] != ["assets"]:
+            tree["/".join(["verdra", *stack, name])] = job
+    for path, job in list(tree.items()):
+        parts = path.split("/")
+        if len(parts) == 4 and parts[1:3] == ["soil", "tundra"] and parts[3] != "__init__.py":
+            for package in OS_PACKAGES[:2]:
+                tree["/".join(["verdra", "soil", package, parts[3]])] = job
+    return tree
+
+
+def check_module_tree() -> list[str]:
+    """Return one problem per module missing from either side or with the wrong docstring."""
+    tree = module_tree()
+    if not tree:
+        return ["docs/architecture.md: no module tree found"]
+    actual = {path.relative_to(SRC).as_posix(): path for path in (SRC / "verdra").rglob("*.py")}
+    problems = [
+        f"{name}: listed in docs/architecture.md but missing"
+        for name in tree.keys() - actual.keys()
+    ]
+    problems += [
+        f"{name}: not listed in docs/architecture.md" for name in actual.keys() - tree.keys()
+    ]
+    for name in sorted(tree.keys() & actual.keys()):
+        docstring = ast.get_docstring(ast.parse(actual[name].read_text(encoding="utf-8"))) or ""
+        if not squash(docstring).startswith(tree[name]):
+            problems.append(f"src/{name}: docstring must start with {tree[name]!r}")
+    return sorted(problems)
 
 
 def check_provenance() -> list[str]:
@@ -100,7 +160,7 @@ def check_specs() -> list[str]:
 
 def main() -> int:
     """Run the gate and return a process exit code."""
-    problems = check_provenance() + check_specs()
+    problems = check_module_tree() + check_provenance() + check_specs()
     for problem in problems:
         print(problem)
     return 1 if problems else 0

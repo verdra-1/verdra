@@ -132,6 +132,14 @@ ignore = [
 "importlib.__import__".msg = "Import statically, so import-linter and the Qt check see it."
 "importlib.util.spec_from_file_location".msg = "Import statically, so the layering check sees it."
 "importlib.util.module_from_spec".msg = "Import statically, so the layering check sees it."
+"importlib.util.find_spec".msg = "Import statically, so the layering check sees it."
+"importlib.reload".msg = "Import statically, so the layering check sees it."
+"importlib.machinery.SourceFileLoader".msg = "Import statically, so the layering check sees it."
+"importlib.machinery.SourcelessFileLoader".msg = "Import statically, so the layering check sees it."
+"importlib.machinery.ExtensionFileLoader".msg = "Import statically, so the layering check sees it."
+"pkgutil.resolve_name".msg = "Import statically, so import-linter and the Qt check see it."
+"runpy".msg = "Import statically, so import-linter and the Qt check see it."
+"builtins.__import__".msg = "Import statically, so import-linter and the Qt check see it."
 
 [tool.ruff.lint.isort]
 known-first-party = ["verdra"]
@@ -185,6 +193,63 @@ exclude_also = [
 [tool.importlinter]
 root_package = "verdra"
 include_external_packages = true
+
+[[tool.importlinter.contracts]]
+# canopy → trunk → {roots, seedbank} → {strata, bark} → soil. "|" marks siblings that may not
+# import each other. Nothing imports upward; soil imports nothing from the other areas.
+name = "Layers (Master plan 8.2)"
+type = "layers"
+layers = [
+  "verdra.canopy",
+  "verdra.trunk",
+  "verdra.roots | verdra.seedbank",
+  "verdra.strata | verdra.bark",
+  "verdra.soil",
+]
+
+[[tool.importlinter.contracts]]
+# trunk is the only layer the UI talks to (Reference R1); canopy may still use soil's shared
+# constants (soil/terrain). Re-exports through trunk are caught by tests/test_layering.py.
+name = "The UI talks only to trunk"
+type = "forbidden"
+source_modules = ["verdra.canopy"]
+forbidden_modules = ["verdra.roots", "verdra.seedbank", "verdra.strata", "verdra.bark"]
+
+[[tool.importlinter.contracts]]
+# canopy is Qt widgets only: no network, disk or OS calls of its own (Reference R1). The OS
+# adapters, safe writes and process, socket and file-system modules are reached only through
+# trunk. (Reading the bundled assets in theme.py and splash.py is the one allowed disk read;
+# tests/test_layering.py checks file calls.)
+name = "The UI makes no OS, disk or network calls of its own"
+type = "forbidden"
+source_modules = ["verdra.canopy"]
+allow_indirect_imports = true
+forbidden_modules = [
+  "verdra.soil.humus",
+  "verdra.soil.atomic",
+  "verdra.soil.lichen",
+  "verdra.soil.meadow",
+  "verdra.soil.orchard",
+  "verdra.soil.tundra",
+  "os",
+  "subprocess",
+  "shutil",
+  "socket",
+  "ctypes",
+  "tempfile",
+  "platformdirs",
+  "psutil",
+  "keyring",
+  "io",
+  "urllib",
+  "http",
+  "ssl",
+  "asyncio",
+  "webbrowser",
+  "sqlite3",
+  "platform",
+  "zipfile",
+]
 
 [[tool.importlinter.contracts]]
 # Parsers never unpickle (Master plan 10.7); the UI binding is PySide6 only (8.1). Qt modules
