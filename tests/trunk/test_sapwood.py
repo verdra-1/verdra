@@ -132,6 +132,7 @@ SingleInstance.hand_over = record("check single instance", SingleInstance.hand_o
 SettingsStore.load = load
 rings.Rings.start = record("start logging", rings.Rings.start)
 SingleInstance.claim = record("claim channel", SingleInstance.claim)
+startup.install_translator = record("install translator", startup.install_translator)
 tendrils.Tendrils.start = record("start services", tendrils.Tendrils.start)
 
 class Interface:
@@ -177,6 +178,7 @@ def test_startup_follows_plan_8_4(tmp_path: Path) -> None:
         ("load settings", False),
         ("start logging", False),
         ("claim channel", True),
+        ("install translator", True),
         ("show splash", True),
         ("start services", True),
         ("build window", True),

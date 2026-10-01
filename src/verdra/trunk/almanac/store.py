@@ -192,10 +192,6 @@ def parse(data: bytes) -> dict[str, Any]:
     return document
 
 
-def _translate(message_id: str, text: str) -> str:
-    return QCoreApplication.translate(message_id, text)
-
-
 #: state.json key listing the unknown settings already reported, so each is reported once.
 REPORTED_UNKNOWN_KEYS = "settings.reported_unknown_keys"
 
@@ -391,7 +387,7 @@ class SettingsStore(QObject):
 
     def reset_group(self, group: str) -> None:
         """Reset every key of one Settings-screen group to its default."""
-        for key, default in schema.keys().items():
+        for key, default in schema.defaults().items():
             if key.startswith(group + "."):
                 self.set(key, default)
 

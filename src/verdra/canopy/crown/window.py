@@ -25,13 +25,15 @@ from PySide6.QtWidgets import (
 )
 
 from verdra.canopy.crown import theme
-from verdra.canopy.crown.dew import Dew, Kind
+from verdra.canopy.crown.about import AboutDialog
+from verdra.canopy.crown.dew import Dew
 from verdra.canopy.crown.header import Header
+from verdra.canopy.crown.seedling import Onboarding
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
 from verdra.canopy.crown.splash import Splash
 from verdra.canopy.crown.tray import Tray
-from verdra.canopy.leaves.empty import soon
+from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.screens.garden import TweaksScreen
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.canopy.screens.hive import AccountsScreen
@@ -41,6 +43,7 @@ from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
 
 if TYPE_CHECKING:
+    from verdra.trunk.almanac.store import Notice as SettingsNotice
     from verdra.trunk.sapwood.startup import Services
     from verdra.trunk.tendrils import Job
 
@@ -70,6 +73,7 @@ class MainWindow(QMainWindow):
 
     close_requested = Signal()
     about_requested = Signal()
+    setup_requested = Signal()
 
     def __init__(self, services: Services | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -90,28 +94,39 @@ class MainWindow(QMainWindow):
         column.setSpacing(0)
         self.header = Header(root)
         column.addWidget(self.header)
-        self.stack = QStackedWidget(root)
-        self.stack.setObjectName("content")
-        padding = theme.Tokens.load().length("space-6")
-        self.stack.setContentsMargins(padding, padding, padding, padding)
-        column.addWidget(self.stack, 1)
+        content = QWidget(root)
+        content.setObjectName("content")
+        padded = QVBoxLayout(content)
+        padding = theme.Tokens.load().length("space-6")  # plan 7.1: content padding 24 px
+        padded.setContentsMargins(padding, padding, padding, padding)
+        # Notices about the whole app (R5 kind "Notice": inline, until resolved) sit above the
+        # screens.
+        self.notices = QVBoxLayout()
+        self.notices.setSpacing(theme.Tokens.load().length("space-3"))
+        padded.addLayout(self.notices)
+        self.stack = QStackedWidget(content)
+        padded.addWidget(self.stack)
+        column.addWidget(content, 1)
         layout.addLayout(column, 1)
         self.setCentralWidget(root)
 
+        self.dew = Dew(self)
         self.screens: dict[str, QWidget] = {
             "replacements": ReplacementsScreen(self.stack),
             "library": LibraryScreen(self.stack),
             "tweaks": TweaksScreen(self.stack),
             "accounts": AccountsScreen(self.stack),
             "traffic": TrafficScreen(self.stack),
-            "activity": ActivityScreen(self.stack),
-            "settings": SettingsScreen(self.stack),
+            "activity": ActivityScreen(services, self.dew, self.stack),
         }
+        if services is not None:
+            self.screens["settings"] = SettingsScreen(
+                services.settings, self.setup_requested.emit, self.stack
+            )
         for screen in self.screens.values():
             self.stack.addWidget(screen)
         self.current = "replacements"
         self.sidebar.selected.connect(self._sidebar_selected)
-        self.dew = Dew(self)
 
         advanced = bool(services.settings.value("advanced.advanced_mode")) if services else False
         self.set_advanced(advanced)
@@ -131,9 +146,14 @@ class MainWindow(QMainWindow):
         self.header.set_title(entry.title())
         self.sidebar.select(key)
 
+    def main_screens(self) -> list[str]:
+        """Return the main screens the sidebar shows now (Traffic only in Advanced mode)."""
+        advanced = getattr(self, "advanced", False)
+        return [e.key for e in ENTRIES if e.main and (advanced or not e.advanced_only)]
+
     def show_main_screen(self, number: int) -> None:
-        """Switch to the n-th main screen (Ctrl/Cmd+1 to 5)."""
-        mains = [entry.key for entry in ENTRIES if entry.main]
+        """Switch to the n-th main screen the sidebar shows (Ctrl/Cmd+1 to 5)."""
+        mains = self.main_screens()
         if 1 <= number <= len(mains):
             self.show_screen(mains[number - 1])
 
@@ -198,6 +218,7 @@ class Shell:
             services.app, services.settings, os_reduce_motion=services.os_reduce_motion
         )
         self.splash: Splash | None = None
+        self.onboarding: Onboarding | None = None
         self.tray: Tray | None = None
         self.window: MainWindow
         self.shortcuts: Shortcuts
@@ -211,6 +232,7 @@ class Shell:
         self.window = MainWindow(services)
         self.window.close_requested.connect(self.close_window)
         self.window.about_requested.connect(self.show_about)
+        self.window.setup_requested.connect(self.run_setup)
         if Tray.available():
             self.tray = Tray()
             self.tray.open_requested.connect(lambda: self.activate(""))
@@ -232,8 +254,7 @@ class Shell:
         services.tendrils.slow.connect(self.window.dew.show_job)
         services.tendrils.submitted.connect(self._report_job_end)
         for notice in services.settings.notices:
-            kind = self._notice_kind(notice.message_id)
-            self.window.dew.show(notice.text, kind)
+            self.show_settings_notice(notice)
         self.window.restore_state()
 
     def _report_job_end(self, job: Job) -> None:
@@ -241,9 +262,16 @@ class Shell:
         job.canceled.connect(lambda: self.window.dew.report_job(job))
         job.failed.connect(lambda _reason: self.window.dew.report_job(job))
 
-    @staticmethod
-    def _notice_kind(message_id: str) -> Kind:
-        return Kind.WARNING if message_id in {"M-SET-01", "M-SET-03"} else Kind.ERROR
+    def show_settings_notice(self, notice: SettingsNotice) -> None:
+        """Show M-SET-01 or M-SET-02 inline above the screens (R5 kind "Notice").
+
+        M-SET-03 lasts as long as the file stays read-only, so the Settings screen shows it, at
+        the top and on every control it disables.
+        """
+        if notice.message_id == "M-SET-03":
+            return
+        tone = Tone.WARNING if notice.message_id == "M-SET-01" else Tone.DANGER
+        self.window.notices.addWidget(Notice(notice.text, tone, self.window, dismissible=True))
 
     def show_splash(self) -> None:
         """Show the splash screen."""
@@ -260,6 +288,8 @@ class Shell:
                 self.window.raise_()
                 self.window.activateWindow()
             self.services.step("main window ready")
+            if not self.services.settings.value("general.onboarding_done") and not stay_in_tray:
+                self.run_setup()
 
         if self.splash is None:
             reveal()
@@ -311,9 +341,19 @@ class Shell:
     # --- Dialogs --------------------------------------------------------------------------
 
     def show_about(self) -> None:
-        """Show M-SOON-01 until the About dialog is built with S-01's dialogs (next step)."""
-        self.window.dew.show(soon(), Kind.INFO)
+        """Open the About dialog."""
+        AboutDialog(self.window).exec()
+
+    def run_setup(self) -> None:
+        """Show first-run onboarding (also from Settings › General › "Run setup again")."""
+        settings = self.services.settings
+        if not settings.read_only:
+            settings.set("general.onboarding_done", False)
+        self.onboarding = Onboarding(settings, self.window)
+        self.onboarding.open()
 
     def show_shortcuts(self) -> None:
         """Open the keyboard shortcut overlay."""
-        ShortcutHelp(self.window, self.shortcuts.working).exec()
+        # Ctrl+N for a main screen the sidebar doesn't show does nothing, so it isn't listed.
+        hidden = {f"Ctrl+{n}" for n in range(len(self.window.main_screens()) + 1, 10)}
+        ShortcutHelp(self.window, self.shortcuts.working - hidden).exec()

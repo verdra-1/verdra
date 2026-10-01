@@ -19,10 +19,11 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Final, Protocol
 
 import psutil
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
 from PySide6.QtWidgets import QApplication
 
 import verdra
@@ -118,6 +119,43 @@ def install_qt_guard() -> None:
         sys.meta_path.insert(0, QtGuard())
 
 
+def install_translator(app: QCoreApplication, language: str) -> QTranslator | None:
+    """Load the compiled message catalogue for `language` ("system" or a tag) into `app`.
+
+    Plan 8.4 step 4. Only English exists so far; it also supplies the plural forms (R5,
+    M-STATUS-02), so it is loaded whenever no catalogue for the chosen language exists.
+    """
+    folder = Path(verdra.__file__).resolve().parent / "assets" / "i18n"
+    locale = QLocale.system() if language == "system" else QLocale(language)
+    translator = QTranslator(app)
+    if not (
+        translator.load(locale, "verdra", "_", str(folder))
+        or translator.load(str(folder / "verdra_en.qm"))
+    ):
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-SHELL-04", "Verdra's translations couldn't be loaded, so it shows English text."
+            ),
+        )
+        log.debug("No message catalogue in %s.", folder)
+        return None
+    app.installTranslator(translator)
+    return translator
+
+
+def legal_text(name: str) -> str | None:
+    """Return a legal text for the About dialog (LICENSE, NOTICE, PRIVACY.md, …), or None.
+
+    The texts exist once, at the repository root; a build carries copies (decision record
+    0010). None means this build doesn't carry that text.
+    """
+    try:
+        return (terrain.legal_dir() / name).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
 def launched_at() -> float:
     """Return when this process was started, on the `time.monotonic()` clock.
 
@@ -138,7 +176,11 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     arguments = cli.parse(argv[1:])
     if arguments.reset_everything:
         if not arguments.quiet:
-            print("Reset everything isn't available in this version yet. Nothing was changed.")  # noqa: T201
+            message = QCoreApplication.translate(
+                "M-RESET-04",
+                "Reset everything isn't available in this version yet. Nothing was changed.",
+            )
+            print(message)  # noqa: T201 - the command line's answer
         return 0
 
     # 8.4 step 1: a second launch hands its link to the running Verdra and exits. This needs no
@@ -169,6 +211,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     if not single.claim(arguments.link):
         logging_.stop()
         return 0
+    install_translator(app, str(settings.value("general.language")))
 
     # The theme follows the OS's reduced-motion preference; the UI makes no OS calls itself.
     os_reduce_motion = humus.prefers_reduced_motion()

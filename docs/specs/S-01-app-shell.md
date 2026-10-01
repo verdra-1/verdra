@@ -1,6 +1,6 @@
 # S-01 App shell
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M0
 **Risk badge:** none
 **Plan sections:** 4.5, 5.4, 5.6, 6, 7.1, 7.7 to 7.10, 8.4, 12.5
