@@ -98,6 +98,6 @@ def remove_stale_temporaries(path: Path) -> int:
     removed = 0
     for stale in path.parent.glob(f".{path.name}.*.tmp"):
         with contextlib.suppress(OSError):
-            stale.unlink()
+            _retry(stale.unlink)  # a scanner may still hold a file a crashed write left
             removed += 1
     return removed
