@@ -85,7 +85,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/seedbank/sieve.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/seedbank/vault.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/atomic.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/atomic.py` | Master plan 9.7, decision record 0005, spec S-02; POSIX `rename`/`fsync` and Python `os.replace` documentation | Standard library | 2026-10-01 |
 | `verdra/soil/humus.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -106,7 +106,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/orchard/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/orchard/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/orchard/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/terrain.py` | Reference R3 (system identifiers) | Standard library | 2026-10-01 |
+| `verdra/soil/terrain.py` | Reference R3 (system identifiers), Master plan 9.1 (folders) | platformdirs | 2026-10-01 |
 | `verdra/soil/tundra/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -124,9 +124,9 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/strata/sway/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/almanac/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/almanac/migrate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/almanac/schema.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/almanac/store.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/almanac/migrate.py` | Master plan 9.7, spec S-02 | Standard library | 2026-10-01 |
+| `verdra/trunk/almanac/schema.py` | Reference R2, spec S-02 | msgspec | 2026-10-01 |
+| `verdra/trunk/almanac/store.py` | Spec S-02, Master plan 9.2 and 9.7, message catalogue R5 (M-SET-01 to 03) | msgspec, PySide6 (QtCore) | 2026-10-01 |
 | `verdra/trunk/branches/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/cuttings.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

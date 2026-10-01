@@ -56,7 +56,7 @@ for the Free plan is 20 concurrent jobs, 5 of them on macOS, so a whole push sho
   requests"): one concurrency group per branch with `cancel-in-progress`. A duplicate
   `synchronize` run is acceptable only if the concurrency group cancels it before any step
   runs, and the kept run tests the current merge ref. The final job runs unless the run was
-  cancelled (`!cancelled()`), so a superseded run leaves no red check behind and a failed or
+  cancelled (`!canceled()`), so a superseded run leaves no red check behind and a failed or
   skipped gate still turns it red. Its first step lists, in the job summary, any other
   completed and not cancelled run of this workflow for the same head commit (a retarget is
   marked as one); it reports and never fails.
