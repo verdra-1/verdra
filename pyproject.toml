@@ -65,6 +65,10 @@ dev = [
   "pip-licenses>=5",
   "pip-audit>=2.9",
   "pre-commit>=4.3",
+  # Build time only (Reference R4): tools/icons.py outlines the wordmark from the display font.
+  # Never imported by the app, so never shipped.
+  "fonttools>=4.60",
+  "uharfbuzz>=0.50",
 ]
 build = [
   "pyinstaller>=6.16",
