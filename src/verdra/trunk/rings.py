@@ -1,3 +1,3 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Logging: rotating files (5 × 5 MB), Activity model, redaction through bark/veil."""
+"""Logging: rotating files (5 × 2 MB), Activity model, redaction through bark/veil."""

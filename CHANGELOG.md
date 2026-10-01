@@ -27,3 +27,4 @@ All notable changes to Verdra are recorded here. The format follows
 - Decision records 0001 to 0013: licence, PySide6, clean room, app IDs, data layout, plain disk
   names, the Python 3.14 wheel check, the values settled at M0, the macOS runner label, the
   three M0 review rounds and what CI runs.
+- Specs S-01 (app shell), S-02 (settings store), S-03 (activity log) and S-04 (background jobs).
