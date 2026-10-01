@@ -16,7 +16,10 @@ SPEC = """# S-99 Example
 
 1. The first thing works.
 2. The second thing works.
-3. A person checks it on a real machine (manual).
+3. A person checks it on a real machine
+   and records the result (manual, at the gate).
+4. A wrapped automatable test
+   on two lines.
 
 ## Lives in
 """
@@ -46,8 +49,9 @@ def test_missing_acceptance_test_is_reported(repo: Path) -> None:
     (repo / "docs" / "specs" / "S-99-example.md").write_text(SPEC, encoding="utf-8")
     (repo / "tests" / "test_example.py").write_text(TEST, encoding="utf-8")
     problems = check_docs.check_specs()
-    assert len(problems) == 1
+    assert len(problems) == 2
     assert "acceptance test 2" in problems[0]
+    assert "acceptance test 4" in problems[1]
 
 
 def test_draft_specs_need_no_tests(repo: Path) -> None:
