@@ -106,7 +106,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/orchard/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/orchard/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/orchard/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/terrain.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/terrain.py` | Reference R3 (system identifiers) | Standard library | 2026-10-01 |
 | `verdra/soil/tundra/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
