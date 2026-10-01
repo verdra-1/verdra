@@ -203,14 +203,14 @@ class SettingsStore(QObject):
 
     def _read_with_fallback(self) -> dict[str, Any] | None:
         try:
-            return parse(self.path.read_bytes())
+            return parse(atomic.read_bytes(self.path))
         except FileNotFoundError:
             return None
         except (OSError, DamagedFileError) as error:
             log.error("Settings file %s couldn't be read: %s", self.path, error)
         backup = atomic.backup_path(self.path)
         try:
-            data = backup.read_bytes()
+            data = atomic.read_bytes(backup)
             document = parse(data)
         except (OSError, DamagedFileError) as error:
             log.error("Settings backup %s couldn't be read either: %s", backup, error)

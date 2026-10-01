@@ -15,9 +15,30 @@ import contextlib
 import os
 import sys
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 BACKUP_SUFFIX = ".bak"
+
+# On Windows another process (often a virus scanner looking at a file that was just written) can
+# hold a file open for a moment, and opening or replacing it then fails with a sharing violation
+# (PermissionError). These operations are retried briefly before giving up.
+_RETRY_DELAYS = (0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4) if sys.platform == "win32" else ()
+
+
+def _retry[T](operation: Callable[[], T]) -> T:
+    for delay in _RETRY_DELAYS:
+        try:
+            return operation()
+        except PermissionError:
+            time.sleep(delay)
+    return operation()
+
+
+def read_bytes(path: Path) -> bytes:
+    """Read a whole file, riding out a brief sharing violation on Windows."""
+    return _retry(path.read_bytes)
 
 
 def backup_path(path: Path) -> Path:
@@ -47,7 +68,7 @@ def write_atomic(path: Path, data: bytes, *, keep_backup: bool = False) -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     if keep_backup and path.exists():
-        write_atomic(backup_path(path), path.read_bytes())
+        write_atomic(backup_path(path), read_bytes(path))
     descriptor, temporary = tempfile.mkstemp(
         prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
     )
@@ -56,7 +77,7 @@ def write_atomic(path: Path, data: bytes, *, keep_backup: bool = False) -> None:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        _retry(lambda: os.replace(temporary, path))
     except BaseException:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(temporary)
@@ -67,7 +88,7 @@ def write_atomic(path: Path, data: bytes, *, keep_backup: bool = False) -> None:
 def move_aside(path: Path, suffix: str) -> Path:
     """Rename a damaged file to `<name>.<suffix>` and return the new path."""
     target = path.with_name(f"{path.name}.{suffix}")
-    os.replace(path, target)
+    _retry(lambda: os.replace(path, target))
     _fsync_folder(path.parent)
     return target
 

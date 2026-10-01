@@ -48,3 +48,26 @@ def test_move_aside(tmp_path: Path) -> None:
     moved = atomic.move_aside(target, "broken-1")
     assert moved.name == "settings.json.broken-1"
     assert not target.exists()
+
+
+def test_reads_and_replaces_ride_out_a_sharing_violation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(atomic, "_RETRY_DELAYS", (0.0, 0.0))
+    target = tmp_path / "file.json"
+    target.write_bytes(b"data")
+    failures = iter([PermissionError("in use"), None])
+    original = Path.read_bytes
+
+    def flaky(self: Path) -> bytes:
+        if (failure := next(failures, None)) is not None:
+            raise failure
+        return original(self)
+
+    monkeypatch.setattr(Path, "read_bytes", flaky)
+    assert atomic.read_bytes(target) == b"data"
+    monkeypatch.setattr(
+        Path, "read_bytes", lambda _self: (_ for _ in ()).throw(PermissionError("in use"))
+    )
+    with pytest.raises(PermissionError):
+        atomic.read_bytes(target)

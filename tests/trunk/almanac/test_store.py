@@ -72,7 +72,7 @@ def test_kill_during_write_leaves_a_valid_file(path: Path) -> None:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-        document = parse(path.read_bytes())
+        document = parse(atomic.read_bytes(path))
         assert len(document["traffic"]["rules"]) == 2000
     store.load()
     assert store.notices == []
