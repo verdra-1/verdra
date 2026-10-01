@@ -11,6 +11,7 @@ and the wordmark fades in over 240 ms. With reduced motion, the whole lockup fad
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Callable
 
@@ -83,7 +84,9 @@ class Splash(QWidget):
     def finish(self, then: Callable[[], None] | None = None) -> None:
         """Close once the splash has been visible for at least 900 ms, then call `then`."""
         waited = 0.0 if self.shown_at is None else (time.monotonic() - self.shown_at) * 1000
-        remaining = max(0, round(MINIMUM_MS - waited))
+        # Round up and add a millisecond: timers are accurate to the millisecond, and the
+        # minimum must hold even then.
+        remaining = max(0, math.ceil(MINIMUM_MS - waited) + 1)
 
         def close() -> None:
             self.close()

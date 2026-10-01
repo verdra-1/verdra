@@ -167,7 +167,7 @@ class Settings(Struct, kw_only=True):
 SCREEN_GROUPS = ("general", "routing", "library", "appearance", "privacy", "advanced")
 
 
-def keys() -> dict[str, object]:
+def defaults() -> dict[str, object]:
     """Return {dotted key: default} for every setting, nested groups flattened."""
     result: dict[str, object] = {}
 

@@ -28,13 +28,17 @@ from typing import Any, ClassVar
 
 from PySide6.QtCore import (
     QAbstractTableModel,
+    QCoreApplication,
     QModelIndex,
     QObject,
     QPersistentModelIndex,
+    QSortFilterProxyModel,
     Qt,
     QTimer,
+    QUrl,
     Signal,
 )
+from PySide6.QtGui import QDesktopServices
 
 import verdra
 from verdra.bark import veil
@@ -164,6 +168,19 @@ class ActivityModel(QAbstractTableModel):
         """Return the number of columns (Qt API)."""
         return 0 if parent.isValid() else len(self.COLUMNS)
 
+    def headerData(  # noqa: N802 - Qt API
+        self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
+    ) -> Any:
+        """Return the column titles (Qt API)."""
+        if orientation != Qt.Orientation.Horizontal or role != Qt.ItemDataRole.DisplayRole:
+            return None
+        titles = (
+            QCoreApplication.translate("Activity", "Time"),
+            QCoreApplication.translate("Activity", "Level"),
+            QCoreApplication.translate("Activity", "Message"),
+        )
+        return titles[section] if 0 <= section < len(titles) else None
+
     def data(self, index: ModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """Return a cell's text, or the record itself for Qt.UserRole (Qt API)."""
         if not index.isValid():
@@ -177,8 +194,50 @@ class ActivityModel(QAbstractTableModel):
         if column == "time":
             return datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
         if column == "level":
-            return record.level_name.capitalize()
+            return {
+                logging.DEBUG: QCoreApplication.translate("Activity", "Debug"),
+                logging.INFO: QCoreApplication.translate("Activity", "Info"),
+                logging.WARNING: QCoreApplication.translate("Activity", "Warning"),
+                logging.ERROR: QCoreApplication.translate("Activity", "Error"),
+            }.get(record.level, record.level_name.capitalize())
         return record.message
+
+
+class ActivityFilter(QSortFilterProxyModel):
+    """Filters the Activity model by level and search text (spec S-03)."""
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._text = ""
+        self._levels: set[int] = {logging.INFO, logging.WARNING, logging.ERROR, logging.DEBUG}
+
+    def set_text(self, text: str) -> None:
+        """Show only records whose message contains `text` (any case)."""
+        self.beginFilterChange()
+        self._text = text.casefold()
+        self.endFilterChange(QSortFilterProxyModel.Direction.Rows)
+
+    def set_levels(self, levels: Iterable[int]) -> None:
+        """Show only records at these levels."""
+        self.beginFilterChange()
+        self._levels = set(levels)
+        self.endFilterChange(QSortFilterProxyModel.Direction.Rows)
+
+    def filterAcceptsRow(self, row: int, parent: ModelIndex) -> bool:  # noqa: N802 - Qt API
+        """Return whether a record matches the filter (Qt API)."""
+        source = self.sourceModel()
+        if not isinstance(source, ActivityModel):
+            return True
+        record = source.record(row)
+        if record.level not in self._levels:
+            return False
+        return not self._text or self._text in record.message.casefold()
+
+
+def open_folder(path: Path) -> bool:
+    """Open a folder (or the folder holding a file) in the system's file manager."""
+    folder = path if path.is_dir() else path.parent
+    return QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
 
 class Rings:

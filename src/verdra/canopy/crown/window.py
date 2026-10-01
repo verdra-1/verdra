@@ -25,8 +25,10 @@ from PySide6.QtWidgets import (
 )
 
 from verdra.canopy.crown import theme
+from verdra.canopy.crown.about import AboutDialog
 from verdra.canopy.crown.dew import Dew, Kind
 from verdra.canopy.crown.header import Header
+from verdra.canopy.crown.seedling import Onboarding
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
 from verdra.canopy.crown.splash import Splash
@@ -68,6 +70,7 @@ class MainWindow(QMainWindow):
 
     close_requested = Signal()
     about_requested = Signal()
+    setup_requested = Signal()
 
     def __init__(self, services: Services | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -88,28 +91,34 @@ class MainWindow(QMainWindow):
         column.setSpacing(0)
         self.header = Header(root)
         column.addWidget(self.header)
-        self.stack = QStackedWidget(root)
-        self.stack.setObjectName("content")
-        padding = theme.Tokens.load().length("space-6")
-        self.stack.setContentsMargins(padding, padding, padding, padding)
-        column.addWidget(self.stack, 1)
+        content = QWidget(root)
+        content.setObjectName("content")
+        padded = QVBoxLayout(content)
+        padding = theme.Tokens.load().length("space-6")  # plan 7.1: content padding 24 px
+        padded.setContentsMargins(padding, padding, padding, padding)
+        self.stack = QStackedWidget(content)
+        padded.addWidget(self.stack)
+        column.addWidget(content, 1)
         layout.addLayout(column, 1)
         self.setCentralWidget(root)
 
+        self.dew = Dew(self)
         self.screens: dict[str, QWidget] = {
             "replacements": ReplacementsScreen(self.stack),
             "library": LibraryScreen(self.stack),
             "tweaks": TweaksScreen(self.stack),
             "accounts": AccountsScreen(self.stack),
             "traffic": TrafficScreen(self.stack),
-            "activity": ActivityScreen(self.stack),
-            "settings": SettingsScreen(self.stack),
+            "activity": ActivityScreen(services, self.dew, self.stack),
         }
+        if services is not None:
+            self.screens["settings"] = SettingsScreen(
+                services.settings, self.setup_requested.emit, self.stack
+            )
         for screen in self.screens.values():
             self.stack.addWidget(screen)
         self.current = "replacements"
         self.sidebar.selected.connect(self._sidebar_selected)
-        self.dew = Dew(self)
 
         advanced = bool(services.settings.value("advanced.advanced_mode")) if services else False
         self.set_advanced(advanced)
@@ -196,6 +205,8 @@ class Shell:
         self.window = MainWindow(services)
         self.window.close_requested.connect(self.close_window)
         self.window.about_requested.connect(self.show_about)
+        self.window.setup_requested.connect(self.run_setup)
+        self.onboarding: Onboarding | None = None
         self.tray: Tray | None = None
         if Tray.available():
             self.tray = Tray()
@@ -242,6 +253,8 @@ class Shell:
                 self.window.raise_()
                 self.window.activateWindow()
             self.services.step("main window ready")
+            if not self.services.settings.value("general.onboarding_done") and not stay_in_tray:
+                self.run_setup()
 
         if self.splash is None:
             reveal()
@@ -286,8 +299,16 @@ class Shell:
     # --- Dialogs --------------------------------------------------------------------------
 
     def show_about(self) -> None:
-        """Open the About dialog (built with S-01's dialogs in the next step)."""
-        log.info("About was opened.")
+        """Open the About dialog."""
+        AboutDialog(self.window).exec()
+
+    def run_setup(self) -> None:
+        """Show first-run onboarding (also from Settings › General › "Run setup again")."""
+        settings = self.services.settings
+        if not settings.read_only:
+            settings.set("general.onboarding_done", False)
+        self.onboarding = Onboarding(settings, self.window)
+        self.onboarding.open()
 
     def show_shortcuts(self) -> None:
         """Open the keyboard shortcut overlay."""

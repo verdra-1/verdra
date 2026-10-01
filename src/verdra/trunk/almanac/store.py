@@ -143,10 +143,6 @@ def parse(data: bytes) -> dict[str, Any]:
     return document
 
 
-def _translate(message_id: str, text: str) -> str:
-    return QCoreApplication.translate(message_id, text)
-
-
 class SettingsStore(QObject):
     """Typed, versioned, crash-safe settings (spec S-02).
 
@@ -186,7 +182,7 @@ class SettingsStore(QObject):
             self.read_only = True
             self._notify(
                 "M-SET-03",
-                _translate(
+                QCoreApplication.translate(
                     "M-SET-03", "This file was made by a newer Verdra. Update Verdra to edit it."
                 ),
             )
@@ -218,7 +214,7 @@ class SettingsStore(QObject):
             atomic.write_atomic(self.path, data)
             self._notify(
                 "M-SET-01",
-                _translate(
+                QCoreApplication.translate(
                     "M-SET-01",
                     "Your settings file was damaged. Verdra restored the last good copy.",
                 ),
@@ -228,7 +224,7 @@ class SettingsStore(QObject):
         moved = atomic.move_aside(self.path, f"broken-{stamp}")
         self._notify(
             "M-SET-02",
-            _translate(
+            QCoreApplication.translate(
                 "M-SET-02",
                 "Your settings file couldn't be read, so Verdra started with default settings. "
                 "The damaged file was kept as {name}.",
@@ -274,7 +270,7 @@ class SettingsStore(QObject):
 
     def reset_group(self, group: str) -> None:
         """Reset every key of one Settings-screen group to its default."""
-        for key, default in schema.keys().items():
+        for key, default in schema.defaults().items():
             if key.startswith(group + "."):
                 self.set(key, default)
 

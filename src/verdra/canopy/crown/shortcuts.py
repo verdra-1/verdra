@@ -28,21 +28,20 @@ class Binding:
 
 def bindings() -> list[Binding]:
     """Return every shortcut from Master plan 7.1, in the help overlay's order."""
-    tr = QCoreApplication.translate
     return [
-        Binding("Ctrl+1", tr("Shortcuts", "Replacements")),
-        Binding("Ctrl+2", tr("Shortcuts", "Library")),
-        Binding("Ctrl+3", tr("Shortcuts", "Tweaks")),
-        Binding("Ctrl+4", tr("Shortcuts", "Accounts")),
-        Binding("Ctrl+5", tr("Shortcuts", "Traffic (Advanced mode)")),
-        Binding("Ctrl+F", tr("Shortcuts", "Search this screen")),
-        Binding("Ctrl+N", tr("Shortcuts", "Add a replacement")),
-        Binding("Ctrl+Z", tr("Shortcuts", "Undo")),
-        Binding("Shift+Ctrl+Z", tr("Shortcuts", "Redo")),
-        Binding("Ctrl+Return", tr("Shortcuts", "Apply now")),
-        Binding("Ctrl+,", tr("Shortcuts", "Open Settings")),
-        Binding("Esc", tr("Shortcuts", "Close drawers and dialogs")),
-        Binding("F1", tr("Shortcuts", "Show these shortcuts")),
+        Binding("Ctrl+1", QCoreApplication.translate("Shortcuts", "Replacements")),
+        Binding("Ctrl+2", QCoreApplication.translate("Shortcuts", "Library")),
+        Binding("Ctrl+3", QCoreApplication.translate("Shortcuts", "Tweaks")),
+        Binding("Ctrl+4", QCoreApplication.translate("Shortcuts", "Accounts")),
+        Binding("Ctrl+5", QCoreApplication.translate("Shortcuts", "Traffic (Advanced mode)")),
+        Binding("Ctrl+F", QCoreApplication.translate("Shortcuts", "Search this screen")),
+        Binding("Ctrl+N", QCoreApplication.translate("Shortcuts", "Add a replacement")),
+        Binding("Ctrl+Z", QCoreApplication.translate("Shortcuts", "Undo")),
+        Binding("Shift+Ctrl+Z", QCoreApplication.translate("Shortcuts", "Redo")),
+        Binding("Ctrl+Return", QCoreApplication.translate("Shortcuts", "Apply now")),
+        Binding("Ctrl+,", QCoreApplication.translate("Shortcuts", "Open Settings")),
+        Binding("Esc", QCoreApplication.translate("Shortcuts", "Close drawers and dialogs")),
+        Binding("F1", QCoreApplication.translate("Shortcuts", "Show these shortcuts")),
     ]
 
 

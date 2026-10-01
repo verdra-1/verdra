@@ -38,3 +38,7 @@ All notable changes to Verdra are recorded here. The format follows
   screens with their empty states, theme from the design tokens with live light/dark switching,
   text size, density and reduced motion, the splash with the growing logo, toasts, the tray
   icon and menu, keyboard shortcuts, single instance, and the startup and shutdown order.
+- App shell (S-01, second part): the Settings screen with every setting and per-group reset,
+  the Activity screen with filters, search, copy and the support bundle, first-run setup, the
+  About dialog with the notice, credits and licence texts, the shared risk, explanation and
+  confirmation dialogs, the switch and inline notices, and the message catalogue.

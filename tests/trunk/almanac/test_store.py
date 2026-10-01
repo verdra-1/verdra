@@ -222,7 +222,7 @@ def test_changes_within_300_ms_are_written_once(
 
 @pytest.mark.spec("S-02", 10)
 def test_every_r2_key_has_its_default() -> None:
-    keys = schema.keys()
+    keys = schema.defaults()
     expected = {
         "general.start_with_system": False,
         "general.start_minimised": True,
