@@ -83,5 +83,10 @@ Typed, versioned, crash-safe settings with one screen that shows them all.
 
 - **`advanced.worker_threads`**: S-04 in the plan says 2 to 8 workers; R2 says 1 to 16. This
   spec and S-04 follow R2 (the settings reference); S-04 in the plan needs the matching edit.
+- **Text size values**: plan 6.2 offers 90, 100, 115 and 130 %; R2 (`appearance.text_scale`)
+  says "90–130, step 10". The schema accepts exactly the four values from 6.2, which the S-01
+  spec also uses; R2 needs the matching edit.
+- **`advanced.detailed_logging_since`** (not in R2) records when detailed logging was turned on,
+  so it can turn itself off after 24 hours across restarts (S-03). It isn't shown on the screen.
 - "Unknown keys kept but ignored" (plan S-02) and "reported once" (R2) are combined.
 - Read-only behaviour for newer files is defined precisely (values used, never written).

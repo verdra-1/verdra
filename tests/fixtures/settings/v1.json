@@ -1,0 +1,23 @@
+{
+  "format": "verdra.settings",
+  "version": 1,
+  "general": {
+    "close_to_tray": false,
+    "update_channel": "beta"
+  },
+  "routing": {
+    "proxy_port": 50000,
+    "upstream": {
+      "kind": "socks5",
+      "host": "proxy.example",
+      "port": 1080
+    }
+  },
+  "appearance": {
+    "theme": "dark",
+    "text_scale": 115
+  },
+  "advanced": {
+    "worker_threads": 6
+  }
+}

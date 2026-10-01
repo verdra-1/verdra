@@ -9,7 +9,12 @@ would orphan users' system changes, so these never change once released.
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
 from typing import Final
+
+import platformdirs
 
 # --- Shared across platforms -----------------------------------------------------------------
 
@@ -64,6 +69,60 @@ RELEASES_API_URL: Final = "https://api.github.com/repos/verdra-1/verdra/releases
 def user_agent(version: str) -> str:
     """Return the User-Agent for Verdra's own web requests."""
     return f"Verdra/{version} (+{REPOSITORY_URL})"
+
+
+# --- Folders (Master plan 9.1) ---------------------------------------------------------------
+
+#: When set, every folder below lives under this one instead (tests and portable runs).
+HOME_OVERRIDE_VARIABLE: Final = "VERDRA_HOME"
+
+SETTINGS_FILE: Final = "settings.json"
+STATE_FILE: Final = "state.json"
+LEDGER_FILE: Final = "changes.json"
+LOG_FILE: Final = "verdra.log"
+
+
+def _override() -> Path | None:
+    value = os.environ.get(HOME_OVERRIDE_VARIABLE)
+    return Path(value) if value else None
+
+
+def config_dir() -> Path:
+    """Return the folder for settings, profiles, presets and the change ledger."""
+    if (home := _override()) is not None:
+        return home / "config"
+    if sys.platform in {"win32", "darwin"}:
+        return Path(platformdirs.user_data_dir(PRODUCT_NAME, appauthor=False, roaming=False))
+    return Path(platformdirs.user_config_dir(DISTRIBUTION, appauthor=False))
+
+
+def default_library_dir() -> Path:
+    """Return the default library folder (database, blobs, previews)."""
+    if (home := _override()) is not None:
+        return home / "library"
+    if sys.platform == "win32":
+        return config_dir() / "Library"
+    if sys.platform == "darwin":
+        return Path(platformdirs.user_cache_dir(PRODUCT_NAME, appauthor=False)) / "Library"
+    return Path(platformdirs.user_cache_dir(DISTRIBUTION, appauthor=False)) / "library"
+
+
+def logs_dir() -> Path:
+    """Return the folder for log files."""
+    if (home := _override()) is not None:
+        return home / "logs"
+    if sys.platform == "win32":
+        return config_dir() / "Logs"
+    if sys.platform == "darwin":
+        return Path(platformdirs.user_log_dir(PRODUCT_NAME, appauthor=False))
+    return Path(platformdirs.user_state_dir(DISTRIBUTION, appauthor=False)) / "logs"
+
+
+def exports_dir() -> Path:
+    """Return the default folder for exports and support bundles."""
+    if (home := _override()) is not None:
+        return home / "exports"
+    return Path(platformdirs.user_documents_dir()) / PRODUCT_NAME
 
 
 # --- Windows ---------------------------------------------------------------------------------
