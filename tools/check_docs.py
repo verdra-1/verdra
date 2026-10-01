@@ -31,7 +31,7 @@ TESTS = ROOT / "tests"
 
 STATUS = re.compile(r"^\*\*Status:\*\*\s*(\w+)", re.MULTILINE)
 ACCEPTANCE = re.compile(r"^## Acceptance tests\s*$(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
-NUMBERED = re.compile(r"^(\d+)\.\s+(.*)$", re.MULTILINE)
+NUMBERED = re.compile(r"^(\d+)\.\s+(.*?)(?=^\d+\.\s|\Z)", re.MULTILINE | re.DOTALL)
 TREE_BLOCK = re.compile(r"^```text\nsrc/verdra/\n(.*?)^```", re.MULTILINE | re.DOTALL)
 TREE_LINE = re.compile(r"^([│ ]*)[├└]── (\S+)\s*(.*)$")
 # The tree lists the OS adapter modules once, under tundra/; meadow/ and orchard/ have the same.
@@ -143,7 +143,7 @@ def check_specs() -> list[str]:
             problems.append(f"{path.relative_to(ROOT).as_posix()}: no acceptance tests section")
             continue
         for number, wording in NUMBERED.findall(section.group(1)):
-            if "(manual)" in wording:
+            if "(manual" in wording:
                 continue
             if (spec_id, int(number)) not in referenced:
                 problems.append(

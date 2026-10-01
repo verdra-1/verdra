@@ -108,7 +108,7 @@ src/verdra/
 │   │   ├── schema.py        msgspec structs for every key in R2.
 │   │   ├── store.py         Load, validate, save atomically with .bak; change signals.
 │   │   └── migrate.py       One function per schema step; newer files open read-only.
-│   ├── rings.py             Logging: rotating files (5 × 5 MB), Activity model, redaction through bark/veil.
+│   ├── rings.py             Logging: rotating files (5 × 2 MB), Activity model, redaction through bark/veil.
 │   ├── tendrils.py          Job executor: worker pool, progress, cancellation, results back on the Qt thread.
 │   ├── budding.py           Update check against GitHub Releases, at most once per 24 hours.
 │   └── branches/            Feature services: hold state, compile rule snapshots, call the lower layers.

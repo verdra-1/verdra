@@ -1,0 +1,20 @@
+# Specs
+
+Behaviour specs for Verdra, copied from the Feature specs tab of the Master Build Plan at the
+start of each milestone, refined, and merged **before** any code for them (plan 3.1). They describe
+behaviour only and contain no code and no wording from any other program.
+
+Each spec has: Purpose, Behaviour, Rules, Messages (IDs from the message catalogue, Reference R5),
+Risk badge (plan 5.5), numbered Acceptance tests (automatable unless marked "(manual)") and Lives
+in (main modules).
+
+**Status** moves Draft → Agreed (spec merged) → Built (code merged) → Verified (milestone gate
+passed). Once a spec is Built, CI requires a test marked `@pytest.mark.spec("S-xx", n)` for every
+automatable acceptance test `n` (`tools/check_docs.py`).
+
+| Spec | Title | Milestone | Status |
+| --- | --- | --- | --- |
+| [S-01](S-01-app-shell.md) | App shell | M0 | Agreed |
+| [S-02](S-02-settings-store.md) | Settings store | M0 | Agreed |
+| [S-03](S-03-activity-log.md) | Activity log | M0 | Agreed |
+| [S-04](S-04-background-jobs.md) | Background jobs | M0 | Agreed |

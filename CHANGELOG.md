@@ -24,3 +24,4 @@ All notable changes to Verdra are recorded here. The format follows
   with their OFL texts; system identifiers in `soil/terrain.py`.
 - Decision records 0001 to 0007: licence, PySide6, clean room, app IDs, data layout, plain disk
   names and the Python 3.14 wheel check.
+- Specs S-01 (app shell), S-02 (settings store), S-03 (activity log) and S-04 (background jobs).
