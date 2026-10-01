@@ -11,6 +11,7 @@ and the wordmark fades in over 240 ms. With reduced motion, the whole lockup fad
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Callable
 
@@ -62,6 +63,7 @@ class Splash(QWidget):
         )
         self.elapsed_ms = 0.0
         self.shown_at: float | None = None
+        self._then: Callable[[], None] | None = None
         self._timeline = QVariantAnimation(self)
         self._timeline.setStartValue(0.0)
         self._timeline.setEndValue(float(self.total_ms))
@@ -82,19 +84,23 @@ class Splash(QWidget):
 
     def finish(self, then: Callable[[], None] | None = None) -> None:
         """Close once the splash has been visible for at least 900 ms, then call `then`."""
-        waited = 0.0 if self.shown_at is None else (time.monotonic() - self.shown_at) * 1000
-        remaining = max(0, round(MINIMUM_MS - waited))
-
-        def close() -> None:
-            self.close()
-            if then is not None:
-                then()
-
-        # A coarse timer may fire up to 5 % early; the 900 ms minimum is a promise.
+        self._then = then
+        # A timer may fire a little early (coarse timers by up to 5 %, and on Windows even a
+        # precise timer can come in under a millisecond short), so the elapsed time is checked
+        # again whenever it fires: the 900 ms minimum is a promise.
         self._close_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._close_timer.setSingleShot(True)
-        self._close_timer.timeout.connect(close)
-        self._close_timer.start(remaining)
+        self._close_timer.timeout.connect(self._close_when_due)
+        self._close_when_due()
+
+    def _close_when_due(self) -> None:
+        waited = 0.0 if self.shown_at is None else (time.monotonic() - self.shown_at) * 1000
+        if waited < MINIMUM_MS:
+            self._close_timer.start(math.ceil(MINIMUM_MS - waited) + 1)
+            return
+        self.close()
+        if self._then is not None:
+            self._then()
 
     def _advance(self, value: object) -> None:
         self.elapsed_ms = float(value)  # type: ignore[arg-type]
