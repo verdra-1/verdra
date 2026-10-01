@@ -143,7 +143,11 @@ def test_splash_stays_900_ms_and_closes_when_ready(qtbot: QtBot, shell: Shell) -
     assert not shell.splash.isVisible()
 
 
-def test_splash_timeline_follows_section_4_5(qtbot: QtBot, shell: Shell) -> None:
+def test_splash_timeline_follows_section_4_5(
+    qtbot: QtBot, shell: Shell, services: Services
+) -> None:
+    # CI machines often have animations turned off; this test is about the full timeline.
+    services.settings.set("appearance.reduce_motion", "off")
     splash = Splash()
     qtbot.addWidget(splash)
     splash.elapsed_ms = 0
