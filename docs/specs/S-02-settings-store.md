@@ -1,6 +1,6 @@
 # S-02 Settings store
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M0
 **Risk badge:** none
 **Plan sections:** 7.7, 9.1, 9.2, 9.3, 9.7, Reference R2

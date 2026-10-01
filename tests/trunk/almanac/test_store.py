@@ -281,7 +281,7 @@ def test_changes_within_300_ms_are_written_once(
 
 @pytest.mark.spec("S-02", 10)
 def test_every_r2_key_has_its_default() -> None:
-    keys = schema.keys()
+    keys = schema.defaults()
     expected = {
         "general.start_with_system": False,
         "general.start_minimized": True,
@@ -310,6 +310,7 @@ def test_every_r2_key_has_its_default() -> None:
         "privacy.keep_traffic": False,
         "advanced.advanced_mode": False,
         "advanced.detailed_logging": False,
+        "advanced.detailed_logging_since": None,
         "advanced.worker_threads": 4,
         "tweaks.custom_flags_enabled": False,
         "tweaks.active_flag_profile": "",
@@ -325,8 +326,7 @@ def test_every_r2_key_has_its_default() -> None:
     }
     for key, default in expected.items():
         assert keys[key] == default, key
-    # The only key beyond R2 records when detailed logging was turned on (spec S-03).
-    assert set(keys) - set(expected) == {"advanced.detailed_logging_since"}
+    assert set(keys) == set(expected)
 
 
 def test_set_validates_and_signals(path: Path, qtbot: QtBot) -> None:

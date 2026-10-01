@@ -78,18 +78,26 @@ def test_rotation_keeps_five_files_of_two_megabytes(logging_on: rings.Rings) -> 
 
 
 @pytest.mark.spec("S-03", 3)
-def test_search_over_5000_records_is_fast() -> None:
-    records = [
-        rings.ActivityRecord(
-            time.time(), logging.INFO, "verdra.x", f"Replaced asset {n} in profile {n % 7}"
+def test_search_over_5000_records_is_fast(qtbot: QtBot) -> None:
+    # Times the filter the Activity screen really uses (review finding H3).
+    ring = rings.RingBuffer()
+    for n in range(5000):
+        ring.append(
+            rings.ActivityRecord(
+                time.time(), logging.INFO, "verdra.x", f"Replaced asset {n} in profile {n % 7}"
+            )
         )
-        for n in range(5000)
-    ]
+    model = rings.ActivityModel(ring)
+    proxy = rings.ActivityFilter()
+    proxy.setSourceModel(model)
+    proxy.set_levels({logging.INFO, logging.WARNING})
     started = time.perf_counter()
-    found = rings.matching(records, "PROFILE 3", {logging.INFO, logging.WARNING})
+    proxy.set_text("PROFILE 3")
+    shown = proxy.rowCount()
     assert time.perf_counter() - started < 0.1
-    assert len(found) == len([n for n in range(5000) if n % 7 == 3])
-    assert rings.matching(records, "", {logging.ERROR}) == []
+    assert shown == len([n for n in range(5000) if n % 7 == 3])
+    proxy.set_levels({logging.ERROR})
+    assert proxy.rowCount() == 0
 
 
 @pytest.mark.spec("S-03", 4)
@@ -108,7 +116,7 @@ def test_debug_records_only_with_detailed_logging(tmp_path: Path, qtbot: QtBot) 
     assert "visible detail" in messages
     assert "hidden detail" not in messages
     # 24 hours later, it turns itself off (also when Verdra starts after the deadline).
-    past = (datetime.now(UTC) - timedelta(hours=24, minutes=1)).isoformat()
+    past = datetime.now(UTC) - timedelta(hours=24, minutes=1)
     settings.set("advanced.detailed_logging_since", past)
     restarted = rings.DetailedLogging(installed, settings)
     assert settings.value("advanced.detailed_logging") is False
@@ -116,12 +124,44 @@ def test_debug_records_only_with_detailed_logging(tmp_path: Path, qtbot: QtBot) 
     del detailed, restarted
 
 
+@pytest.mark.spec("S-03", 4)
+def test_detailed_logging_turns_off_after_24_hours_across_a_restart(
+    tmp_path: Path, qtbot: QtBot
+) -> None:
+    """R2 advanced.detailed_logging_since: the deadline survives a restart (plan 16.2)."""
+    path = tmp_path / "settings.json"
+    first = SettingsStore(path)
+    first.load()
+    installed = rings.Rings(tmp_path / "logs")
+    installed.start(detailed=False)
+    detailed = rings.DetailedLogging(installed, first)
+    first.set("advanced.detailed_logging", True)
+    first.flush()
+    saved = json.loads(path.read_text(encoding="utf-8"))["advanced"]["detailed_logging_since"]
+    assert datetime.fromisoformat(saved).tzinfo is not None
+    # Turning it off clears the timestamp.
+    first.set("advanced.detailed_logging", False)
+    assert first.value("advanced.detailed_logging_since") is None
+    # On again, then Verdra quits and starts 25 hours later.
+    first.set("advanced.detailed_logging", True)
+    first.set("advanced.detailed_logging_since", datetime.now(UTC) - timedelta(hours=25))
+    first.flush()
+    second = SettingsStore(path)
+    second.load()
+    restarted = rings.DetailedLogging(installed, second)
+    second.flush()
+    installed.stop()
+    after = json.loads(path.read_text(encoding="utf-8"))["advanced"]
+    assert after["detailed_logging"] is False
+    assert after["detailed_logging_since"] is None
+    del detailed, restarted
+
+
 def test_expiry_rule() -> None:
     now = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
-    assert rings.detailed_logging_expired("", now)
-    assert rings.detailed_logging_expired("not a date", now)
-    assert rings.detailed_logging_expired("2026-10-01T12:00:00+00:00", now)
-    assert not rings.detailed_logging_expired("2026-10-01T12:00:01+00:00", now)
+    assert rings.detailed_logging_expired(None, now)
+    assert rings.detailed_logging_expired(datetime(2026, 10, 1, 12, 0, tzinfo=UTC), now)
+    assert not rings.detailed_logging_expired(datetime(2026, 10, 1, 12, 0, 1, tzinfo=UTC), now)
 
 
 @pytest.mark.spec("S-03", 5)

@@ -268,6 +268,7 @@ QToolButton {
     background: transparent;
 }
 QToolButton:hover { background: {primary-tint-60}; }
+QToolButton:checked { background: {primary-tint}; color: {ink}; }
 
 QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {
     background: {surface-sunken}; color: {ink}; border: {border-width}px solid {border-strong};
@@ -430,17 +431,17 @@ def icon_pixmap(name: str, color: QColor, size: int, ratio: float = 1.0) -> QPix
 
 
 def svg_pixmap(path: Path, size: int, ratio: float = 1.0) -> QPixmap:
-    """Render a bundled SVG file (a brand file) into a square pixmap, keeping its aspect."""
+    """Render a bundled SVG file (a brand file) with its longest side `size` pixels long."""
     renderer = QSvgRenderer(QByteArray(path.read_bytes()))
-    pixels = max(1, round(size * ratio))
-    pixmap = QPixmap(pixels, pixels)
-    pixmap.fill(Qt.GlobalColor.transparent)
     box = renderer.viewBoxF()
-    scale = pixels / max(box.width(), box.height(), 1.0)
-    width, height = box.width() * scale, box.height() * scale
+    scale = size / max(box.width(), box.height(), 1.0)
+    width = max(1, round(box.width() * scale * ratio))
+    height = max(1, round(box.height() * scale * ratio))
+    pixmap = QPixmap(width, height)
+    pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    renderer.render(painter, QRectF((pixels - width) / 2, (pixels - height) / 2, width, height))
+    renderer.render(painter, QRectF(0, 0, width, height))
     painter.end()
     pixmap.setDevicePixelRatio(ratio)
     return pixmap

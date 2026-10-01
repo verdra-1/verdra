@@ -14,7 +14,7 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 
 | Spec | Title | Milestone | Status |
 | --- | --- | --- | --- |
-| [S-01](S-01-app-shell.md) | App shell | M0 | Agreed |
-| [S-02](S-02-settings-store.md) | Settings store | M0 | Agreed |
+| [S-01](S-01-app-shell.md) | App shell | M0 | Built |
+| [S-02](S-02-settings-store.md) | Settings store | M0 | Built |
 | [S-03](S-03-activity-log.md) | Activity log | M0 | Built |
 | [S-04](S-04-background-jobs.md) | Background jobs | M0 | Built |

@@ -13,7 +13,7 @@ from __future__ import annotations
 import sys
 from typing import Literal
 
-from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QAction, QGuiApplication, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
@@ -98,10 +98,9 @@ class Tray(QObject):
         self.status = status
         self.icon.setIcon(tray_icon(status, self.variant()))
         if status is Status.ROUTING:
-            # M-STATUS-02: "Routing · <n> replacements active"
-            line = QCoreApplication.translate(
-                "M-STATUS-02", "Routing · %n replacements active", "", replacements
-            )
+            # M-STATUS-02: "Routing · <n> replacements active". `tr` with a count makes this a
+            # plural entry in the catalog ("1 replacement", "2 replacements").
+            line = self.tr("Routing · %n replacements active", "M-STATUS-02", replacements)
         else:
             line = status.label()
         self.status_action.setText(line)

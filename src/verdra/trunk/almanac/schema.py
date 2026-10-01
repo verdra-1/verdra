@@ -10,6 +10,7 @@ costs the user their other settings.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Literal
 
 import msgspec
@@ -24,6 +25,8 @@ Port = Annotated[int, Meta(ge=1024, le=65535)]
 OptionalPort = Annotated[int, Meta(ge=0, le=65535)]
 LanguageTag = Annotated[str, Meta(pattern=r"^(system|[a-z]{2,3}(-[A-Za-z0-9]{2,8})*)$")]
 
+#: A timestamp with its time zone (Verdra writes UTC).
+UtcTimestamp = Annotated[datetime, Meta(tz=True)]
 #: A plain file name: no folder separators, no drive, not "." or ".." (R2: "name of a file").
 FileName = Annotated[str, Meta(pattern=r"^(?!\.{1,2}$)[^/\\:\x00]*$")]
 #: An absolute path (POSIX, Windows drive or UNC), or "" for the default folder.
@@ -103,8 +106,9 @@ class Advanced(Struct, kw_only=True):
 
     advanced_mode: bool = False
     detailed_logging: bool = False
-    #: When detailed logging was turned on (ISO 8601, UTC); it turns itself off 24 hours later.
-    detailed_logging_since: str = ""
+    #: Hidden (R2): when detailed logging was turned on, or None while it's off. It is used to
+    #: turn detailed logging off 24 hours later, also across restarts.
+    detailed_logging_since: UtcTimestamp | None = None
     worker_threads: Annotated[int, Meta(ge=2, le=8)] = 4
 
 
@@ -172,7 +176,7 @@ class Settings(Struct, kw_only=True):
 SCREEN_GROUPS = ("general", "routing", "library", "appearance", "privacy", "advanced")
 
 
-def keys() -> dict[str, object]:
+def defaults() -> dict[str, object]:
     """Return {dotted key: default} for every setting, nested groups flattened."""
     result: dict[str, object] = {}
 

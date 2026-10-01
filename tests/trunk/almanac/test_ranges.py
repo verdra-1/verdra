@@ -7,6 +7,7 @@ not from the schema, so that a schema change that widens or narrows a range fail
 """
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,11 @@ RANGES: dict[str, tuple[list[Any], list[Any]]] = {
     "appearance.reduce_motion": (["system", "on", "off"], [True, "yes"]),
     "appearance.density": (["comfortable", "compact"], ["dense"]),
     "general.close_to_tray": ([True, False], [1, 0, "true", None]),
+    # R2: "UTC timestamp or null"; a time without its zone is rejected.
+    "advanced.detailed_logging_since": (
+        [None, datetime(2026, 10, 2, 12, 0, tzinfo=UTC)],
+        ["", "2026-10-02T12:00:00", datetime(2026, 10, 2, 12, 0), 0],
+    ),
 }
 
 

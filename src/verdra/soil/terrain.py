@@ -90,6 +90,18 @@ def _override() -> Path | None:
     return Path(value) if value else None
 
 
+def legal_dir() -> Path:
+    """Return the folder holding LICENSE, NOTICE and PRIVACY.md for the About dialog.
+
+    Each text exists once, at the repository root (decision record 0010). The PyInstaller build
+    copies them into `assets/legal/` of the built app, together with the generated
+    THIRD_PARTY_NOTICES.md; a source checkout reads them from the repository root.
+    """
+    package = Path(__file__).resolve().parent.parent
+    bundled = package / "assets" / "legal"
+    return bundled if bundled.is_dir() else package.parent.parent
+
+
 def config_dir() -> Path:
     """Return the folder for settings, profiles, presets and the change ledger."""
     if (home := _override()) is not None:

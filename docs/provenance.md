@@ -24,10 +24,10 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/bark/veil.py` | Master plan 10.6 (header list, login-token pattern), spec S-03; the token's public warning prefix as Roblox documents it to users | Standard library (`re`, `logging`) | 2026-10-01 |
 | `verdra/canopy/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/crown/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/canopy/crown/about.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/crown/about.py` | Master plan 3.2, 7.7, message catalogue (M-ABOUT-02), spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/dew.py` | Master plan 6.6, 7.1, specs S-01, S-03, S-04 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/header.py` | Master plan 7.1, message catalogue (M-STATUS-03), spec S-01 | PySide6 | 2026-10-01 |
-| `verdra/canopy/crown/seedling.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/crown/seedling.py` | Master plan 7.9, message catalogue (M-ONB-01 to 04), spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/shortcuts.py` | Master plan 7.1, spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/sidebar.py` | Master plan 6.8, 7.1, spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/splash.py` | Master plan 4.5, 6.6, spec S-01 | PySide6 (QtSvg) | 2026-10-01 |
@@ -43,13 +43,13 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/glade/motion.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/leaves/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/leaves/badge.py` | Master plan 5.5, 7.1, message catalogue (M-RISK-02) | PySide6 | 2026-10-01 |
-| `verdra/canopy/leaves/dialogs.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/leaves/dialogs.py` | Master plan 4.3, 7.8, message catalogue (M-RISK-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/drawer.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/leaves/empty.py` | Master plan 7.2, 7.3, message catalogue (M-SOON-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/fields.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/canopy/leaves/notice.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/leaves/notice.py` | Master plan 5.4, message catalogue (kind Notice) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/progress.py` | Design system brand book ("UI language": progress), Master plan 5.4, 6.6 | PySide6 | 2026-10-01 |
-| `verdra/canopy/leaves/switch.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/leaves/switch.py` | Brand system UI language (switches), Master plan 6.6 | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/tables.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/garden.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
@@ -60,9 +60,9 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/grafts/preview.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/grafts/screen.py` | Master plan 7.2 (empty state), message catalogue (M-EMPTY-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/hive.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
-| `verdra/canopy/screens/rings.py` | Placeholder until the Activity screen (spec S-03) | PySide6 | 2026-10-01 |
+| `verdra/canopy/screens/rings.py` | Master plan 7.7, 13.9, spec S-03, message catalogue (M-LOG-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/seedbank.py` | Master plan 7.3 (empty state), message catalogue (M-EMPTY-02) | PySide6 | 2026-10-01 |
-| `verdra/canopy/screens/settings.py` | Placeholder until the Settings screen (spec S-02) | PySide6 | 2026-10-01 |
+| `verdra/canopy/screens/settings.py` | Master plan 7.7, Reference R2 (labels), spec S-02 | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/streams.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

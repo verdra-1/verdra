@@ -8,6 +8,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QPropertyAnimation, Qt
@@ -445,8 +446,136 @@ def test_every_failed_or_canceled_job_shows_its_message(
     )
 
 
+@pytest.mark.spec("S-03", 6)
+def test_dialogs_and_notices_reach_activity(
+    shell: Shell, services: Services, qtbot: QtBot, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Reference R5: every Toast, Dialog and Notice is also written to Activity (finding H7).
+    from verdra.canopy.leaves.dialogs import DestructiveConfirmation
+    from verdra.canopy.leaves.notice import Notice, Tone
+
+    with caplog.at_level(logging.INFO, logger="verdra"):
+        dialog = DestructiveConfirmation("Remove 3 replacements?", "Remove", "They're gone.")
+        qtbot.addWidget(dialog)
+        dialog.show()
+        notice = Notice("Your settings file was damaged.", Tone.WARNING)
+        qtbot.addWidget(notice)
+    messages = {record.getMessage() for record in caplog.records}
+    assert "Remove 3 replacements? They're gone." in messages
+    assert "Your settings file was damaged." in messages
+
+
+def _services_after(
+    home: Path, qapp: QApplication, document: bytes, backup: bytes | None
+) -> Services:
+    from verdra.soil import atomic, terrain
+    from verdra.trunk import rings, tendrils
+    from verdra.trunk.almanac.store import SettingsStore, StateStore
+    from verdra.trunk.sapwood import cli
+
+    path = terrain.config_dir() / terrain.SETTINGS_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(document)
+    if backup is not None:
+        atomic.backup_path(path).write_bytes(backup)
+    settings = SettingsStore()
+    settings.load()
+    state = StateStore()
+    state.load()
+    logs = rings.Rings()
+    logs.start()
+    return Services(
+        app=qapp,
+        arguments=cli.Arguments(),
+        settings=settings,
+        state=state,
+        rings=logs,
+        tendrils=tendrils.Tendrils(workers=2),
+        single=SingleInstance(f"verdra-test-kinds-{home.name}"),
+    )
+
+
+GOOD = b'{"format": "verdra.settings", "version": 1}'
+
+
+@pytest.mark.parametrize(
+    ("document", "backup", "message_id"),
+    [
+        (b"\x00damaged", GOOD, "M-SET-01"),
+        (b"\x00damaged", b"\x00also damaged", "M-SET-02"),
+    ],
+)
+def test_settings_notices_are_inline_notices(  # noqa: PLR0917 - pytest passes fixtures positionally
+    home: Path,
+    qapp: QApplication,
+    qtbot: QtBot,
+    document: bytes,
+    backup: bytes,
+    message_id: str,
+) -> None:
+    """Reference R5: M-SET-01 and M-SET-02 are kind "Notice" (inline, until resolved), not
+    toasts, and are written to Activity once (finding M9)."""
+    from verdra.canopy.leaves.notice import Notice
+
+    services = _services_after(home, qapp, document, backup)
+    (expected,) = services.settings.notices
+    assert expected.message_id == message_id
+    shell = Shell(services)
+    shell.build()
+    qtbot.addWidget(shell.window)
+    try:
+        items = [shell.window.notices.itemAt(i) for i in range(shell.window.notices.count())]
+        notices = [item.widget() for item in items if item is not None]
+        assert [type(n) for n in notices] == [Notice]
+        (notice,) = notices
+        assert isinstance(notice, Notice)
+        assert notice.label.text() == expected.text
+        assert shell.window.dew.toasts == []
+        services.rings.stop()  # records reach the ring on the listener thread: drain it first
+        activity = [record.message for record in services.rings.ring.snapshot()]
+        assert activity.count(expected.text) == 1
+        assert notice.dismiss is not None
+        notice.dismiss.click()
+        qtbot.waitUntil(lambda: shell.window.notices.count() == 0)
+    finally:
+        shell.window.allow_close = True
+        services.tendrils.shutdown(grace=0.5)
+        services.rings.stop()
+
+
+def test_a_newer_settings_file_is_a_lasting_notice_on_the_settings_screen(
+    home: Path, qapp: QApplication, qtbot: QtBot
+) -> None:
+    """M-SET-03 lasts while the file is read-only: inline on Settings and on each control."""
+    from verdra.canopy.leaves.notice import Notice
+
+    newer = b'{"format": "verdra.settings", "version": 99}'
+    services = _services_after(home, qapp, newer, None)
+    shell = Shell(services)
+    shell.build()
+    qtbot.addWidget(shell.window)
+    try:
+        r5 = "This file was made by a newer Verdra. Update Verdra to edit it."
+        assert shell.window.notices.count() == 0
+        assert shell.window.dew.toasts == []
+        from verdra.canopy.screens.settings import SettingsScreen
+
+        screen = shell.window.screens["settings"]
+        assert isinstance(screen, SettingsScreen)
+        inline = [n for n in screen.findChildren(Notice) if n.label.text() == r5]
+        assert len(inline) == 1
+        assert inline[0].dismiss is None
+        disabled = [c for c in screen.controls.values() if not c.isEnabled()]
+        assert disabled
+        assert {c.toolTip() for c in disabled} == {r5}
+    finally:
+        shell.window.allow_close = True
+        services.tendrils.shutdown(grace=0.5)
+        services.rings.stop()
+
+
 def test_the_shortcut_overlay_lists_only_working_shortcuts(
-    qtbot: QtBot, shell: Shell, monkeypatch: pytest.MonkeyPatch
+    qtbot: QtBot, shell: Shell, services: Services, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Finding M13: Ctrl+F, Ctrl+N, undo, redo and Apply now aren't built yet in M0."""
     from verdra.canopy.crown.shortcuts import ShortcutHelp
@@ -461,7 +590,8 @@ def test_the_shortcut_overlay_lists_only_working_shortcuts(
     shell.show_shortcuts()  # what F1 does
     (help_,) = opened
     qtbot.addWidget(help_)
-    working = shell.shortcuts.working
+    # Ctrl+5 opens Traffic, which only Advanced mode shows (finding F15).
+    working = shell.shortcuts.working - {"Ctrl+5"}
     assert set(help_.listed) == working
     for keys in help_.listed:
         if keys == "Esc":
@@ -472,3 +602,8 @@ def test_the_shortcut_overlay_lists_only_working_shortcuts(
         assert keys not in help_.listed
         # Still registered, so nothing else takes the key.
         assert keys in shell.shortcuts.shortcuts
+
+    services.settings.set("advanced.advanced_mode", True)
+    shell.show_shortcuts()
+    qtbot.addWidget(opened[-1])
+    assert set(opened[-1].listed) == shell.shortcuts.working
