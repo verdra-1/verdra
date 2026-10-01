@@ -10,3 +10,6 @@ All notable changes to Verdra are recorded here. The format follows
 
 - Repository foundations: licence, notice, README, security policy, privacy statement,
   contribution guide and code of conduct, with the project's support contact.
+- Project tooling: `pyproject.toml` with dependency floors, `uv.lock`, Python 3.14 pin,
+  licence allowlist with its gate (`tools/licenses.py`), colour-literal gate
+  (`tools/check_colors.py`) and pre-commit hooks.
