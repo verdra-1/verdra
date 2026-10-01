@@ -52,6 +52,8 @@ jobs:
         run: uv run python tools/check_strings.py
       - name: Docs
         run: uv run python tools/check_docs.py
+      - name: Brand SVGs are generated from tokens
+        run: uv run python tools/icons.py --check
       - name: Lockfile is current
         run: uv lock --check
       - name: Secrets

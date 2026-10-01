@@ -1,5 +1,7 @@
 # Local checks from Master plan 13.3: format, lint, gitleaks and the colour-literal check.
 # Ruff and the colour check run from the locked environment (uv run), so they match CI exactly.
+# Third-party licence texts stay byte-for-byte as their authors published them.
+exclude: ^src/verdra/assets/fonts/.*-OFL\.txt$
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

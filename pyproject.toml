@@ -62,6 +62,9 @@ dev = [
   "pip-licenses>=5",
   "pip-audit>=2.9",
   "pre-commit>=4.3",
+  # tools/icons.py: wordmark outlines from the display font.
+  "fonttools>=4.60",
+  "uharfbuzz>=0.50",
 ]
 build = [
   "pyinstaller>=6.16",

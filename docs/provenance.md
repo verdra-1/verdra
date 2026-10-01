@@ -105,7 +105,7 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/soil/orchard/keeper_client.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/orchard/launcher.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/orchard/watchdog.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/soil/terrain.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/soil/terrain.py` | Reference R3 (system identifiers) | Standard library |
 | `verdra/soil/tundra/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/tundra/autostart.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/soil/tundra/files.py` | Reference R1 (job line only; no code yet) | — |

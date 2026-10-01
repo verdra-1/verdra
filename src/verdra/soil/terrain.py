@@ -1,3 +1,102 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Constants: app IDs, service names, folder paths (R3)."""
+"""Constants: app IDs, service names, folder paths (R3).
+
+Every name Verdra registers with an operating system or service is defined here and nowhere
+else (Reference R3); a test checks that no other module spells them. Changing an identifier
+would orphan users' system changes, so these never change once released.
+"""
+
+from __future__ import annotations
+
+from typing import Final
+
+# --- Shared across platforms -----------------------------------------------------------------
+
+PRODUCT_NAME: Final = "Verdra"
+DISTRIBUTION: Final = "verdra"
+EXECUTABLE: Final = "verdra"
+KEEPER_EXECUTABLE: Final = "verdra-keeper"
+AUTHORS: Final = "The Verdra Authors"
+
+#: Reverse-DNS base. Where a system forbids the hyphen (Flatpak and desktop-entry IDs) the
+#: underscore form below is used instead.
+APP_ID: Final = "io.github.verdra-1.verdra"
+APP_ID_UNDERSCORE: Final = "io.github.verdra_1.verdra"
+
+SECRET_SERVICE: Final = APP_ID
+SECRET_ITEM_CA_KEY: Final = "ca-key"  # noqa: S105 - an item name, not a secret
+SECRET_ITEM_ACCOUNT_PREFIX: Final = "account-"  # noqa: S105 - an item name, not a secret
+SECRET_ITEM_UPSTREAM_PROXY: Final = "upstream-proxy"  # noqa: S105 - an item name, not a secret
+
+CA_SUBJECT_COMMON_NAME: Final = "Verdra Local CA"
+CA_SUBJECT_ORGANISATION: Final = "Verdra"
+CA_BEGIN_MARKER: Final = "# BEGIN Verdra Local CA"
+CA_END_MARKER: Final = "# END Verdra Local CA"
+HOSTS_MARKER: Final = "# verdra:route"
+
+PROXY_HOST: Final = "127.0.0.1"
+PROXY_PORT: Final = 49443
+
+SINGLE_INSTANCE_PREFIX: Final = "verdra-"
+KEEPER_PROTOCOL: Final = "verdra-keeper/1"
+REPOSITORY_URL: Final = "https://github.com/verdra-1/verdra"
+URL_SCHEME: Final = "roblox-player"
+PACK_EXTENSION: Final = ".verdrapack"
+PACK_MIME_TYPE: Final = "application/vnd.verdra.pack+zip"
+
+FORMAT_SETTINGS: Final = "verdra.settings"
+FORMAT_LEDGER: Final = "verdra.ledger"
+FORMAT_PROFILE: Final = "verdra.profile"
+FORMAT_CLIMATE: Final = "verdra.climate"
+FORMAT_TWEAKS: Final = "verdra.tweaks"
+FORMAT_PACK: Final = "verdra.pack"
+FORMAT_CATALOGUE: Final = "verdra.catalogue"
+FORMAT_TRAFFIC: Final = "verdra.traffic"
+
+CATALOGUE_INDEX_URL: Final = (
+    "https://raw.githubusercontent.com/verdra-1/verdra-pollen/main/index.json"
+)
+CATALOGUE_SIGNATURE_URL: Final = CATALOGUE_INDEX_URL + ".sig"
+RELEASES_API_URL: Final = "https://api.github.com/repos/verdra-1/verdra/releases"
+
+
+def user_agent(version: str) -> str:
+    """Return the User-Agent for Verdra's own web requests."""
+    return f"Verdra/{version} (+{REPOSITORY_URL})"
+
+
+# --- Windows ---------------------------------------------------------------------------------
+
+WINDOWS_APP_USER_MODEL_ID: Final = APP_ID
+WINDOWS_START_MENU_NAME: Final = PRODUCT_NAME
+WINDOWS_AUTOSTART_KEY: Final = r"Software\Microsoft\Windows\CurrentVersion\Run"
+WINDOWS_AUTOSTART_VALUE: Final = PRODUCT_NAME
+WINDOWS_URL_HANDLER_KEY: Final = r"Software\Classes\roblox-player"
+WINDOWS_PACK_PROGID: Final = "Verdra.Pack"
+WINDOWS_KEEPER_SERVICE: Final = "VerdraKeeper"
+WINDOWS_KEEPER_DISPLAY_NAME: Final = "Verdra Keeper"
+WINDOWS_KEEPER_PIPE: Final = r"\\.\pipe\verdra-keeper"
+WINDOWS_WATCHDOG_TASK: Final = r"\Verdra\Verdra Owl"
+
+# --- macOS -----------------------------------------------------------------------------------
+
+MACOS_BUNDLE_ID: Final = APP_ID
+MACOS_KEEPER_LABEL: Final = APP_ID + ".keeper"
+MACOS_KEEPER_SOCKET: Final = f"/var/run/{MACOS_KEEPER_LABEL}.sock"
+MACOS_PACK_UTI: Final = APP_ID + ".pack"
+
+# --- Linux -----------------------------------------------------------------------------------
+
+LINUX_FLATPAK_ID: Final = APP_ID_UNDERSCORE
+LINUX_DESKTOP_ENTRY: Final = APP_ID_UNDERSCORE + ".desktop"
+LINUX_METAINFO: Final = APP_ID_UNDERSCORE + ".metainfo.xml"
+LINUX_HANDLER_DESKTOP_ENTRY: Final = APP_ID_UNDERSCORE + ".handler.desktop"
+LINUX_POLKIT_ACTION: Final = APP_ID + ".keeper"
+LINUX_POLKIT_POLICY_PATH: Final = f"/usr/share/polkit-1/actions/{LINUX_POLKIT_ACTION}.policy"
+LINUX_KEEPER_PATH: Final = "/usr/local/libexec/verdra/verdra-keeper"
+LINUX_KEEPER_SOCKET: Final = "/run/verdra-keeper.sock"
+LINUX_WATCHDOG_UNIT: Final = "verdra-owl.service"
+LINUX_ICON_NAME: Final = APP_ID_UNDERSCORE
+LINUX_TRAY_ICON_NAME: Final = APP_ID_UNDERSCORE + "-symbolic"
+SOBER_FLATPAK_ID: Final = "org.vinegarhq.Sober"
