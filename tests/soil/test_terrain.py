@@ -6,6 +6,8 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+
 from verdra.soil import terrain
 
 SRC = Path(terrain.__file__).resolve().parents[1]
@@ -85,3 +87,18 @@ def test_underscore_form_follows_platform_rules() -> None:
 
 def test_user_agent() -> None:
     assert terrain.user_agent("1.2.3") == "Verdra/1.2.3 (+https://github.com/verdra-1/verdra)"
+
+
+def test_folders_follow_the_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(terrain.HOME_OVERRIDE_VARIABLE, str(tmp_path))
+    assert terrain.config_dir() == tmp_path / "config"
+    assert terrain.default_library_dir() == tmp_path / "library"
+    assert terrain.logs_dir() == tmp_path / "logs"
+    assert terrain.exports_dir() == tmp_path / "exports"
+
+
+def test_folders_use_plain_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(terrain.HOME_OVERRIDE_VARIABLE, raising=False)
+    for folder in (terrain.config_dir(), terrain.default_library_dir(), terrain.logs_dir()):
+        assert any(part.lower() == "verdra" for part in folder.parts)
+    assert terrain.exports_dir().name == "Verdra"

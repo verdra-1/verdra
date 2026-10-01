@@ -102,5 +102,9 @@ Typed, versioned, crash-safe settings with one screen that shows them all.
 
 - **`advanced.worker_threads`**: 2 to 8, default 4 (plan S-04; Reference R2 now matches;
   decision record 0008).
+- **Text size values**: exactly 90, 100, 115 and 130 % (plan 6.2; Reference R2 now matches;
+  decision record 0008).
+- **`advanced.detailed_logging_since`** (Reference R2, added in review round 2) records when detailed logging was turned on,
+  so it can turn itself off after 24 hours across restarts (S-03). It isn't shown on the screen.
 - "Unknown keys kept but ignored" (plan S-02) and "reported once" (R2) are combined.
 - Read-only behaviour for newer files is defined precisely (values used, never written).
