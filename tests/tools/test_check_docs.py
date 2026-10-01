@@ -63,3 +63,29 @@ def test_modules_need_provenance(repo: Path) -> None:
     assert check_docs.check_provenance() == [
         "docs/provenance.md: no entry for `verdra/trunk/rings.py`"
     ]
+
+
+TREE = """# Architecture
+
+```text
+src/verdra/
+├── trunk/                   App services and state.
+│   └── rings.py             Logging: rotating files.
+└── soil/                    Platform adapters.
+    └── tundra/              Linux and Sober.
+        └── files.py         Roblox trust file paths for this OS.
+```
+"""
+
+
+def test_module_tree_expands_os_packages(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (repo / "docs" / "architecture.md").write_text(TREE, encoding="utf-8")
+    monkeypatch.setattr(check_docs, "ARCHITECTURE", repo / "docs" / "architecture.md")
+    tree = check_docs.module_tree()
+    assert tree["verdra/trunk/rings.py"] == "Logging: rotating files."
+    assert tree["verdra/soil/meadow/files.py"] == "Roblox trust file paths for this OS."
+    assert "verdra/soil/orchard/files.py" in tree
+
+
+def test_real_tree_matches_the_source() -> None:
+    assert check_docs.check_module_tree() == []

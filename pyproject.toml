@@ -173,6 +173,27 @@ root_package = "verdra"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
+# canopy → trunk → {roots, seedbank} → {strata, bark} → soil. "|" marks siblings that may not
+# import each other. Nothing imports upward; soil imports nothing from the other areas.
+name = "Layers (Master plan 8.2)"
+type = "layers"
+layers = [
+  "verdra.canopy",
+  "verdra.trunk",
+  "verdra.roots | verdra.seedbank",
+  "verdra.strata | verdra.bark",
+  "verdra.soil",
+]
+
+[[tool.importlinter.contracts]]
+# trunk is the only layer the UI talks to (Reference R1); canopy may still use soil's shared
+# constants and safe-write helper.
+name = "The UI talks only to trunk"
+type = "forbidden"
+source_modules = ["verdra.canopy"]
+forbidden_modules = ["verdra.roots", "verdra.seedbank", "verdra.strata", "verdra.bark"]
+
+[[tool.importlinter.contracts]]
 # Parsers never unpickle (Master plan 10.7); the UI binding is PySide6 only (8.1). Qt modules
 # outside the allowed list are checked by tools/licences.py.
 name = "No unsafe deserialisers or other Qt bindings"

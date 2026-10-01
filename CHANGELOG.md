@@ -16,3 +16,5 @@ All notable changes to Verdra are recorded here. The format follows
 - CI on Windows, macOS (Apple silicon and Intel) and Linux with every gate from the build plan:
   format, lint, types, layering, tests, coverage floors, licences, vulnerabilities, secrets,
   colours, translatable strings and docs. Nightly fuzzing, benchmarks and audit; release stub.
+- Package skeleton: every area and module from the module tree, each with its one-line job,
+  the layering contracts, and `docs/architecture.md`, `docs/glossary.md`, `docs/provenance.md`.
