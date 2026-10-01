@@ -146,4 +146,4 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/sapwood/shutdown.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/sapwood/single.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/sapwood/startup.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/tendrils.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/tendrils.py` | Spec S-04, Master plan 8.3 (one worker pool) and 12.4 (idle CPU) | Standard library (`threading`, `queue`), PySide6 (QtCore) | 2026-10-01 |
