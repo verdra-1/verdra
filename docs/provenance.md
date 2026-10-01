@@ -145,4 +145,4 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/trunk/sapwood/shutdown.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/sapwood/single.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/sapwood/startup.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/tendrils.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/trunk/tendrils.py` | Spec S-04, Master plan 8.3 (one worker pool) and 12.4 (idle CPU) | Standard library (`threading`, `queue`), PySide6 (QtCore) |

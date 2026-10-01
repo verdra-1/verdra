@@ -31,3 +31,6 @@ All notable changes to Verdra are recorded here. The format follows
 - Activity log (S-03): one redaction filter for every output, rotating log files written off the
   UI thread, the last 5,000 records in memory for the Activity screen, detailed logging that turns
   itself off after 24 hours, and the support bundle.
+- Background jobs (S-04): one worker pool with progress, cancellation, results delivered on the
+  UI thread, announcements for jobs that run longer than 2 seconds, and a 3-second grace period
+  on quit.
