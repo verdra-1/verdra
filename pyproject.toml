@@ -119,8 +119,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # S101: pytest uses plain assert statements.
+# S105, S106: redaction tests feed made-up secrets through every output path (Master plan 12.2).
 # PLC0415: tests import inside functions to control Qt start-up order.
-"tests/**" = ["S101", "PLC0415"]
+"tests/**" = ["S101", "S105", "S106", "PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["verdra"]

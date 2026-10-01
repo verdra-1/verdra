@@ -20,7 +20,7 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/bark/resin.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/bark/scar.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/bark/seal.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/bark/veil.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/bark/veil.py` | Master plan 10.6 (header list, login-token pattern), spec S-03; the token's public warning prefix as Roblox documents it to users | Standard library (`re`, `logging`) |
 | `verdra/canopy/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/crown/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/canopy/crown/about.py` | Reference R1 (job line only; no code yet) | — |
@@ -139,7 +139,7 @@ in the licence allowlist. No entry may cite another asset-replacement tool's cod
 | `verdra/trunk/branches/trails.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/branches/transplant.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/budding.py` | Reference R1 (job line only; no code yet) | — |
-| `verdra/trunk/rings.py` | Reference R1 (job line only; no code yet) | — |
+| `verdra/trunk/rings.py` | Spec S-03, Master plan 13.9 (support bundle), Reference R2 (`advanced.detailed_logging`) | Standard library (`logging.handlers`, `zipfile`), PySide6 (QtCore) |
 | `verdra/trunk/sapwood/` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/sapwood/cli.py` | Reference R1 (job line only; no code yet) | — |
 | `verdra/trunk/sapwood/shutdown.py` | Reference R1 (job line only; no code yet) | — |

@@ -1,0 +1,191 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Spec S-03: activity log."""
+
+import json
+import logging
+import time
+import zipfile
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from pytestqt.qtbot import QtBot
+
+from verdra.bark import veil
+from verdra.trunk import rings
+from verdra.trunk.almanac.store import SettingsStore
+
+from ..bark.test_veil import SECRETS
+
+log = logging.getLogger("verdra.test")
+
+
+@pytest.fixture
+def logging_on(tmp_path: Path) -> Iterator[rings.Rings]:
+    installed = rings.Rings(tmp_path / "logs")
+    installed.start(detailed=True)
+    yield installed
+    installed.stop()
+
+
+def bundle_sources(tmp_path: Path) -> rings.BundleSources:
+    return rings.BundleSources(
+        routing_mode="per_app",
+        routing_status="Idle",
+        settings_file=tmp_path / "config" / "settings.json",
+        ledger_file=tmp_path / "config" / "changes.json",
+        profiles_dir=tmp_path / "config" / "profiles",
+    )
+
+
+@pytest.mark.spec("S-03", 1)
+def test_secrets_are_redacted_everywhere(logging_on: rings.Rings, tmp_path: Path) -> None:
+    secrets = [secret for _text, secret in SECRETS]
+    for level in (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR):
+        for text, _secret in SECRETS:
+            log.log(level, text)
+            log.log(level, "argument: %s", text)
+            try:
+                raise RuntimeError(text)
+            except RuntimeError:
+                log.log(level, "failed", exc_info=True)
+    logging_on.stop()
+    file_text = logging_on.log_file.read_text(encoding="utf-8")
+    ring_text = "\n".join(record.message for record in logging_on.ring.snapshot())
+    target = rings.export_support_bundle(
+        tmp_path / "bundle.zip", logging_on, bundle_sources(tmp_path)
+    )
+    with zipfile.ZipFile(target) as bundle:
+        bundle_text = "\n".join(bundle.read(name).decode("utf-8") for name in bundle.namelist())
+    for text in (file_text, ring_text, bundle_text):
+        assert veil.REDACTED in text
+        for secret in secrets:
+            assert secret not in text
+    assert file_text.count("RuntimeError: ") == 4 * len(SECRETS)
+
+
+@pytest.mark.spec("S-03", 2)
+def test_rotation_keeps_five_files_of_two_megabytes(logging_on: rings.Rings) -> None:
+    line = "x" * 1000
+    for _ in range(13_000):  # about 13 MB
+        log.info(line)
+    logging_on.stop()
+    files = sorted(logging_on.logs_dir.iterdir())
+    assert len(files) == rings.FILE_COUNT
+    assert all(path.stat().st_size <= rings.FILE_BYTES for path in files)
+
+
+@pytest.mark.spec("S-03", 3)
+def test_search_over_5000_records_is_fast() -> None:
+    records = [
+        rings.ActivityRecord(
+            time.time(), logging.INFO, "verdra.x", f"Replaced asset {n} in profile {n % 7}"
+        )
+        for n in range(5000)
+    ]
+    started = time.perf_counter()
+    found = rings.matching(records, "PROFILE 3", {logging.INFO, logging.WARNING})
+    assert time.perf_counter() - started < 0.1
+    assert len(found) == len([n for n in range(5000) if n % 7 == 3])
+    assert rings.matching(records, "", {logging.ERROR}) == []
+
+
+@pytest.mark.spec("S-03", 4)
+def test_debug_records_only_with_detailed_logging(tmp_path: Path, qtbot: QtBot) -> None:
+    installed = rings.Rings(tmp_path / "logs")
+    installed.start(detailed=False)
+    settings = SettingsStore(tmp_path / "settings.json")
+    settings.load()
+    detailed = rings.DetailedLogging(installed, settings)
+    log.debug("hidden detail")
+    settings.set("advanced.detailed_logging", True)
+    assert settings.value("advanced.detailed_logging_since")
+    log.debug("visible detail")
+    installed.stop()
+    messages = [record.message for record in installed.ring.snapshot()]
+    assert "visible detail" in messages
+    assert "hidden detail" not in messages
+    # 24 hours later, it turns itself off (also when Verdra starts after the deadline).
+    past = (datetime.now(UTC) - timedelta(hours=24, minutes=1)).isoformat()
+    settings.set("advanced.detailed_logging_since", past)
+    restarted = rings.DetailedLogging(installed, settings)
+    assert settings.value("advanced.detailed_logging") is False
+    assert logging.getLogger(rings.LOGGER_NAME).level == logging.INFO
+    del detailed, restarted
+
+
+def test_expiry_rule() -> None:
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
+    assert rings.detailed_logging_expired("", now)
+    assert rings.detailed_logging_expired("not a date", now)
+    assert rings.detailed_logging_expired("2026-10-01T12:00:00+00:00", now)
+    assert not rings.detailed_logging_expired("2026-10-01T12:00:01+00:00", now)
+
+
+@pytest.mark.spec("S-03", 5)
+def test_support_bundle_contents(logging_on: rings.Rings, tmp_path: Path) -> None:
+    sources = bundle_sources(tmp_path)
+    sources.settings_file.parent.mkdir(parents=True)
+    sources.settings_file.write_text(
+        json.dumps({"format": "verdra.settings", "version": 1, "x": {"Cookie": "a=1"}}),
+        encoding="utf-8",
+    )
+    sources.ledger_file.write_text(
+        json.dumps({"format": "verdra.ledger", "version": 1}), encoding="utf-8"
+    )
+    sources.profiles_dir.mkdir()
+    (sources.profiles_dir / "Clean UI.json").write_text("{}", encoding="utf-8")
+    for n in range(2500):
+        log.info("line %d", n)
+    logging_on.stop()
+
+    without = rings.export_support_bundle(tmp_path / "a.zip", logging_on, sources)
+    with zipfile.ZipFile(without) as bundle:
+        assert sorted(bundle.namelist()) == [
+            "about.json",
+            "changes.json",
+            "settings.json",
+            "verdra.log",
+        ]
+        about = json.loads(bundle.read("about.json"))
+        assert {
+            "version",
+            "build",
+            "system",
+            "architecture",
+            "routing_mode",
+            "routing_status",
+        } <= about.keys()
+        lines = bundle.read("verdra.log").decode("utf-8").splitlines()
+        assert len(lines) == rings.BUNDLE_LOG_LINES
+        assert lines[-1].endswith("line 2499")
+        assert "a=1" not in bundle.read("settings.json").decode("utf-8")
+
+    with_profiles = rings.export_support_bundle(
+        tmp_path / "b.zip", logging_on, sources, include_profiles=True
+    )
+    with zipfile.ZipFile(with_profiles) as bundle:
+        assert "profiles/Clean UI.json" in bundle.namelist()
+
+
+@pytest.mark.spec("S-03", 7)
+def test_ring_buffer_keeps_the_last_5000(logging_on: rings.Rings) -> None:
+    for n in range(5100):
+        log.info("record %d", n)
+    logging_on.stop()
+    records = logging_on.ring.snapshot()
+    assert len(records) == rings.RING_SIZE
+    assert records[0].message == "record 100"
+    assert records[-1].message == "record 5099"
+
+
+def test_activity_model_follows_new_records(logging_on: rings.Rings, qtbot: QtBot) -> None:
+    model = logging_on.model()
+    log.warning("first")
+    qtbot.waitUntil(lambda: model.rowCount() == 1)
+    assert model.record(0).message == "first"
+    assert model.data(model.index(0, 1)) == "Warning"
+    assert model.data(model.index(0, 2)) == "first"
+    assert rings.bundle_file_name(0).startswith("Verdra support bundle ")
