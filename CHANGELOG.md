@@ -60,3 +60,7 @@ All notable changes to Verdra are recorded here. The format follows
 - M0 exit-gate checklist (`docs/m0-exit-gate.md`): the real-machine steps for Windows and Ubuntu
   (Wayland and X11), including settings surviving a forced kill during a write, a results table,
   and which M0 item CI or the checklist covers.
+- Platform verification protocol for every "(confirm at M1)" fact, with the exact command, the
+  expected result, where to record it and what counts as a fail for each step, and a record
+  template per system in `docs/platforms/` (Windows and Linux; the macOS page is kept as
+  reference only while macOS is deferred).
