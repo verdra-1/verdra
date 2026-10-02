@@ -54,3 +54,6 @@ All notable changes to Verdra are recorded here. The format follows
   with Sober. The Platform interface (`soil/humus.py`) has a Windows, a macOS and a Linux
   implementation; the macOS one reports "unsupported on this system", and CI no longer runs on
   macOS.
+- M0 exit-gate checklist (`docs/m0-exit-gate.md`): the real-machine steps for Windows and Ubuntu
+  (Wayland and X11), including settings surviving a forced kill during a write, a results table,
+  and which M0 item CI or the checklist covers.
