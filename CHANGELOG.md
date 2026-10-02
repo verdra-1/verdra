@@ -28,6 +28,9 @@ All notable changes to Verdra are recorded here. The format follows
   names, the Python 3.14 wheel check, the values settled at M0, the macOS runner label, the
   three M0 review rounds and what CI runs.
 - Specs S-01 (app shell), S-02 (settings store), S-03 (activity log) and S-04 (background jobs).
+- Specs for M1, status Agreed: S-10 (local certificate authority), S-11 (proxy core, with
+  diagnostic interception from source), S-12 (per-app routing and launching), S-14 (routing
+  status), S-15 (coexistence, per-app part) and S-16 (reset everything).
 - Settings store (S-02): every setting from the reference with its type, range and default;
   key-by-key validation; atomic, debounced saves with a `.bak` copy; recovery from a damaged
   file; read-only files from newer versions; migrations; `state.json` for window state.
