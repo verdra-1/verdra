@@ -79,3 +79,6 @@ All notable changes to Verdra are recorded here. The format follows
   starts and replaced 30 days before it expires, with one block per trust file throughout.
 - Local certificate authority (S-10, fifth part): when Roblox installs a new version while
   Verdra runs, the CA is added to it within seconds and Activity says so (M-CA-02).
+- Proxy core (S-11, first part): the listener on 127.0.0.1 with the port fallback
+  (M-PROXY-03), blind tunnels for hosts Verdra doesn't intercept, 256 connections at most and
+  a 30-second idle limit.

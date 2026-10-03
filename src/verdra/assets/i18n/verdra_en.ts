@@ -377,6 +377,13 @@
     </message>
 </context>
 <context>
+    <name>M-PROXY-03</name>
+    <message>
+        <source>Port {port} was in use, so Verdra is using port {other} this session.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RESET-04</name>
     <message>
         <source>Reset everything isn&apos;t available in this version yet. Nothing was changed.</source>
