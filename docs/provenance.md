@@ -67,8 +67,8 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/gardener.py` | Master plan 9.4, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2, 3, 4 and 7); Qt `QFileSystemWatcher` and `QTimer` documentation; Python `os.chmod`/`stat` and `hashlib` documentation | cryptography, PySide6 | 2026-10-03 |
-| `verdra/roots/hyphae.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/mycelium.py` | Master plan 8.3, 10.1, spec S-11 (rules 1 and 2, tests 2, 6, 7); RFC 9110 9.3.6 (CONNECT); Python `asyncio` streams documentation | PySide6 (translations) | 2026-10-03 |
+| `verdra/roots/hyphae.py` | Master plan 8.3, 10.2, 10.3, 10.6, spec S-11 (rules 1, 3, 4 and 5, tests 3, 4 and 7); RFC 9110 (semantics, 100-continue), RFC 9112 (HTTP/1.1 framing, chunked coding); h11 documentation; Python `ssl`, `asyncio` streams (`start_tls`), `zlib` and `compression.zstd` documentation | h11, cryptography, PySide6 (translations) | 2026-10-03 |
+| `verdra/roots/mycelium.py` | Master plan 8.3, 10.1, 10.2, spec S-11 (rules 1 and 2, tests 2, 6, 7; hand-off to interception); RFC 9110 9.3.6 (CONNECT); Python `asyncio` streams documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/rules.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

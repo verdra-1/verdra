@@ -88,3 +88,9 @@ All notable changes to Verdra are recorded here. The format follows
 - Leaf certificates load into TLS straight from memory (an anonymous memory file on Linux,
   a one-shot pipe only Verdra's own process may open on Windows), so no leaf or its key ever
   touches the disk.
+- Proxy core (S-11, third part): interception for hosts in the interception set. Verdra answers
+  with its own in-memory leaf certificate, reads HTTP/1.1 with keep-alive and chunked bodies, and
+  runs the request and response handlers in order. A handler that fails is skipped and logged
+  with secrets removed; bodies are buffered only for handlers that ask, up to 64 MB; unchanged
+  responses pass through byte for byte; a server whose certificate doesn't verify gets the
+  client a 502 and M-PROXY-02.

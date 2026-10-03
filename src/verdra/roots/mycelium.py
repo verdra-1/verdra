@@ -6,8 +6,9 @@ certificates.
 This part (spec S-11): the listener on 127.0.0.1 only, with the port fallback of plan 10.1;
 `CONNECT host:port` handling; blind tunnels for hosts outside the interception set (bytes copied
 both ways, no TLS termination); and the limits of S-11 rule 1 (256 concurrent connections, 30 s
-idle). Interception arrives with roots/hyphae. Everything runs on one asyncio loop, the proxy's
-own thread (plan 8.3).
+idle). A host in the interception set is answered at once and handed to roots/hyphae, which
+terminates TLS with its leaf. Everything runs on one asyncio loop, the proxy's own thread
+(plan 8.3).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Final
+from typing import Final, Protocol
 
 from PySide6.QtCore import QCoreApplication
 
@@ -34,6 +35,20 @@ _CHUNK: Final = 64 * 1024
 
 Streams = tuple[asyncio.StreamReader, asyncio.StreamWriter]
 Connector = Callable[[str, int], Awaitable[Streams]]
+
+
+class Interceptor(Protocol):
+    """Serves CONNECT targets in the interception set (roots/hyphae.Interception)."""
+
+    def wants(self, host: str, port: int) -> bool:
+        """Return whether host:port is intercepted."""
+        ...
+
+    async def serve(
+        self, host: str, port: int, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        """Terminate TLS on the client's connection and serve its requests."""
+        ...
 
 
 class ProxyStartError(RuntimeError):
@@ -54,9 +69,11 @@ class Mycelium:
         *,
         max_connections: int = MAX_CONNECTIONS,
         idle_timeout: float = IDLE_TIMEOUT_SECONDS,
+        interceptor: Interceptor | None = None,
     ) -> None:
         self.requested_port = port
         self.connect = connect
+        self.interceptor = interceptor
         self.max_connections = max_connections
         self.idle_timeout = idle_timeout
         self.port: int | None = None
@@ -133,6 +150,11 @@ class Mycelium:
             await writer.drain()
             return
         host, port = target
+        if self.interceptor is not None and self.interceptor.wants(host, port):
+            writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            await writer.drain()
+            await self.interceptor.serve(host, port, reader, writer)
+            return
         try:
             upstream_reader, upstream_writer = await asyncio.wait_for(
                 self.connect(host, port), timeout=self.idle_timeout
