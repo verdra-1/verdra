@@ -81,3 +81,36 @@ def test_tests_without_the_qt_fixtures_are_checked_too() -> None:
     problems = qt_lifetimes.problems_after(before)
     assert len(problems) == 1
     assert problems[0].startswith("1 stale Python wrapper(s) of layout items (QWidgetItem)")
+
+
+def test_the_guard_has_no_way_to_exempt_a_test() -> None:
+    """Plan 16.2, decision record 0017: no marker, fixture override or list can switch it off."""
+    import ast
+    import inspect
+    import re
+    from pathlib import Path
+
+    from tests import conftest
+
+    source = inspect.getsource(qt_lifetimes)
+    tree = ast.parse(source)
+    fixture = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "qt_lifetimes"
+    )
+    # The fixture takes nothing it could read a marker, a fixture name or a test name from.
+    assert [arg.arg for arg in fixture.args.args] == []
+    lowered = source.lower()
+    for word in ("request", "marker", "get_closest_marker", "skip", "exempt", "allow", "ignore"):
+        assert word not in lowered, f"the guard mentions {word!r}"
+    # It is always on, and nothing else defines (and so overrides) its fixture.
+    assert "tests.support.qt_lifetimes" in conftest.pytest_plugins
+    tests = Path(__file__).resolve().parent
+    overrides = [
+        str(path.relative_to(tests))
+        for path in tests.rglob("*.py")
+        if path.name != "qt_lifetimes.py"
+        and re.search(r"^\s*def qt_lifetimes\(", path.read_text(encoding="utf-8"), re.MULTILINE)
+    ]
+    assert overrides == []

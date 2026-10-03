@@ -230,3 +230,25 @@ def test_quitting_to_erase_tells_shutdown(shell: Shell, monkeypatch: pytest.Monk
     shell.window.erase_requested.emit()
     assert shell.services.erase_own_data
     assert quits == [True]
+
+
+def test_with_a_moved_library_the_closing_message_says_where_it_stays(
+    services: Services, qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Plan 16.2, "M1 decisions": a library the user moved is never deleted; they're told where."""
+    chosen = tmp_path / "My library"
+    chosen.mkdir()
+    services.settings.set("library.location", str(chosen))
+    gardener.ensure_ca(husk.Husk(), scar.Ledger(), trust_files(tmp_path / "roblox"), NOW)
+    screen = SettingsScreen(services.settings, pool=services.tendrils, on_erase=lambda: None)
+    qtbot.addWidget(screen)
+    answer_with_erase(monkeypatch, erase=True)
+    dialog = screen.start_reset()
+    assert dialog is not None
+    qtbot.waitUntil(dialog.close_button.isEnabled, timeout=10_000)
+    assert dialog.summary.text().endswith(
+        f"Your library in {chosen} stays, because you chose that folder; delete it yourself if "
+        "you no longer need it."
+    )
+    dialog.accept()
+    qtbot.waitUntil(lambda: screen.reset_dialog is None)

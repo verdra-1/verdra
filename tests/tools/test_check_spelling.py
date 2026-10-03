@@ -107,3 +107,16 @@ def test_the_changelog_and_readme_are_checked() -> None:
     """Plan 16.2, "M1 decisions": both become release notes, so the gate reads them."""
     names = {path.name for path in check_spelling.DOCUMENTS}
     assert {"CHANGELOG.md", "README.md"} <= names
+
+
+@pytest.mark.parametrize("name", ["CHANGELOG.md", "README.md"])
+def test_a_british_spelling_planted_in_the_release_notes_fails_the_gate(
+    tmp_path: Path, name: str
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.verdra]\n", encoding="utf-8")
+    document = tmp_path / name
+    document.write_text("# Notes\n\n- The pill shows the right colour.\n", encoding="utf-8")
+    findings = check_spelling.check(tmp_path / "none.ts", (document,), tmp_path)
+    assert [str(f) for f in findings] == [
+        f"{name}:3: British spelling 'colour'; use the US form (color)"
+    ]

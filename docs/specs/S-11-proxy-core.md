@@ -127,8 +127,11 @@ untouched.
   as a change; the budget itself is judged in milliseconds.
 - The plan's symbionts are built in later milestones; at M1 the pipeline is tested with test
   symbionts only, which is why test 4 doesn't name a real one.
-- M-DIAG-02 is added so test 9's TLS details reach Activity with a message ID. Where the
-  diagnostic code lives is decision record 0015 (`roots/litmus.py`, source only).
+- M-DIAG-02 is added so test 9's TLS details reach Activity with a message ID. The frozen
+  build's refusal of the flag (test 10) is the standard command-line error ("unrecognized
+  arguments", exit code 2) and has no message ID (plan 16.2, "M1 decisions"; decision record
+  0015). Where the diagnostic code lives is decision record 0015 (`roots/litmus.py`, source
+  only).
 - M-PROXY-04 and M-PROXY-05 are added so the events rules 1 and 3 log reach Activity with a
   message ID (plan 16.2, F13).
 - **Diagnostic interception** (plan 16.2, settled): see Behaviour. It exists so the M1 gate can
