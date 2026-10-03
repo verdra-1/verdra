@@ -238,6 +238,17 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
             version=verdra.__version__, system=humus.system_name()
         ),
     )
+    if arguments.diagnose_interception:
+        # The window shows the same sentence as a Notice for as long as the flag is on.
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-DIAG-01",
+                "Diagnostic interception is on. Verdra is reading Roblox's traffic to check it, "
+                "and changes nothing. Restart Verdra without --diagnose-interception to turn it "
+                "off.",
+            ),
+        )
     services.step("settings and logging ready")
 
     interface = build_interface(services)

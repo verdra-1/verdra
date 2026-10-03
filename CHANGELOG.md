@@ -98,3 +98,7 @@ All notable changes to Verdra are recorded here. The format follows
   real TLS from a per-session test CA, 1,000 distinct responses from hand-written fixtures with
   invented IDs, in every content encoding and framing, and modes for broken certificates and
   TLS 1.1. All 1,000 pass through Verdra byte-identical, intercepted and tunneled.
+- Diagnostic interception for the M1 tests on real machines (S-11): `--diagnose-interception`,
+  only when running from source, decrypts every plan 10.2 host, changes nothing, writes both
+  sides' TLS details to Activity (M-DIAG-02) and shows M-DIAG-01 while it is on. Builds leave the
+  code out, refuse the flag, and the build check proves both (decision record 0015).
