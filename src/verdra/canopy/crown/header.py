@@ -2,14 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 """Screen title, status pill and its popover, profile selector, Apply now button.
 
-Master plan 7.1. The header is 56 px tall. Until routing exists (M1) the pill shows Idle and its
-popover explains it (M-STATUS-03); until replacements exist (M2) the profile selector and
-"Apply now" are disabled with a tooltip saying why (plan 5.4, rule 5).
+Master plan 7.1. The header is 56 px tall. The pill and its popover render the one routing
+status (spec S-14): its state, its reason, the other active reasons and at most one fix button,
+which emits `fix_requested` with the fix's key. A fix nobody handles yet is disabled with a
+tooltip saying why, as are the profile selector and "Apply now" until replacements exist (M2;
+plan 5.4, rule 5).
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication, QPoint, Qt
+from collections.abc import Collection
+from typing import Protocol
+
+from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -27,8 +32,50 @@ from verdra.canopy.leaves.empty import soon
 POPOVER_WIDTH = 300
 
 
+class StatusView(Protocol):
+    """What the interface reads from a published routing status (trunk passes roots' value)."""
+
+    @property
+    def state(self) -> object: ...
+    @property
+    def trigger(self) -> object: ...
+    @property
+    def reason(self) -> str: ...
+    @property
+    def others(self) -> tuple[str, ...]: ...
+
+
+def status_of(view: StatusView) -> Status:
+    """Return the badge status for a published routing status."""
+    return Status(str(getattr(view.state, "value", view.state)))
+
+
+def fix_for(view: StatusView) -> tuple[str, str] | None:
+    """Return the popover's fix for a status as (key, button text), or None (spec S-14 table)."""
+    status = status_of(view)
+    trigger = str(getattr(view.trigger, "value", view.trigger))
+    if status is Status.IDLE:
+        return "start", QCoreApplication.translate("M-STATUS-03", "Start routing")
+    if status is Status.ERROR:
+        return "retry", QCoreApplication.translate("M-STATUS-05", "Try again")
+    if status is Status.DEGRADED and trigger == "not_routed":
+        return "restart_roblox", QCoreApplication.translate(
+            "M-STATUS-04", "Restart Roblox through Verdra"
+        )
+    if status is Status.DEGRADED and trigger == "ca_missing":
+        return "repair_certificate", QCoreApplication.translate("M-STATUS-04", "Repair certificate")
+    return None
+
+
 class StatusPopover(QFrame):
-    """The popover under the status pill: the reason and at most one fix button."""
+    """The popover under the status pill: the reason and at most one fix button.
+
+    Signals:
+        fix_requested(key): The fix button was pressed ("start", "retry", "restart_roblox",
+            "repair_certificate").
+    """
+
+    fix_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent, Qt.WindowType.Popup)
@@ -44,22 +91,56 @@ class StatusPopover(QFrame):
         layout.addWidget(self.title)
         self.reason = QLabel(self)
         self.reason.setWordWrap(True)
-        self.reason.setProperty("muted", True)
         layout.addWidget(self.reason)
+        self.others = QLabel(self)
+        self.others.setWordWrap(True)
+        self.others.setProperty("muted", True)
+        layout.addWidget(self.others)
         self.fix = QPushButton(self)
+        self.fix.clicked.connect(self._fix_clicked)
         layout.addWidget(self.fix, alignment=Qt.AlignmentFlag.AlignLeft)
-        self.show_status(Status.IDLE)
+        #: The fixes something handles; the others are shown disabled with M-SOON-01.
+        self.handled: Collection[str] = ()
+        self.fix_key: str | None = None
 
-    def show_status(self, status: Status) -> None:
-        """Fill the popover for a status."""
+    def show_view(self, view: StatusView) -> None:
+        """Fill the popover for a published routing status."""
+        status = status_of(view)
+        self.title.setText(status.label())
+        reason = view.reason
         if status is Status.IDLE:
             # M-STATUS-03: "Idle. Routing is off." Button "Start routing".
-            self.title.setText(status.label())
-            self.reason.setText(QCoreApplication.translate("M-STATUS-03", "Routing is off."))
-            self.fix.setText(QCoreApplication.translate("M-STATUS-03", "Start routing"))
-            self.fix.setEnabled(False)
-            self.fix.setToolTip(soon())
-        self.fix.setAccessibleName(self.fix.text())
+            reason = QCoreApplication.translate("M-STATUS-03", "Routing is off.")
+        self.reason.setText(reason)
+        self.reason.setVisible(bool(reason))
+        self.others.setText("\n".join(view.others))
+        self.others.setVisible(bool(view.others))
+        fix = fix_for(view)
+        self.fix_key = fix[0] if fix else None
+        self.fix.setVisible(fix is not None)
+        if fix is not None:
+            key, text = fix
+            self.fix.setText(text)
+            self.fix.setAccessibleName(text)
+            self.fix.setEnabled(key in self.handled)
+            self.fix.setToolTip("" if key in self.handled else soon())
+
+    def _fix_clicked(self) -> None:
+        if self.fix_key is not None:
+            self.hide()
+            self.fix_requested.emit(self.fix_key)
+
+
+class _Idle:
+    """The status before anything is published: Idle, no reason."""
+
+    state = "idle"
+    trigger = None
+    reason = ""
+    others: tuple[str, ...] = ()
+
+
+IDLE: StatusView = _Idle()
 
 
 class Header(QFrame):
@@ -83,6 +164,7 @@ class Header(QFrame):
         self.pill.clicked.connect(self.open_popover)
         layout.addWidget(self.pill)
         self.popover = StatusPopover(self)
+        self.set_routing(IDLE)
 
         not_yet = soon()
         self.profiles = QComboBox(self)
@@ -104,10 +186,10 @@ class Header(QFrame):
         """Show the current screen's title."""
         self.title.setText(title)
 
-    def set_status(self, status: Status) -> None:
-        """Show a routing status in the pill and its popover."""
-        self.pill.set_status(status)
-        self.popover.show_status(status)
+    def set_routing(self, view: StatusView) -> None:
+        """Show a published routing status in the pill and its popover (spec S-14 rule 1)."""
+        self.pill.set_status(status_of(view))
+        self.popover.show_view(view)
 
     def open_popover(self) -> None:
         """Open the status popover under the pill."""

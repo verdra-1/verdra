@@ -27,6 +27,7 @@ from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
 from PySide6.QtWidgets import QApplication
 
 import verdra
+from verdra.roots import gardener
 from verdra.soil import humus, terrain
 from verdra.trunk import rings, tendrils
 from verdra.trunk.almanac.store import SettingsStore, StateStore
@@ -72,6 +73,8 @@ class Services:
     #: Set by Reset everything's option "Also delete my profiles, library and settings": shutdown
     #: then saves nothing and deletes Verdra's own folders last (spec S-16).
     erase_own_data: bool = False
+    #: The one routing status (spec S-14); the interface renders what it publishes.
+    routing: gardener.RoutingStatusSource | None = None
 
     def elapsed_ms(self) -> int:
         """Return milliseconds since launch."""
@@ -245,6 +248,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         ),
         single=single,
         started=started,
+        routing=gardener.RoutingStatusSource(),
     )
     settings.save_in_background(services.tendrils.submit)
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)

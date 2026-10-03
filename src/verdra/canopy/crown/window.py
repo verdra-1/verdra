@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 from verdra.canopy.crown import theme
 from verdra.canopy.crown.about import AboutDialog
 from verdra.canopy.crown.dew import Dew
-from verdra.canopy.crown.header import Header
+from verdra.canopy.crown.header import Header, StatusView, status_of
 from verdra.canopy.crown.seedling import Onboarding
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
@@ -260,6 +260,10 @@ class Shell:
         )
         services.tendrils.slow.connect(self.window.dew.show_job)
         services.tendrils.submitted.connect(self._report_job_end)
+        if services.routing is not None:
+            # One published value drives the pill, the popover and the tray (spec S-14 rule 1).
+            services.routing.changed.connect(self.show_routing)
+            self.show_routing(services.routing.current)
         for notice in services.settings.notices:
             self.show_settings_notice(notice)
         if services.arguments.diagnose_interception:
@@ -364,6 +368,12 @@ class Shell:
                     self.tray.icon.showMessage("Verdra", text)  # noqa: VT001 - the product name
             return
         self.quit()
+
+    def show_routing(self, view: StatusView) -> None:
+        """Render a published routing status everywhere it shows (spec S-14)."""
+        self.window.header.set_routing(view)
+        if self.tray is not None:
+            self.tray.set_status(status_of(view), reason=view.reason)
 
     def quit_and_erase(self) -> None:
         """Quit; shutdown then deletes Verdra's own folders (reset option, spec S-16)."""

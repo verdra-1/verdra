@@ -740,6 +740,24 @@
     </message>
 </context>
 <context>
+    <name>M-STATUS-04</name>
+    <message>
+        <source>Restart Roblox through Verdra</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Repair certificate</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-STATUS-05</name>
+    <message>
+        <source>Try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-STATUS-06</name>
     <message>
         <source>Routing status changed from {old} to {new}.</source>
@@ -1380,6 +1398,10 @@
             <numerusform>Routing · %n replacement active</numerusform>
             <numerusform>Routing · %n replacements active</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>{state}: {reason}</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>
