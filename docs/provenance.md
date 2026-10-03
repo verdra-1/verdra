@@ -62,7 +62,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/hive.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/rings.py` | Master plan 7.7, 13.9, spec S-03, message catalogue (M-LOG-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/seedbank.py` | Master plan 7.3 (empty state), message catalogue (M-EMPTY-02) | PySide6 | 2026-10-01 |
-| `verdra/canopy/screens/settings.py` | Master plan 7.7, Reference R2 (labels), spec S-02 | PySide6 | 2026-10-01 |
+| `verdra/canopy/screens/settings.py` | Master plan 7.7, 9.4, Reference R2 (labels), R6, specs S-02 and S-16 (System changes list) | PySide6 | 2026-10-03 |
 | `verdra/canopy/screens/streams.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -131,7 +131,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/branches/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/cuttings.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/branches/fallow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/branches/fallow.py` | Master plan 9.4, Reference R1, spec S-16 (System changes list) | `bark/scar` | 2026-10-03 |
 | `verdra/trunk/branches/grafts.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/hive.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/mimicry.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

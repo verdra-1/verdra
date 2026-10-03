@@ -105,6 +105,9 @@ All notable changes to Verdra are recorded here. The format follows
 - Proxy latency benchmark (S-11 test 5, `tools/bench.py`): the latency Verdra adds to an
   intercepted request, against plan 12.4's budget (median 5 ms, 95th percentile 20 ms) on every
   pull request, and nightly against a committed baseline, failing above 20 % regression.
+- Settings › System changes lists every change Verdra has in place outside its own folders
+  (S-16): what it is, where, when it was made, and whether it is done, pending or failed with
+  the reason. It says so if the list itself can't be read (M-RESET-05).
 
 ### Changed
 
