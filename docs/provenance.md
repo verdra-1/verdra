@@ -156,6 +156,7 @@ Not part of the app, but written under the same clean-room rules (review finding
 | File | Built from | Libraries | Date |
 | --- | --- | --- | --- |
 | `tools/bench.py` | Master plan 12.4, risk R-18, spec S-11 (test 5), docs/m1/test-plan.md; Python `asyncio`, `statistics` and `time.perf_counter` documentation; nearest-rank percentile (standard definition) | Standard library, `tools/fake_roblox.py`, the test client in `tests/support/client.py` (h11) | 2026-10-03 |
+| `tools/platforms/stage1-windows.ps1` | docs/platforms/protocol.md (stage 1, Windows), Master plan 11.1, 16.4; Microsoft's PowerShell documentation (Get-ChildItem, Get-FileHash, Get-CimInstance, Get-AppxPackage, registry provider) | Windows PowerShell 5.1 (built into Windows) | 2026-10-03 |
 | `tools/check_build.py` | Master plan 8.1, 12.3, 12.4, 13.4, 13.6, risk R-07, decision records 0002 and 0010; PyInstaller one-folder layout and archive reader (`PyInstaller.archive.readers`) as documented; spec S-11 test 10, decision record 0015 | Standard library, PyInstaller (archive reader) | 2026-10-03 |
 | `tools/check_colors.py` | Master plan 5.6, 12.3 | Standard library | 2026-10-01 |
 | `tools/check_docs.py` | Master plan 3.1, 12.3, 12.6, Reference R1 | Standard library (`ast`) | 2026-10-01 |
