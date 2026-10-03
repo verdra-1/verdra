@@ -112,6 +112,14 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   user's locale), State (Pending, Done, or "Failed: <reason>"). It is read again each time the
   screen is shown. M-RESET-05 is added for a ledger that can't be read, which the plan doesn't
   cover.
+- The dialog: M-RESET-03 shows its question as the title and "Your profiles and library stay."
+  as the body, with Cancel as the default button. Then a "Reset everything" window lists each
+  change as it is removed (M-RESET-07, M-RESET-08) under a progress bar, and ends with M-RESET-01
+  or M-RESET-02 and a Close button, which becomes the default. Escape doesn't close it while
+  reset runs, because reset can't stop halfway. If the ledger can't be read, the job fails and
+  the window shows M-JOB-02 with M-RESET-05's path; Activity has M-RESET-05. The tray item opens
+  Settings and starts the same flow there. The option "Also delete my profiles, library and
+  settings" follows in its own part.
 - The command line loads the message catalogue for the language in the settings before it
   prints, so its lines and the summary's plural forms match the window's. If the ledger can't
   be read, it prints M-RESET-05, changes nothing (the CA key stays, because trust files may

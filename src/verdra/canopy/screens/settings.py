@@ -19,11 +19,13 @@ from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -35,9 +37,12 @@ from PySide6.QtWidgets import (
 
 from verdra.canopy.crown import theme
 from verdra.canopy.crown.about import TextViewer
+from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.leaves.empty import soon
 from verdra.canopy.leaves.notice import Notice, Tone
+from verdra.canopy.leaves.progress import ProgressBar
 from verdra.canopy.leaves.switch import Switch
+from verdra.trunk import tendrils
 from verdra.trunk.branches import fallow
 from verdra.trunk.sapwood import startup
 
@@ -335,6 +340,84 @@ def groups() -> list[tuple[str, str, list[Row]]]:
     ]
 
 
+def confirm_reset(parent: QWidget | None = None) -> DestructiveConfirmation:
+    """Return M-RESET-03: "Reset everything" or "Cancel", with Cancel as the default."""
+    return DestructiveConfirmation(
+        QCoreApplication.translate(
+            "M-RESET-03", "Remove everything Verdra changed on this computer?"
+        ),
+        QCoreApplication.translate("M-RESET-03", "Reset everything"),
+        QCoreApplication.translate("M-RESET-03", "Your profiles and library stay."),
+        parent,
+    )
+
+
+class ResetDialog(QDialog):
+    """Reset everything's progress: each change as it is removed, then the summary (S-16)."""
+
+    def __init__(self, job: tendrils.Job, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.job = job
+        title = QCoreApplication.translate("Settings", "Reset everything")
+        self.setWindowTitle(title)
+        self.setAccessibleName(title)
+        self.setModal(True)
+        tokens = theme.Tokens.load()
+        layout = QVBoxLayout(self)
+        padding = tokens.length("space-8")
+        layout.setContentsMargins(padding, padding, padding, padding)
+        layout.setSpacing(tokens.length("space-4"))
+        heading = QLabel(title, self)
+        theme.set_text_style(heading, "title-m")
+        layout.addWidget(heading)
+        self.progress = ProgressBar(self)
+        self.progress.setAccessibleName(
+            QCoreApplication.translate("Settings", "Reset everything progress")
+        )
+        layout.addWidget(self.progress)
+        self.items = QListWidget(self)
+        self.items.setAccessibleName(QCoreApplication.translate("Settings", "Changes"))
+        self.items.setWordWrap(True)
+        layout.addWidget(self.items, 1)
+        self.summary = QLabel(self)
+        self.summary.setWordWrap(True)
+        self.summary.hide()
+        layout.addWidget(self.summary)
+        self.close_button = QPushButton(QCoreApplication.translate("Settings", "Close"), self)
+        self.close_button.setEnabled(False)
+        self.close_button.clicked.connect(self.accept)
+        layout.addWidget(self.close_button, alignment=Qt.AlignmentFlag.AlignRight)
+        self.resize(tokens.length("space-12") * 12, tokens.length("space-12") * 8)
+        job.progressed.connect(self._progressed)
+        job.succeeded.connect(self._succeeded)
+        job.failed.connect(self._failed)
+
+    def _progressed(self, percent: int | None, step: str) -> None:
+        self.progress.set_value(percent)
+        if step:
+            self.items.addItem(step)
+            self.items.scrollToBottom()
+
+    def _succeeded(self, summary: fallow.Summary) -> None:
+        self.progress.set_value(100)
+        self._finish(fallow.summary_line(summary))
+
+    def _failed(self, _reason: str) -> None:
+        self._finish(self.job.message())
+
+    def _finish(self, text: str) -> None:
+        self.summary.setText(text)
+        self.summary.show()
+        self.close_button.setEnabled(True)
+        self.close_button.setDefault(True)
+        self.close_button.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def reject(self) -> None:
+        """Escape closes the dialog only once reset has finished: it can't stop halfway."""
+        if self.job.done:
+            super().reject()
+
+
 class SettingsScreen(QWidget):
     """The Settings screen."""
 
@@ -344,6 +427,7 @@ class SettingsScreen(QWidget):
         run_setup: Callable[[], None] | None = None,
         parent: QWidget | None = None,
         list_changes: Callable[[], list[fallow.Change]] = fallow.system_changes,
+        pool: tendrils.Tendrils | None = None,
     ) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -404,8 +488,12 @@ class SettingsScreen(QWidget):
         self.reset_everything = QPushButton(
             QCoreApplication.translate("Settings", "Reset everything…"), changes
         )
-        self.reset_everything.setEnabled(False)
-        self.reset_everything.setToolTip(soon())
+        self.pool = pool
+        if pool is None:
+            self.reset_everything.setEnabled(False)
+            self.reset_everything.setToolTip(soon())
+        self.reset_everything.clicked.connect(self.start_reset)
+        self.reset_dialog: ResetDialog | None = None
         changes.layout().addWidget(self.reset_everything, alignment=Qt.AlignmentFlag.AlignLeft)  # type: ignore[union-attr]
         self.column.addWidget(changes)
         self.column.addStretch()
@@ -596,6 +684,28 @@ class SettingsScreen(QWidget):
                 item = QTableWidgetItem(text)
                 item.setToolTip(text)
                 self.changes_table.setItem(row, column, item)
+
+    def start_reset(self) -> ResetDialog | None:
+        """Ask M-RESET-03, then run Reset everything and show its progress (spec S-16).
+
+        Returns the progress dialog, or None if the user canceled or reset can't run here.
+        """
+        if self.pool is None or self.reset_dialog is not None:
+            return self.reset_dialog
+        question = confirm_reset(self)
+        if question.exec() != QDialog.DialogCode.Accepted:
+            return None
+        dialog = ResetDialog(fallow.start(self.pool), self)
+        dialog.finished.connect(self._reset_closed)
+        self.reset_dialog = dialog
+        dialog.open()
+        return dialog
+
+    def _reset_closed(self) -> None:
+        if self.reset_dialog is not None:
+            self.reset_dialog.deleteLater()
+            self.reset_dialog = None
+        self.refresh_changes()
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's name
         """Show the ledger as it is now: routing may have changed it since the last visit."""

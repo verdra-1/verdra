@@ -439,6 +439,21 @@
     </message>
 </context>
 <context>
+    <name>M-RESET-03</name>
+    <message>
+        <source>Remove everything Verdra changed on this computer?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset everything</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Your profiles and library stay.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RESET-05</name>
     <message>
         <source>Verdra can&apos;t read its list of system changes in {path}.</source>
@@ -1051,6 +1066,22 @@
     </message>
     <message>
         <source>Advanced mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset everything</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset everything progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
