@@ -118,6 +118,9 @@ All notable changes to Verdra are recorded here. The format follows
   every line to Activity.
 - Reset everything can also delete your profiles, library and settings (off by default). It only
   does so when every change was removed; Verdra then quits and deletes its own folders last.
+- One routing status (S-14, first part): Idle, Routing, Degraded or Error with its reason, from
+  the events routing reports; Error wins over Degraded, and each change of state is written to
+  Activity once.
 
 ### Changed
 
@@ -140,6 +143,9 @@ All notable changes to Verdra are recorded here. The format follows
 - The logging thread keeps the object it reports through alive, so a record logged while the
   logging is being replaced can't fail with "Signal source has been deleted".
 - The toast stack's event filter does nothing when Qt calls it during window teardown.
+- Stopping logging gives the `verdra` logger back its earlier level and propagation, so a level
+  left behind can't change what is recorded afterwards; changing detailed logging after the
+  stop only remembers the choice.
 - Local gates now run exactly what each CI job runs, with its own dependency groups
   (`tools/gates.py`), and `.python-version` pins Python 3.14.8 exactly; a nightly job tries the
   newest 3.14 and opens an issue if it fails (decision record 0016).

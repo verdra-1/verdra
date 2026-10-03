@@ -58,6 +58,10 @@ Always show whether routing works, and why not.
 - M-STATUS-04 (Popover, new in R5) "Degraded. <reason>." Buttons "Restart Roblox through Verdra"
   or "Repair certificate", as fits.
 - M-STATUS-05 (Popover, new in R5) "Error. <reason>." One fix button specific to the reason.
+- M-STATUS-06 (Activity, new) "Routing status changed from <old> to <new>." A change to Idle or
+  Routing.
+- M-STATUS-07 (Activity, new) "Routing status changed from <old> to <new>: <reason>" A change to
+  Degraded or Error, with its reason.
 
 ## Acceptance tests
 

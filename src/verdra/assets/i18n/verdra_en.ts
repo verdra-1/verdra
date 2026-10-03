@@ -722,6 +722,13 @@
     </message>
 </context>
 <context>
+    <name>M-STATUS-01</name>
+    <message>
+        <source>Roblox isn&apos;t routed through Verdra yet. Restart it from here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-STATUS-03</name>
     <message>
         <source>Routing is off.</source>
@@ -729,6 +736,20 @@
     </message>
     <message>
         <source>Start routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-STATUS-06</name>
+    <message>
+        <source>Routing status changed from {old} to {new}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-STATUS-07</name>
+    <message>
+        <source>Routing status changed from {old} to {new}: {reason}</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

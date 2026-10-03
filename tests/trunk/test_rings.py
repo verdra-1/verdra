@@ -120,7 +120,10 @@ def test_debug_records_only_with_detailed_logging(tmp_path: Path, qtbot: QtBot) 
     settings.set("advanced.detailed_logging_since", past)
     restarted = rings.DetailedLogging(installed, settings)
     assert settings.value("advanced.detailed_logging") is False
+    assert not installed.detailed
+    installed.start(detailed=installed.detailed)
     assert logging.getLogger(rings.LOGGER_NAME).level == logging.INFO
+    installed.stop()
     del detailed, restarted
 
 
@@ -268,5 +271,23 @@ def test_the_listener_thread_survives_the_rings_that_started_it(tmp_path: Path) 
         listener.stop()  # flushes the queue through the handlers on the listener thread
     finally:
         threading.excepthook = previous
-        logging.getLogger(rings.LOGGER_NAME).handlers.clear()
+        logger = logging.getLogger(rings.LOGGER_NAME)
+        logger.handlers.clear()  # the dropped Rings never gave the logger back
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
     assert errors == []
+
+
+def test_stop_gives_the_logger_back_as_it_was(tmp_path: Path) -> None:
+    """A level left behind decided which records a later test counted (S-14 test, run order)."""
+    logger = logging.getLogger(rings.LOGGER_NAME)
+    before = (logger.level, logger.propagate, list(logger.handlers))
+    logs = rings.Rings(tmp_path)
+    logs.hold()
+    logs.start(detailed=True)
+    assert (logger.level, logger.propagate) == (logging.DEBUG, False)
+    logs.stop()
+    assert (logger.level, logger.propagate, list(logger.handlers)) == before
+    logs.set_detailed(False)  # after stop: remembered, the logger untouched
+    assert logger.level == before[0]
+    assert not logs.detailed
