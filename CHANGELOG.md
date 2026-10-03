@@ -116,3 +116,6 @@ All notable changes to Verdra are recorded here. The format follows
 - The logging thread keeps the object it reports through alive, so a record logged while the
   logging is being replaced can't fail with "Signal source has been deleted".
 - The toast stack's event filter does nothing when Qt calls it during window teardown.
+- Local gates now run exactly what each CI job runs, with its own dependency groups
+  (`tools/gates.py`), and `.python-version` pins Python 3.14.8 exactly; a nightly job tries the
+  newest 3.14 and opens an issue if it fails (decision record 0016).
