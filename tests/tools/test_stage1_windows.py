@@ -72,11 +72,21 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     pem = b"-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n"
     (version / "ssl" / "cacert.pem").write_bytes(pem)
     (local / "Roblox" / "GlobalBasicSettings_13.xml").write_text("<settings/>", encoding="utf-8")
+    # An install made as administrator (Platform facts run 37163188729): under Program Files.
+    programs = tmp_path / "Program Files"
+    shared = programs / "Roblox" / "Versions" / "version-fedcba9876543210"
+    (shared / "ClientSettings").mkdir(parents=True)
+    (shared / "RobloxPlayerBeta.exe").write_bytes(b"MZ shared")
     report = tmp_path / "out" / "report.txt"
     report.parent.mkdir()
     before = {p: p.stat().st_mtime_ns for p in tmp_path.rglob("*")}
     files = {p: p.read_bytes() for p in before if p.is_file()}
-    environment = os.environ | {"LOCALAPPDATA": str(local), "USERPROFILE": str(tmp_path)}
+    environment = os.environ | {
+        "LOCALAPPDATA": str(local),
+        "USERPROFILE": str(tmp_path),
+        "ProgramFiles": str(programs),
+        "ProgramFiles(x86)": str(tmp_path / "Program Files (x86)"),
+    }
     powershell = shutil.which("powershell.exe")
     assert powershell is not None
     result = subprocess.run(  # noqa: S603 - Windows PowerShell running the repository's script
@@ -107,5 +117,10 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     assert "RobloxPlayerBeta.exe | 21 bytes" in text
     assert f"SHA-256 {hashlib.sha256(pem).hexdigest().upper()}" in text
     assert "Settings file name: GlobalBasicSettings_13.xml" in text
+    shown = r"%USERPROFILE%\Program Files\Roblox\Versions\version-fedcba9876543210"
+    assert f"Version folder: {shown}" in text
+    assert "RobloxPlayerBeta.exe | 9 bytes" in text
+    assert f"Present: {shown}\\ClientSettings" in text
+    assert r"Not present: %USERPROFILE%\Program Files (x86)\Roblox\Versions" in text
     assert "== W-10 The hosts file is readable as a normal user ==" in text
     assert text.rstrip().endswith("End of report.")
