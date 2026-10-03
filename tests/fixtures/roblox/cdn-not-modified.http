@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
+# host: c1.rbxcdn.com
+# request: GET /{{hex}}
+HTTP/1.1 304 Not Modified
+ETag: "{{hex}}"
+Cache-Control: public, max-age=31536000
+

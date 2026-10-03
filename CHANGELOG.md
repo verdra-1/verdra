@@ -94,3 +94,7 @@ All notable changes to Verdra are recorded here. The format follows
   with secrets removed; bodies are buffered only for handlers that ask, up to 64 MB; unchanged
   responses pass through byte for byte; a server whose certificate doesn't verify gets the
   client a 502 and M-PROXY-02.
+- A fake Roblox server for the proxy tests (`tools/fake_roblox.py`): the plan 10.2 hosts over
+  real TLS from a per-session test CA, 1,000 distinct responses from hand-written fixtures with
+  invented IDs, in every content encoding and framing, and modes for broken certificates and
+  TLS 1.1. All 1,000 pass through Verdra byte-identical, intercepted and tunneled.
