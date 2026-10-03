@@ -13,7 +13,14 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QPropertyAnimation, Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QWidget
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QApplication,
+    QComboBox,
+    QLayout,
+    QWidget,
+    QWidgetItem,
+)
 from pytestqt.qtbot import QtBot
 
 from verdra.canopy.crown import splash as splash_module
@@ -95,6 +102,18 @@ def test_theme_switches_live(
     scheme[0] = Qt.ColorScheme.Light
     app.styleHints().colorSchemeChanged.emit(Qt.ColorScheme.Light)
     assert shell.theme.mode == "light"
+
+
+def test_the_theme_skips_stale_wrappers_from_all_widgets(
+    shell: Shell, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # PySide can return a stale wrapper of another type from allWidgets() (CI run 37089139006:
+    # "'QWidgetItem' object has no attribute 'property'"); applying the theme must not fail.
+    app = shell.theme.app
+    widgets = app.allWidgets()
+    stale = QWidgetItem(QWidget())
+    monkeypatch.setattr(app, "allWidgets", lambda: [stale, *widgets])
+    shell.theme.apply()
 
 
 def focus_chain(window: QWidget) -> list[QWidget]:
@@ -253,6 +272,21 @@ def test_closing_hides_to_the_tray_once_noticed(
     shell.window.show()
     shell.window.close()
     assert quits == [True]
+
+
+def layout_widgets(layout: QLayout) -> list[QWidget]:
+    """Return a layout's widgets without keeping its layout items alive in Python.
+
+    Qt deletes a layout item when its widget leaves the layout; a Python wrapper still holding
+    the item then goes stale, and PySide can return it for a widget made at the same address.
+    """
+    widgets: list[QWidget] = []
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        widget = item.widget() if item is not None else None
+        if widget is not None:
+            widgets.append(widget)
+    return widgets
 
 
 def css_colors(sheet: str) -> set[str]:
@@ -524,8 +558,7 @@ def test_settings_notices_are_inline_notices(  # noqa: PLR0917 - pytest passes f
     shell.build()
     qtbot.addWidget(shell.window)
     try:
-        items = [shell.window.notices.itemAt(i) for i in range(shell.window.notices.count())]
-        notices = [item.widget() for item in items if item is not None]
+        notices = layout_widgets(shell.window.notices)
         assert [type(n) for n in notices] == [Notice]
         (notice,) = notices
         assert isinstance(notice, Notice)
