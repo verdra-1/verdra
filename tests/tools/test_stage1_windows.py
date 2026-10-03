@@ -85,8 +85,17 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     )  # fmt: skip
     assert result.returncode == 0, result.stderr
     after = {p: p.stat().st_mtime_ns for p in tmp_path.rglob("*")}
-    assert set(after) - set(before) == {report}  # nothing else appeared
-    assert {p: after[p] for p in before} == before  # and nothing was changed
+    # Windows PowerShell itself (not the script) keeps a startup cache in its own folder and
+    # makes the Roaming folder if it is missing, on every run of any script (CI run 37161489112).
+    own = (local / "Microsoft" / "Windows" / "PowerShell", tmp_path / "AppData" / "Roaming")
+    powershell_parents = {local / "Microsoft", local / "Microsoft" / "Windows"}
+
+    def powershells(path: Path) -> bool:
+        return path in powershell_parents or any(path.is_relative_to(o) for o in own)
+
+    appeared = {p for p in set(after) - set(before) if not powershells(p)}
+    assert appeared == {report}  # nothing but the report appeared
+    assert {p: after[p] for p in before} == before  # and nothing that was there changed
     text = report.read_text(encoding="utf-8-sig")
     assert str(tmp_path) not in text  # the user folder is hidden
     assert r"%USERPROFILE%\AppData\Local\Roblox\Versions\version-0123456789abcdef" in text
