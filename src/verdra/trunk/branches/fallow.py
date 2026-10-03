@@ -17,6 +17,7 @@ entries. `command_line` is `verdra --reset-everything [--quiet]`.
 from __future__ import annotations
 
 import contextlib
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,6 +27,9 @@ from PySide6.QtCore import QCoreApplication, QObject
 
 from verdra.bark import husk, scar
 from verdra.roots import gardener
+from verdra.trunk import tendrils
+
+log = logging.getLogger(__name__)
 
 #: Undoes one ledger entry and marks it `removed`; raises if it can't.
 Undo = Callable[[scar.Entry, scar.Ledger], None]
@@ -240,3 +244,36 @@ def command_line(*, quiet: bool, write: Callable[[str], None] = print) -> int:
         return 1
     say(summary_line(summary))
     return 1 if summary.failed else 0
+
+
+def start(pool: tendrils.Tendrils) -> tendrils.Job:
+    """Run reset as one background job (S-16, S-04) and return the job.
+
+    The job reports each change's line (M-RESET-07, M-RESET-08) as its progress step and returns
+    the `Summary`. Every line and the summary are written to Activity. A ledger that can't be
+    read fails the job with M-RESET-05.
+    """
+
+    def work(handle: tendrils.JobHandle) -> Summary:
+        total = len(system_changes())
+        done = 0
+
+        def item(outcome: Outcome) -> None:
+            nonlocal done
+            done += 1
+            line = item_line(outcome)
+            log.log(logging.INFO if outcome.removed else logging.WARNING, "%s", line)
+            handle.report(round(100 * done / total) if total else None, line)
+
+        try:
+            summary = reset(on_item=item)
+        except LedgerUnreadableError as error:
+            message = QCoreApplication.translate(
+                "M-RESET-05", "Verdra can't read its list of system changes in {path}."
+            ).format(path=error.path)
+            log.error("%s", message)
+            raise
+        log.log(logging.WARNING if summary.failed else logging.INFO, "%s", summary_line(summary))
+        return summary
+
+    return pool.submit(QCoreApplication.translate("Settings", "Reset everything"), work)

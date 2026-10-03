@@ -473,9 +473,10 @@ def test_the_tray_has_every_plan_size_and_shows_why_items_are_off(qapp: QApplica
         assert {16, 20, 22, 24, 32} <= sizes
     tray = Tray()
     assert tray.menu.toolTipsVisible()
-    for action in (tray.apply_action, tray.pause_action, tray.reset_action):
+    for action in (tray.apply_action, tray.pause_action):
         assert not action.isEnabled()
         assert action.toolTip() == soon()
+    assert tray.reset_action.isEnabled()  # Reset everything is built (S-16)
 
 
 def test_system_changes_lists_the_ledger(services: Services, qtbot: QtBot) -> None:

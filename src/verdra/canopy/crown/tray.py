@@ -39,10 +39,12 @@ class Tray(QObject):
     Signals:
         open_requested(): "Open Verdra", or a left-click on Windows and Linux.
         quit_requested(): "Quit Verdra".
+        reset_requested(): "Reset everything…" (spec S-16).
     """
 
     open_requested = Signal()
     quit_requested = Signal()
+    reset_requested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -61,10 +63,11 @@ class Tray(QObject):
         self.apply_action = QAction(self.tr("Apply now"), self.menu)
         self.pause_action = QAction(self.tr("Pause routing"), self.menu)
         self.reset_action = QAction(self.tr("Reset everything…"), self.menu)
+        self.reset_action.triggered.connect(self.reset_requested)
         self.quit_action = QAction(self.tr("Quit Verdra"), self.menu)
         self.quit_action.triggered.connect(self.quit_requested)
         not_yet = soon()
-        for action in (self.apply_action, self.pause_action, self.reset_action):
+        for action in (self.apply_action, self.pause_action):
             action.setEnabled(False)
             action.setToolTip(not_yet)
         self.menu.addAction(self.open_action)

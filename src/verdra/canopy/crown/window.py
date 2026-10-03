@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
         }
         if services is not None:
             self.screens["settings"] = SettingsScreen(
-                services.settings, self.setup_requested.emit, self.stack
+                services.settings, self.setup_requested.emit, self.stack, pool=services.tendrils
             )
         for screen in self.screens.values():
             self.stack.addWidget(screen)
@@ -237,6 +237,7 @@ class Shell:
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
             self.tray.quit_requested.connect(self.quit)
+            self.tray.reset_requested.connect(self.reset_everything)
             self.tray.show()
         app.setQuitOnLastWindowClosed(self.tray is None)
         self.shortcuts = Shortcuts(
@@ -316,6 +317,14 @@ class Shell:
 
     def _splash_gone(self) -> None:
         self.splash = None
+
+    def reset_everything(self) -> None:
+        """Open Settings and run Reset everything from there (tray menu item 5, spec S-16)."""
+        self.activate("")
+        self.window.show_screen("settings")
+        screen = self.window.screens.get("settings")
+        if isinstance(screen, SettingsScreen):
+            screen.start_reset()
 
     def activate(self, link: str) -> None:
         """Bring the window forward; a `roblox-player:` link is handed on from M1 (S-12)."""

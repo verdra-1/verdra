@@ -113,6 +113,9 @@ All notable changes to Verdra are recorded here. The format follows
   certificate and its key. It prints one line per change and a summary (`--quiet` prints
   nothing) and exits with 1 if anything couldn't be removed; that change stays listed with its
   reason and is retried next time.
+- Reset everything in the window (S-16): Settings › System changes and the tray menu ask first
+  (Cancel is the default), then show each change as it is removed and the summary, and write
+  every line to Activity.
 
 ### Changed
 
