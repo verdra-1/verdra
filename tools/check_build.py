@@ -31,6 +31,7 @@ Usage: uv run python tools/check_build.py dist/Verdra [--launch]
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import pkgutil
@@ -261,12 +262,12 @@ def diagnostic_marker() -> bytes:
 
 def archived_modules(folder: Path) -> Iterator[tuple[str, bytes]]:
     """Yield (name, decompressed bytes) of every module in the executable's embedded archive."""
-    from PyInstaller.archive.readers import CArchiveReader  # noqa: PLC0415 - build group only
-
     executable = folder / (terrain.EXECUTABLE + (".exe" if sys.platform == "win32" else ""))
     if not executable.is_file():
         return
-    archive = CArchiveReader(str(executable))
+    # PyInstaller is in the build group only, so it's loaded once a built app is there.
+    readers: Any = importlib.import_module("PyInstaller.archive.readers")
+    archive = readers.CArchiveReader(str(executable))
     for entry in archive.toc:
         if not entry.endswith(".pyz"):
             continue
