@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
+# host: clientsettingscdn.roblox.com
+# request: GET /v2/settings/application/PCDesktopClient
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+X-Example-Request-Id: {{hex}}
+
+{"applicationSettings":{"FFlagExampleFeature{{n}}":"True","DFIntExampleLimit":"{{n}}","FStringExampleName":"example-{{n}}"}}

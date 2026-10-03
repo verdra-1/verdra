@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
+# host: apis.roblox.com
+# request: POST /user-profile-api/v1/user/profiles/get-profiles
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{"profileDetails":[{"userId":{{n}}7,"names":{"displayName":"Example Player {{n}}","username":"example_player_{{n}}"}}]}

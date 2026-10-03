@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
+# host: gamejoin.roblox.com
+# request: POST /v1/join-game
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{"jobId":"00000000-0000-4000-8000-{{hex12}}","status":2,"message":null,"joinScript":{"PlaceId":{{n}}00,"GameId":"00000000-0000-4000-8000-{{hex12}}","MachineAddress":"192.0.2.{{octet}}","ServerPort":{{port}},"UserId":{{n}}7}}

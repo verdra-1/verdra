@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
+# host: assetdelivery.roblox.com
+# request: POST /v1/assets/batch
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Cache-Control: no-cache
+
+[{"requestId":"req-{{n}}-0","location":"https://c0.rbxcdn.com/{{hex}}","assetTypeId":4,"assetId":{{n}}10},{"requestId":"req-{{n}}-1","location":"https://c1.rbxcdn.com/{{hex}}1","assetTypeId":1,"assetId":{{n}}11},{"requestId":"req-{{n}}-2","errors":[{"code":404,"message":"Asset not found"}]}]

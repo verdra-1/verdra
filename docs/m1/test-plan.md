@@ -23,10 +23,12 @@ A test tool, not shipped. Written from the plan and the public HTTP and TLS spec
 - An HTTPS server on loopback with a test CA made per test session (never a real certificate),
   serving hosts from plan 10.2 by SNI. Additional modes: a self-signed certificate, a
   certificate for the wrong host, TLS 1.1 only (must be refused), an HTTP CONNECT upstream proxy
-  and a SOCKS5 upstream proxy (with and without credentials) for S-11 test 8.
+  and a SOCKS5 upstream proxy (with and without credentials) for S-11 test 8 (see below).
 - Responses come from fixture files in `tests/fixtures/roblox/`: status, headers and body,
   replayed byte for byte, with variants for `Content-Encoding` (none, gzip, br, zstd as the plan's
   dependencies support) and chunked transfer.
+- The HTTP CONNECT and SOCKS5 upstream proxies for S-11 test 8 live with that test, in
+  `tests/roots/test_taproot.py`.
 - A fake client (`tests/support/client.py`) that connects through Verdra's proxy with `CONNECT`,
   verifies against Verdra's CA, and records the bytes it receives.
 - **Fixtures:** plan 12.1 says "recorded, anonymised". At M1 there's no capture feature yet, so
