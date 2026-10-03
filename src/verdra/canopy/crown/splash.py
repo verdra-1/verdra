@@ -99,6 +99,7 @@ class Splash(QWidget):
             self._close_timer.start(math.ceil(MINIMUM_MS - waited) + 1)
             return
         self.close()
+        self.deleteLater()  # it is shown once; nothing keeps a closed splash
         if self._then is not None:
             self._then()
 

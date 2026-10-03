@@ -234,7 +234,7 @@ class Shell:
         self.window.about_requested.connect(self.show_about)
         self.window.setup_requested.connect(self.run_setup)
         if Tray.available():
-            self.tray = Tray()
+            self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
             self.tray.quit_requested.connect(self.quit)
             self.tray.show()
@@ -308,7 +308,9 @@ class Shell:
         if self.splash is None:
             reveal()
         else:
-            self.splash.finish(reveal)
+            # The splash deletes itself once it has closed; the shell lets go of it now.
+            splash, self.splash = self.splash, None
+            splash.finish(reveal)
 
     def activate(self, link: str) -> None:
         """Bring the window forward; a `roblox-player:` link is handed on from M1 (S-12)."""

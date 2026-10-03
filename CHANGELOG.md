@@ -102,3 +102,17 @@ All notable changes to Verdra are recorded here. The format follows
   only when running from source, decrypts every plan 10.2 host, changes nothing, writes both
   sides' TLS details to Activity (M-DIAG-02) and shows M-DIAG-01 while it is on. Builds leave the
   code out, refuse the flag, and the build check proves both (decision record 0015).
+
+### Fixed
+
+- UI tests that failed only sometimes on Linux (main after the diagnostic-interception change,
+  and #33 before it): a window outlived its test and was deleted during a later one, and a
+  Python wrapper of a freed layout item was handed back for a new object at the same address.
+  Every test now deletes what it made before it ends, and a guard fails any test that leaves a
+  window or a stale layout-item wrapper behind. The nightly run repeats the whole suite in a
+  shuffled order.
+- The tray menu is deleted with the tray, and the color-scheme signal no longer reaches a
+  deleted tray. The splash is deleted once it has closed.
+- The logging thread keeps the object it reports through alive, so a record logged while the
+  logging is being replaced can't fail with "Signal source has been deleted".
+- The toast stack's event filter does nothing when Qt calls it during window teardown.

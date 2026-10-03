@@ -20,7 +20,7 @@ import threading
 import time
 import zipfile
 from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -101,10 +101,12 @@ class RingBuffer:
 class _RingHandler(logging.Handler):
     """Feeds the ring buffer and tells the Activity model, from the listener thread."""
 
-    def __init__(self, ring: RingBuffer, notify: Callable[[ActivityRecord], None]) -> None:
+    def __init__(self, ring: RingBuffer, bridge: _Bridge) -> None:
         super().__init__()
         self._ring = ring
-        self._notify = notify
+        # The bridge itself, not its bound signal: a bound signal doesn't keep the object alive,
+        # and the listener thread may outlive the Rings that made it.
+        self._bridge = bridge
 
     def emit(self, record: logging.LogRecord) -> None:
         message = record.getMessage()
@@ -112,7 +114,7 @@ class _RingHandler(logging.Handler):
             message = f"{message}\n{record.exc_text}"
         entry = ActivityRecord(record.created, record.levelno, record.name, message)
         self._ring.append(entry)
-        self._notify(entry)
+        self._bridge.appended.emit(entry)
 
 
 class _Bridge(QObject):
@@ -267,7 +269,7 @@ class Rings:
             self.log_file, maxBytes=FILE_BYTES, backupCount=FILE_COUNT - 1, encoding="utf-8"
         )
         file_handler.setFormatter(logging.Formatter(_FORMAT))
-        ring_handler = _RingHandler(self.ring, self._bridge.appended.emit)
+        ring_handler = _RingHandler(self.ring, self._bridge)
         self._listener = logging.handlers.QueueListener(
             self._queue, file_handler, ring_handler, respect_handler_level=False
         )

@@ -1,12 +1,25 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-# Daily: long fuzzing, benchmarks, pip-audit and a dependency freshness report (Master plan 13.5).
+# Daily: long fuzzing, benchmarks, pip-audit, a dependency freshness report (Master plan 13.5) and
+# the whole test suite several times in a shuffled order, to find tests that pass or fail depending
+# on what ran before them (plan 16.2, "M1 decisions").
 name: Nightly
 
 on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      linux_runs:
+        description: Shuffled runs of the whole suite on Linux
+        default: "5"
+      windows_runs:
+        description: Shuffled runs of the whole suite on Windows
+        default: "3"
+      repeat_only:
+        description: Run only the shuffled repeats (for proving a pull request's fix)
+        type: boolean
+        default: false
 
 # No permissions unless a job asks for them.
 permissions: {}
@@ -22,6 +35,7 @@ defaults:
 jobs:
   fuzz:
     name: Long property and fuzz tests (${{ matrix.runner }})
+    if: ${{ !inputs.repeat_only }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     permissions:
@@ -52,6 +66,7 @@ jobs:
 
   benchmarks:
     name: Benchmarks
+    if: ${{ !inputs.repeat_only }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -88,6 +103,7 @@ jobs:
 
   audit:
     name: Vulnerabilities and freshness
+    if: ${{ !inputs.repeat_only }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -109,3 +125,52 @@ jobs:
             uv tree --outdated --depth 1 --no-dev
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  repeat:
+    name: Whole suite, repeated in shuffled order (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, runs: "${{ inputs.linux_runs || '5' }}" }
+          - { runner: windows-latest, runs: "${{ inputs.windows_runs || '3' }}" }
+    env:
+      QT_QPA_PLATFORM: offscreen
+      RUNS: ${{ matrix.runs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Qt system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
+            libfontconfig1 libdbus-1-3 libglib2.0-0t64
+      - name: Install
+        run: uv sync
+      - name: Shuffled runs
+        # Every run gets a new seed; a failing one is replayed with `pytest --shuffle=<seed>`.
+        # All runs complete, then the step fails if any of them failed.
+        run: |
+          failed=0
+          echo "### Shuffled runs on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
+          for run in $(seq 1 "$RUNS"); do
+            seed=$(( (RANDOM << 15 | RANDOM) ))
+            if uv run pytest -q -p no:cacheprovider --shuffle="$seed" > "run-$run.log" 2>&1; then
+              result=passed
+            else
+              result=FAILED
+              failed=$((failed + 1))
+              grep -E "^(FAILED|ERROR) " "run-$run.log" || tail -n 40 "run-$run.log"
+            fi
+            echo "- run $run, seed $seed: $result ($(tail -n 1 "run-$run.log"))" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "**$failed of $RUNS runs failed.**" >> "$GITHUB_STEP_SUMMARY"
+          [ "$failed" -eq 0 ]

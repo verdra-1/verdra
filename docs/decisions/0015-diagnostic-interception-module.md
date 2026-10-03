@@ -23,8 +23,8 @@ place has to be chosen. Two more facts shape the choice:
 - The diagnostic code lives in one module, `src/verdra/roots/litmus.py` (litmus: a lichen dye used
   for testing). It builds the diagnostic interception (every 10.2 host, no symbionts, so nothing
   changes) and writes the TLS details of both sides of each connection to Activity (M-DIAG-02).
-  It carries the string `MARKER`; nothing else does. The module is added to the module tree in
-  `docs/architecture.md`, marked as source only. R1 itself is unchanged.
+  It carries the string `MARKER`; nothing else does. The maintainer accepted the module on
+  3 October 2026; Reference R1 and `docs/architecture.md` list it as source only.
 - `trunk/sapwood/cli` accepts the flag only when Verdra isn't frozen and `roots/litmus.py` is
   present next to its package. Otherwise argparse rejects it with its own "unrecognized
   arguments" error and exit code 2, before logging, the window or routing start.
@@ -39,7 +39,6 @@ place has to be chosen. Two more facts shape the choice:
 ## Consequences
 
 - The flag can't reach users by accident: a build that held the module would fail CI.
-- The module tree has one module that R1 doesn't list. If the plan's R1 is updated, it can name
-  `roots/litmus.py` as source only; until then `docs/architecture.md` notes the difference.
+- R1 lists `roots/litmus.py` (accepted 3 October 2026, plan 16.2 "M1 decisions").
 - At M2, when real features intercept, the module and the flag can be removed together with this
   record's checks.
