@@ -46,10 +46,21 @@ Each step below says which row of `docs/platforms/<os>.md` it fills. For every s
   ```
 
   While the flag is on, Verdra shows the notice M-DIAG-01, intercepts only the 10.2 hosts, passes
-  everything through unchanged, and writes one Activity line per intercepted connection with the
-  host, TLS version, cipher, whether the upstream chain verified, and the leaf certificate's key
-  type. The exact wording of that line is fixed when S-11 is built; this protocol is updated then.
+  everything through unchanged, and writes two Activity lines per intercepted connection (M-DIAG-02,
+  spec S-11), one for each side:
+
+  ```text
+  Diagnostic interception, <host> (Roblox to Verdra): <TLS version>, <cipher>, Verdra's certificate, key ECDSA P-256.
+  Diagnostic interception, <host> (Verdra to the server): <TLS version>, <cipher>, the server's certificate verified.
+  ```
+
+  A "not verified" in the second line, or no lines at all for a host Roblox uses, is a fail.
   To stop: quit Verdra (tray › Quit Verdra) and start it again without the flag.
+
+  Stage 2 can only run once routing starts from the window (adding Verdra's certificate to the
+  trust files and launching Roblox with the proxy settings, specs S-10 and S-12), and that needs
+  the trust-file and launcher paths Stage 1 records. So Stage 1 comes first; Stage 2 follows in a
+  second session once that code is merged, and this protocol will name the build to use.
 
 ## Step 0: the machine (each OS)
 
