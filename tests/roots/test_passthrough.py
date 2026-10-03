@@ -26,8 +26,14 @@ def run[T](coroutine: Callable[[], Awaitable[T]]) -> T:
     return asyncio.run(asyncio.wait_for(coroutine(), timeout=120))
 
 
-async def replay_all(intercepted: bool) -> fake_roblox.FakeRoblox:
-    """Send every replay through Verdra's proxy, one keep-alive connection per host."""
+Diagnose = Callable[[hyphae.LeafContexts, hyphae.Opener], hyphae.Interception]
+
+
+async def replay_all(intercepted: bool, diagnose: Diagnose | None = None) -> fake_roblox.FakeRoblox:
+    """Send every replay through Verdra's proxy, one keep-alive connection per host.
+
+    With `diagnose`, that function builds the interception (roots/litmus, spec S-11 test 9).
+    """
     authority = resin.create_authority(NOW)
     async with fake_roblox.FakeRoblox(REPLAYS) as server:
 
@@ -40,10 +46,14 @@ async def replay_all(intercepted: bool) -> fake_roblox.FakeRoblox:
                 address="127.0.0.1",
             )
 
-        interception = hyphae.Interception(
-            hyphae.LeafContexts(authority),
-            lambda: frozenset(fake_roblox.HOSTS) if intercepted else frozenset(),
-            open_upstream,
+        interception = (
+            diagnose(hyphae.LeafContexts(authority), open_upstream)
+            if diagnose is not None
+            else hyphae.Interception(
+                hyphae.LeafContexts(authority),
+                lambda: frozenset(fake_roblox.HOSTS) if intercepted else frozenset(),
+                open_upstream,
+            )
         )
         proxy = mycelium.Mycelium(
             0,
