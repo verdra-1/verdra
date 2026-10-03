@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt
@@ -378,6 +379,8 @@ class ResetDialog(QDialog):
         self.erase = erase
         #: Set once reset removed everything with the option ticked: Verdra quits on Close.
         self.quit_to_erase = False
+        #: A library the user moved to a folder of their choosing: never deleted, only named.
+        self.moved_library: Path | None = None
         title = QCoreApplication.translate("Settings", "Reset everything")
         self.setWindowTitle(title)
         self.setAccessibleName(title)
@@ -434,6 +437,12 @@ class ResetDialog(QDialog):
                 "When you close this window, Verdra deletes your profiles, library and settings "
                 "and quits.",
             )
+            if self.moved_library is not None:
+                text += " " + QCoreApplication.translate(
+                    "M-RESET-12",
+                    "Your library in {path} stays, because you chose that folder; delete it "
+                    "yourself if you no longer need it.",
+                ).format(path=self.moved_library)
         if self.erase:
             log.info("%s", text)
         self._finish(text)
@@ -737,6 +746,7 @@ class SettingsScreen(QWidget):
         if question.exec() != QDialog.DialogCode.Accepted:
             return None
         dialog = ResetDialog(fallow.start(self.pool), self, erase=erase.isChecked())
+        dialog.moved_library = fallow.moved_library(str(self.settings.value("library.location")))
         dialog.finished.connect(self._reset_closed)
         self.reset_dialog = dialog
         dialog.open()

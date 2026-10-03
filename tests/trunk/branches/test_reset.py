@@ -276,3 +276,20 @@ def test_erasing_never_deletes_a_home_folder_or_a_root(monkeypatch: pytest.Monke
     monkeypatch.setattr(fallow, "own_folders", lambda: [Path.home(), Path(Path.home().anchor)])
     assert fallow.erase_own_folders() == [Path.home(), Path(Path.home().anchor)]
     assert deleted == []
+
+
+def test_a_moved_library_is_named_and_the_default_one_is_not(tmp_path: Path) -> None:
+    assert fallow.moved_library("") is None
+    assert fallow.moved_library(str(terrain.default_library_dir())) is None
+    chosen = tmp_path / "My library"
+    assert fallow.moved_library(str(chosen)) == chosen
+
+
+def test_erasing_leaves_a_moved_library_alone(tmp_path: Path) -> None:
+    chosen = tmp_path / "My library"
+    (chosen / "blobs").mkdir(parents=True)
+    (chosen / "blobs" / "asset").write_bytes(b"x")
+    for folder in fallow.own_folders():
+        folder.mkdir(parents=True, exist_ok=True)
+    assert fallow.erase_own_folders() == []
+    assert (chosen / "blobs" / "asset").read_bytes() == b"x"

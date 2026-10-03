@@ -74,6 +74,9 @@ Undo every change Verdra made to the system, in one action, even after a crash.
 - M-RESET-11 (command line, new) "Verdra couldn't delete everything in <folders>." Printed to the
   error stream when the folders can't be deleted completely at the end of the run, when logging
   has already stopped.
+- M-RESET-12 (Dialog, new) "Your library in <path> stays, because you chose that folder; delete it
+  yourself if you no longer need it." After M-RESET-09, when the library was moved to a folder
+  the user chose.
 - M-RESET-01 and M-RESET-02 have singular forms ("Removed 1 change.", "1 change couldn't be
   removed.").
 
@@ -132,9 +135,10 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   Its folders are only deleted if every change was removed (M-RESET-09; otherwise M-RESET-10).
   Closing the window then quits Verdra; shutdown saves no settings or window state, and once
   background jobs and logging have stopped it deletes the config folder, the default library
-  folder and the log folder (plan 9.1). A library the user moved to a folder of their choosing
-  isn't deleted wholesale, because that folder may hold their own files; when moving the
-  library is built (M2), its own files are deleted there.
+  folder and the log folder (plan 9.1). Only these default folders are deleted (plan 16.2,
+  "M1 decisions"): a library the user moved to a folder of their choosing is never deleted,
+  and M-RESET-12 tells them where it is. A home folder or a drive root is never deleted, whatever
+  the configuration.
 - The command line loads the message catalogue for the language in the settings before it
   prints, so its lines and the summary's plural forms match the window's. If the ledger can't
   be read, it prints M-RESET-05, changes nothing (the CA key stays, because trust files may

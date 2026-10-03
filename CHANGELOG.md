@@ -117,7 +117,9 @@ All notable changes to Verdra are recorded here. The format follows
   (Cancel is the default), then show each change as it is removed and the summary, and write
   every line to Activity.
 - Reset everything can also delete your profiles, library and settings (off by default). It only
-  does so when every change was removed; Verdra then quits and deletes its own folders last.
+  does so when every change was removed; Verdra then quits and deletes its own folders last. A
+  library you moved to a folder of your own is never deleted; the closing message says where it
+  is.
 - One routing status (S-14, first part): Idle, Routing, Degraded or Error with its reason, from
   the events routing reports; Error wins over Degraded, and each change of state is written to
   Activity once.

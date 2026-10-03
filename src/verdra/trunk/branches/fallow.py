@@ -285,10 +285,23 @@ def own_folders() -> list[Path]:
     """Return the folders the option "Also delete my profiles, library and settings" deletes.
 
     Plan 9.1: the config folder (settings, profiles, presets, ledger), the default library
-    folder and the log folder. A library moved to a folder the user chose isn't deleted
-    wholesale: that folder may hold the user's own files (spec S-16, refinements).
+    folder and the log folder. A library moved to a folder the user chose is never deleted: the
+    closing message names it instead (M-RESET-12; plan 16.2, "M1 decisions").
     """
     return [terrain.config_dir(), terrain.default_library_dir(), terrain.logs_dir()]
+
+
+def moved_library(location: str) -> Path | None:
+    """Return the library folder the user chose, which erasing keeps, or None if it is the default.
+
+    `location` is the setting `library.location` ("" for the default folder).
+    """
+    if not location:
+        return None
+    chosen = Path(location)
+    if chosen.resolve() == terrain.default_library_dir().resolve():
+        return None
+    return chosen
 
 
 def erase_own_folders() -> list[Path]:

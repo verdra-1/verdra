@@ -503,6 +503,13 @@
     </message>
 </context>
 <context>
+    <name>M-RESET-12</name>
+    <message>
+        <source>Your library in {path} stays, because you chose that folder; delete it yourself if you no longer need it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RISK-01</name>
     <message>
         <source>I understand the risk</source>

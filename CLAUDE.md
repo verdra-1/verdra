@@ -101,6 +101,9 @@ operating system. The maintainer has one Windows PC; Linux runs in a virtual mac
 - A test that fails only sometimes is a real bug: find the cause, fix it, add a guard for the whole
   category. Never re-run hoping it passes. If the cause isn't found quickly, revert first.
 - Run local gates with exactly the dependency groups and Python version each CI job uses.
+- Before pushing any change to startup, the shell, the splash, the tray, packaging or the build
+  check, run the build job locally too (`uv run python tools/gates.py --jobs build`: PyInstaller
+  build, Qt scan, launch check).
 - Never guess on licensing, security or anything that changes the user's system. If the plan is
   wrong or impossible, explain it, propose a fix, and record the decision in `docs/decisions/`.
 - Say plainly what you could not verify.
