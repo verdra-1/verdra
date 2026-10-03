@@ -101,3 +101,9 @@ def test_identifiers_flags_and_file_names_are_checked(tmp_path: Path) -> None:
     assert [str(finding) for finding in found] == [
         "tools/check_colours.py (file name): British spelling 'colours'; use the US form (color)"
     ]
+
+
+def test_the_changelog_and_readme_are_checked() -> None:
+    """Plan 16.2, "M1 decisions": both become release notes, so the gate reads them."""
+    names = {path.name for path in check_spelling.DOCUMENTS}
+    assert {"CHANGELOG.md", "README.md"} <= names

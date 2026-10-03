@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -1913,6 +1913,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-qt" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "uharfbuzz" },
 ]
@@ -1956,6 +1957,7 @@ dev = [
     { name = "pytest", specifier = ">=8.4" },
     { name = "pytest-cov", specifier = ">=7" },
     { name = "pytest-qt", specifier = ">=4.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.13" },
     { name = "uharfbuzz", specifier = ">=0.50" },
 ]

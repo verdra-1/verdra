@@ -163,7 +163,7 @@ Not part of the app, but written under the same clean-room rules (review finding
 | `tools/coverage_floors.py` | Master plan 12.1 | coverage.py JSON report format | 2026-10-01 |
 | `tools/i18n.py` | Master plan 12.3, Reference R5; `pyside6-lupdate` documentation | PySide6 tools | 2026-10-01 |
 | `tools/fake_roblox.py` | Master plan 10.2, 12.1, spec S-11 (test 1), docs/m1/test-plan.md; RFC 9112 (HTTP/1.1 messages, chunked coding); Python `ssl` (SNI callback), `asyncio`, `gzip` and `compression.zstd` documentation. Fixtures in `tests/fixtures/roblox/` are hand-written with invented IDs | cryptography (through `bark/resin`) | 2026-10-03 |
-| `tools/gates.py` | Master plan 12.3, 16.2 ("M1 decisions"), decision record 0016; GitHub Actions workflow syntax documentation | PyYAML (through pre-commit, dev group) | 2026-10-03 |
+| `tools/gates.py` | Master plan 12.3, 16.2 ("M1 decisions"), decision record 0016; GitHub Actions workflow syntax documentation | PyYAML (dev group) | 2026-10-03 |
 | `tools/icons.py` | Master plan 4.4, 4.6, design system logo rules; SVG, ICO and ICNS file format documentation | fontTools, uharfbuzz, PySide6 (QtSvg, QtGui) | 2026-10-01 |
 | `tools/licenses.py` | Master plan 8.1, 12.3, Reference R4, decision record 0010 | pip-licenses, packaging | 2026-10-01 |
 | `packaging/verdra.spec` | Master plan 13.6, Reference R3, decision records 0002 and 0010; PyInstaller spec-file documentation | PyInstaller | 2026-10-02 |

@@ -46,7 +46,7 @@ RUNNER_ONLY = ("sudo apt-get", "coverage combine")
 
 def load_jobs(path: Path = CI) -> dict[str, Any]:
     """Return the `jobs` mapping of a workflow."""
-    yaml: Any = importlib.import_module("yaml")  # PyYAML comes with pre-commit (dev group)
+    yaml: Any = importlib.import_module("yaml")  # PyYAML, dev group
     return yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
 
 

@@ -14,7 +14,7 @@ def test_a_window_left_alive_is_named(qapp: QApplication) -> None:
     window = QWidget()
     window.setObjectName("forgotten")
     window.show()
-    problems = qt_lifetimes.problems_after(before, uses_qt=True)
+    problems = qt_lifetimes.problems_after(before)
     assert len(problems) == 1
     assert problems[0].startswith("windows still alive after the test that made them: QWidget")
     assert "'forgotten'" in problems[0]
@@ -35,7 +35,7 @@ def test_a_stale_layout_item_wrapper_is_named(qapp: QApplication) -> None:
     label.deleteLater()  # the widget leaves; Qt frees its layout item
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     window.deleteLater()
-    problems = qt_lifetimes.problems_after(before, uses_qt=True)
+    problems = qt_lifetimes.problems_after(before)
     assert problems == [
         "1 stale Python wrapper(s) of layout items (QWidgetItem): their items left the layout, "
         "and PySide would hand the wrapper back for a new object made at the same address. "
@@ -54,7 +54,7 @@ def test_wrappers_of_items_still_in_their_layout_are_fine(qapp: QApplication) ->
     outer.addLayout(inner)
     assert len(qt_lifetimes.item_wrappers()) == 1
     window.deleteLater()
-    assert qt_lifetimes.problems_after(before, uses_qt=True) == []
+    assert qt_lifetimes.problems_after(before) == []
 
 
 def test_a_clean_test_passes(qapp: QApplication) -> None:
@@ -62,4 +62,22 @@ def test_a_clean_test_passes(qapp: QApplication) -> None:
     window = QWidget()
     QVBoxLayout(window).addWidget(QLabel("x"))
     window.deleteLater()
-    assert qt_lifetimes.problems_after(before, uses_qt=True) == []
+    assert qt_lifetimes.problems_after(before) == []
+
+
+def test_tests_without_the_qt_fixtures_are_checked_too() -> None:
+    """No exceptions (plan 16.2): the guard doesn't depend on which fixtures a test asked for."""
+    app = QApplication.instance() or QApplication([])
+    assert app is not None
+    before = set(qt_lifetimes.windows())
+    window = QWidget()
+    layout = QVBoxLayout(window)
+    label = QLabel("x")
+    layout.addWidget(label)
+    layout.itemAt(0)
+    label.deleteLater()
+    qt_lifetimes.flush_deletions()
+    window.deleteLater()
+    problems = qt_lifetimes.problems_after(before)
+    assert len(problems) == 1
+    assert problems[0].startswith("1 stale Python wrapper(s) of layout items (QWidgetItem)")

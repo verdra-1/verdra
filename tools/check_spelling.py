@@ -9,8 +9,9 @@ prose, format IDs (`verdra.catalogue`) and the nature names keep theirs. This ga
 
 - every source string of the message catalogue (`src/verdra/assets/i18n/verdra_en.ts`), which
   holds every string the app shows;
-- the user-facing documents `README.md` and `PRIVACY.md` (the About dialog shows the latter),
-  outside code spans, fenced code blocks and link targets;
+- the user-facing documents `README.md`, `PRIVACY.md` (the About dialog shows it) and
+  `CHANGELOG.md` (it becomes the release notes; plan 16.2, "M1 decisions"), outside code
+  spans, fenced code blocks and link targets;
 - every identifier, and every command-line flag written as a string, in the Python files under
   `src/`, `tools/`, `tests/` and `packaging/`, and those files' names. Docstrings, comments and
   other strings are prose and are not checked here.
@@ -34,7 +35,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "src" / "verdra" / "assets" / "i18n" / "verdra_en.ts"
-DOCUMENTS = (ROOT / "README.md", ROOT / "PRIVACY.md")
+DOCUMENTS = (ROOT / "README.md", ROOT / "PRIVACY.md", ROOT / "CHANGELOG.md")
 CODE_FOLDERS = ("src", "tools", "tests", "packaging")
 #: The words of an identifier: "css_colour" → css, colour; "JobCancelledError" → Job, Cancelled.
 IDENTIFIER_WORD = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])")

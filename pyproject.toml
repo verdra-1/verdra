@@ -62,6 +62,8 @@ dev = [
   "pip-licenses>=5",
   "pip-audit>=2.9",
   "pre-commit>=4.3",
+  # tools/gates.py and the workflow tests read the CI workflows (MIT; plan 16.2, "M1 decisions").
+  "pyyaml>=6.0.3",
   # Build time only (Reference R4): tools/icons.py outlines the wordmark from the display font.
   # Never imported by the app, so never shipped.
   "fonttools>=4.60",
