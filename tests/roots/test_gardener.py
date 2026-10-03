@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """Spec S-10: the CA block in Roblox trust files (rules 2 to 4, tests 2 and 7)."""
 
+import logging
 import os
 import stat
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QTimer
+from pytestqt.qtbot import QtBot
 
 from tests.bark.test_husk import MemoryKeyring
 from verdra.bark import husk, resin, scar
@@ -235,3 +239,57 @@ def test_a_certificate_without_its_key_means_a_new_ca(
     cert_file.write_bytes(b"not a certificate")
     third = gardener.ensure_ca(vault, book, files, NOW, cert_file)
     assert third.certificate != second.certificate
+
+
+# --- New Roblox versions (spec S-10, test 3) ---------------------------------------------------
+
+
+#: Stand-in for the recorded layout: the trust file inside a version folder (plan 16.4).
+def trust_files_in(version: Path) -> list[Path]:
+    return [version / "ssl" / "cacert.pem"]
+
+
+@pytest.mark.spec("S-10", 3)
+def test_a_new_version_folder_gets_the_block_within_10_s(
+    tmp_path: Path,
+    authority: resin.Authority,
+    qtbot: QtBot,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    install = tmp_path / "Versions"
+    (install / "version-old" / "ssl").mkdir(parents=True)
+    book = scar.Ledger(tmp_path / "changes.json")
+    watch = gardener.VersionWatch([install], trust_files_in, authority.certificate, book)
+    started = time.monotonic()
+    with (
+        caplog.at_level(logging.INFO, logger="verdra"),
+        qtbot.waitSignal(watch.updated, timeout=10_000) as signal,
+    ):
+        # The installer makes the folder first and writes its files a moment later.
+        version = install / "version-new"
+        (version / "ssl").mkdir(parents=True)
+        QTimer.singleShot(
+            1500, lambda: (version / "ssl" / "cacert.pem").write_bytes(FIXTURES["lf"])
+        )
+    assert time.monotonic() - started < 10
+    assert signal.args == [str(version)]
+    data = (version / "ssl" / "cacert.pem").read_bytes()
+    assert blocks(data) == 1
+    assert [e.target for e in book.entries()] == [str(version / "ssl" / "cacert.pem")]
+    activity = [r.getMessage() for r in caplog.records if r.name.startswith("verdra")]
+    assert activity == ["Roblox updated. Verdra added its certificate to the new version."]
+    assert not watch.pending
+    assert not watch.timer.isActive()
+
+
+def test_a_version_folder_that_never_gets_a_trust_file_is_given_up(
+    tmp_path: Path, authority: resin.Authority, qtbot: QtBot
+) -> None:
+    install = tmp_path / "Versions"
+    install.mkdir()
+    book = scar.Ledger(tmp_path / "changes.json")
+    watch = gardener.VersionWatch([install], trust_files_in, authority.certificate, book)
+    watch.PATIENCE_SECONDS = 0.5
+    (install / "version-empty").mkdir()
+    qtbot.waitUntil(lambda: not watch.pending and not watch.timer.isActive(), timeout=10_000)
+    assert book.entries() == []
