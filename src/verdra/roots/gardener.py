@@ -3,7 +3,8 @@
 """Routing lifecycle and status (Idle, Routing, Degraded, Error); CA in Roblox trust files;
 coexistence check.
 
-This part: the CA block in Roblox trust files (spec S-10). Each change is recorded in the
+The CA block in Roblox trust files (spec S-10), and the one routing status (spec S-14,
+`RoutingStatusSource`). Each change is recorded in the
 ledger before it is made (`ca_roblox_bundle`, plan 9.4) with the file's SHA-256, its original
 mode (read-only flag included) and the exact bytes inserted, so removing the block gives back
 the file byte for byte. Files are written only through soil/atomic. Which files to change comes
@@ -19,9 +20,13 @@ import os
 import stat
 import time
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
+from typing import Final, Protocol
 
+import shiboken6
 from cryptography import x509
 from PySide6.QtCore import QCoreApplication, QFileSystemWatcher, QObject, QTimer, Signal
 
@@ -224,3 +229,238 @@ def _subfolders(folder: Path) -> set[Path]:
         return {child for child in folder.iterdir() if child.is_dir()}
     except OSError:
         return set()
+
+
+# --- Routing status (spec S-14) ------------------------------------------------------------------
+
+
+class State(StrEnum):
+    """The routing state everything that shows status renders (plan 7.1, 4.6, 7.10)."""
+
+    IDLE = "idle"
+    ROUTING = "routing"
+    DEGRADED = "degraded"
+    ERROR = "error"
+
+    def label(self) -> str:
+        """Return the state's word in the interface language."""
+        return {
+            State.IDLE: QCoreApplication.translate("Status", "Idle"),
+            State.ROUTING: QCoreApplication.translate("Status", "Routing"),
+            State.DEGRADED: QCoreApplication.translate("Status", "Degraded"),
+            State.ERROR: QCoreApplication.translate("Status", "Error"),
+        }[self]
+
+
+class Trigger(StrEnum):
+    """Why routing isn't simply Routing or Idle (spec S-14 table)."""
+
+    #: Degraded (a): a launched Roblox sent nothing through Verdra within the launch window.
+    NOT_ROUTED = "not_routed"
+    #: Degraded (b): an upstream certificate couldn't be verified (S-11).
+    UPSTREAM_CERTIFICATE = "upstream_certificate"
+    #: Degraded (c): an installed Roblox version lacks the CA block (S-10).
+    CA_MISSING = "ca_missing"
+    #: Error: the proxy couldn't start (M-PROXY-01).
+    PROXY_FAILED = "proxy_failed"
+    #: Error: another routing tool was detected (S-15, M-COEX-01).
+    OTHER_TOOL = "other_tool"
+    #: Error: the keeper is unavailable (Hosts-file mode, M6).
+    KEEPER = "keeper"
+
+
+ERROR_TRIGGERS: Final = frozenset({Trigger.PROXY_FAILED, Trigger.OTHER_TOOL, Trigger.KEEPER})
+#: Degraded (a): how long after a launch Roblox traffic must arrive.
+LAUNCH_WINDOW_SECONDS: Final = 20.0
+#: Degraded (b) clears after this long without another certificate failure.
+CERTIFICATE_WINDOW_SECONDS: Final = 120.0
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingStatus:
+    """One published status: the state, the reason shown, and the other active reasons."""
+
+    state: State
+    trigger: Trigger | None = None
+    reason: str = ""
+    #: The other active triggers' reasons, most recent first (the popover lists them).
+    others: tuple[str, ...] = ()
+
+
+class Cancel(Protocol):
+    def __call__(self) -> None: ...
+
+
+#: Runs `callback` once after `seconds`; returns a function that cancels it.
+Schedule = Callable[[float, Callable[[], None]], Cancel]
+
+
+def qt_schedule(parent: QObject) -> Schedule:
+    """Return a `Schedule` backed by single-shot Qt timers owned by `parent`."""
+
+    def schedule(seconds: float, callback: Callable[[], None]) -> Cancel:
+        timer = QTimer(parent)
+        timer.setSingleShot(True)
+        timer.timeout.connect(callback)
+        timer.timeout.connect(timer.deleteLater)
+        timer.start(round(seconds * 1000))
+
+        def cancel() -> None:
+            if shiboken6.isValid(timer):
+                timer.stop()
+                timer.deleteLater()
+
+        return cancel
+
+    return schedule
+
+
+class RoutingStatusSource(QObject):
+    """The one routing status (spec S-14): events in, one published value out.
+
+    Callers report events (routing started or stopped, Roblox traffic seen, a launch, a
+    certificate failure, a missing or repaired CA block, an error and its end); `changed` is
+    emitted once per change of the published value, and each change of state is written to
+    Activity once. Error beats Degraded, Degraded beats Routing; among triggers of one kind the
+    most recent is shown. The only timers are the launch window and the certificate window.
+
+    Signals:
+        changed(RoutingStatus): The published status changed.
+    """
+
+    changed = Signal(object)
+
+    def __init__(self, schedule: Schedule | None = None, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._schedule = schedule if schedule is not None else qt_schedule(self)
+        self._running = False
+        #: Active triggers and their reasons, in the order they were raised.
+        self._active: dict[Trigger, str] = {}
+        self._launch: Cancel | None = None
+        self._certificate: Cancel | None = None
+        self.current = RoutingStatus(State.IDLE)
+
+    # Events --------------------------------------------------------------------------------
+
+    def started(self) -> None:
+        """The proxy is listening: Routing, unless something else holds."""
+        self._running = True
+        self._clear(Trigger.PROXY_FAILED, Trigger.UPSTREAM_CERTIFICATE, publish=False)
+        self._publish()
+
+    def stopped(self) -> None:
+        """Routing is off (paused from the tray, or stopped)."""
+        self._running = False
+        self._cancel_launch()
+        self._cancel_certificate()
+        self._clear(Trigger.NOT_ROUTED, Trigger.UPSTREAM_CERTIFICATE, publish=False)
+        self._publish()
+
+    def launched(self) -> None:
+        """Roblox was launched through Verdra: its traffic must arrive within the window."""
+        self._cancel_launch()
+        self._launch = self._schedule(LAUNCH_WINDOW_SECONDS, self._launch_window_over)
+
+    def traffic_seen(self) -> None:
+        """A Roblox connection reached Verdra: Degraded (a) clears."""
+        self._cancel_launch()
+        self._clear(Trigger.NOT_ROUTED)
+
+    def certificate_failed(self, reason: str) -> None:
+        """An upstream certificate couldn't be verified: Degraded (b) for two minutes."""
+        self._cancel_certificate()
+        self._certificate = self._schedule(
+            CERTIFICATE_WINDOW_SECONDS, lambda: self._clear(Trigger.UPSTREAM_CERTIFICATE)
+        )
+        self._raise(Trigger.UPSTREAM_CERTIFICATE, reason)
+
+    def ca_missing(self, reason: str) -> None:
+        """An installed Roblox version lacks the CA block: Degraded (c)."""
+        self._raise(Trigger.CA_MISSING, reason)
+
+    def ca_repaired(self) -> None:
+        """The CA block is back in every trust file."""
+        self._clear(Trigger.CA_MISSING)
+
+    def error(self, trigger: Trigger, reason: str) -> None:
+        """Routing can't work (`trigger` is one of `ERROR_TRIGGERS`)."""
+        if trigger not in ERROR_TRIGGERS:
+            msg = f"{trigger} is not an error trigger"
+            raise ValueError(msg)
+        self._raise(trigger, reason)
+
+    def error_cleared(self, trigger: Trigger) -> None:
+        """The cause of an error is gone."""
+        self._clear(trigger)
+
+    # Internals -----------------------------------------------------------------------------
+
+    def _launch_window_over(self) -> None:
+        self._launch = None
+        if self._running:
+            self._raise(
+                Trigger.NOT_ROUTED,
+                QCoreApplication.translate(
+                    "M-STATUS-01", "Roblox isn't routed through Verdra yet. Restart it from here."
+                ),
+            )
+
+    def _cancel_launch(self) -> None:
+        if self._launch is not None:
+            self._launch()
+            self._launch = None
+
+    def _cancel_certificate(self) -> None:
+        if self._certificate is not None:
+            self._certificate()
+            self._certificate = None
+
+    def _raise(self, trigger: Trigger, reason: str) -> None:
+        self._active.pop(trigger, None)  # most recent last
+        self._active[trigger] = reason
+        self._publish()
+
+    def _clear(self, *triggers: Trigger, publish: bool = True) -> None:
+        for trigger in triggers:
+            self._active.pop(trigger, None)
+        if publish:
+            self._publish()
+
+    def _compute(self) -> RoutingStatus:
+        recent = list(reversed(self._active.items()))
+        errors = [(t, r) for t, r in recent if t in ERROR_TRIGGERS]
+        degraded = [(t, r) for t, r in recent if t not in ERROR_TRIGGERS]
+        if errors:
+            (trigger, reason), rest = errors[0], errors[1:] + degraded
+            return RoutingStatus(State.ERROR, trigger, reason, tuple(r for _, r in rest))
+        if not self._running:
+            return RoutingStatus(State.IDLE)
+        if degraded:
+            (trigger, reason), rest = degraded[0], degraded[1:]
+            return RoutingStatus(State.DEGRADED, trigger, reason, tuple(r for _, r in rest))
+        return RoutingStatus(State.ROUTING)
+
+    def _publish(self) -> None:
+        status = self._compute()
+        if status == self.current:
+            return
+        old, self.current = self.current, status
+        if status.state is not old.state:
+            _log_change(old, status)
+        self.changed.emit(status)
+
+
+def _log_change(old: RoutingStatus, new: RoutingStatus) -> None:
+    """Write one Activity line for a change of state (S-14 "Logging", rule 2)."""
+    level = {State.DEGRADED: logging.WARNING, State.ERROR: logging.ERROR}.get(
+        new.state, logging.INFO
+    )
+    if new.reason:
+        line = QCoreApplication.translate(
+            "M-STATUS-07", "Routing status changed from {old} to {new}: {reason}"
+        ).format(old=old.state.label(), new=new.state.label(), reason=new.reason)
+    else:
+        line = QCoreApplication.translate(
+            "M-STATUS-06", "Routing status changed from {old} to {new}."
+        ).format(old=old.state.label(), new=new.state.label())
+    log.log(level, "%s", line)

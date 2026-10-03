@@ -247,6 +247,18 @@ class Rings:
         self._listener: logging.handlers.QueueListener | None = None
         self._models: list[ActivityModel] = []
         self._detailed = False
+        #: The `verdra` logger's level and propagation before this took it over; `stop` puts
+        #: them back.
+        self._saved: tuple[int, bool] | None = None
+
+    def _take_over(self) -> logging.Logger:
+        root = logging.getLogger(LOGGER_NAME)
+        if self._saved is None:
+            self._saved = (root.level, root.propagate)
+        if self._queue_handler not in root.handlers:
+            root.addHandler(self._queue_handler)
+        root.propagate = False
+        return root
 
     def hold(self) -> None:
         """Queue `verdra` records from now on, so nothing logged before `start` is lost.
@@ -255,10 +267,7 @@ class Rings:
         settings store reports then waits in the queue, redacted, and reaches the file and
         Activity when the listener starts.
         """
-        root = logging.getLogger(LOGGER_NAME)
-        if self._queue_handler not in root.handlers:
-            root.addHandler(self._queue_handler)
-        root.propagate = False
+        root = self._take_over()
         if root.level == logging.NOTSET:
             root.setLevel(logging.INFO)
 
@@ -274,25 +283,37 @@ class Rings:
             self._queue, file_handler, ring_handler, respect_handler_level=False
         )
         self._listener.start()
-        root = logging.getLogger(LOGGER_NAME)
-        if self._queue_handler not in root.handlers:
-            root.addHandler(self._queue_handler)
-        root.propagate = False
+        self._take_over()
         self.set_detailed(detailed)
 
     def stop(self) -> None:
-        """Flush every queued record to disk and remove the handlers."""
-        logging.getLogger(LOGGER_NAME).removeHandler(self._queue_handler)
+        """Flush every queued record to disk, remove the handlers and give the logger back."""
+        root = logging.getLogger(LOGGER_NAME)
+        root.removeHandler(self._queue_handler)
+        if self._saved is not None:
+            level, propagate = self._saved
+            root.setLevel(level)
+            root.propagate = propagate
+            self._saved = None
         if self._listener is not None:
             self._listener.stop()
             for handler in self._listener.handlers:
                 handler.close()
             self._listener = None
 
+    @property
+    def detailed(self) -> bool:
+        """Whether Debug records are kept."""
+        return self._detailed
+
     def set_detailed(self, detailed: bool) -> None:
-        """Keep Debug records only while detailed logging is on."""
+        """Keep Debug records only while detailed logging is on.
+
+        After `stop` the `verdra` logger is no longer this object's, so only the choice is kept.
+        """
         self._detailed = detailed
-        logging.getLogger(LOGGER_NAME).setLevel(logging.DEBUG if detailed else logging.INFO)
+        if self._saved is not None:
+            logging.getLogger(LOGGER_NAME).setLevel(logging.DEBUG if detailed else logging.INFO)
 
     def model(self, parent: QObject | None = None) -> ActivityModel:
         """Return a table model of the ring that grows as records arrive."""

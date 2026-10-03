@@ -11,10 +11,15 @@ cache folders; a test that reached them would change the machine it runs on. So 
   not write to);
 - a fresh in-memory secret store as keyring's backend, so `bark/husk` never reaches Windows
   Credential Manager or the Secret Service. Tests of other backends pass theirs explicitly.
+
+It also fails a test that leaves the `verdra` logger changed (its level, propagation or
+handlers): a level left behind decides which records the next test sees, so a test that counts
+records would pass or fail depending on what ran before it.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 
 import keyring
@@ -54,4 +59,25 @@ def isolated_system(
     monkeypatch.setenv(terrain.HOME_OVERRIDE_VARIABLE, str(tmp_path_factory.mktemp("home")))
     store = MemoryKeyring()
     keyring.set_keyring(store)
+    before = logger_state()
     yield store
+    after = logger_state()
+    if after != before:
+        logger = logging.getLogger("verdra")
+        logger.setLevel(before[0])
+        logger.propagate = before[1]
+        for handler in set(logger.handlers) - set(before[2]):
+            logger.removeHandler(handler)
+        pytest.fail(
+            f"The test changed the verdra logger: {before[:2]} -> {after[:2]}, "
+            f"{len(after[2])} handler(s) where there were {len(before[2])}. Stop what started "
+            "logging (Rings.stop) before the test ends.",
+            pytrace=False,
+        )
+
+
+def logger_state() -> tuple[int, bool, tuple[logging.Handler, ...]]:
+    """Return the `verdra` logger's level, propagation and handlers (pytest's own left out)."""
+    logger = logging.getLogger("verdra")
+    ours = tuple(h for h in logger.handlers if not type(h).__module__.startswith("_pytest"))
+    return logger.level, logger.propagate, ours
