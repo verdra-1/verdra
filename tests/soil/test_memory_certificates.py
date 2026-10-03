@@ -3,8 +3,10 @@
 """Leaf certificates load into TLS without touching the disk (plan 10.3, spec S-10 test 6)."""
 
 import asyncio
+import contextlib
 import os
 import ssl
+import sys
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,7 +15,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 
 from verdra.bark import resin
-from verdra.soil import humus, orchard
+from verdra.soil import humus, meadow, orchard, tundra
 
 NOW = datetime.now(UTC)
 HOST = "assetdelivery.roblox.com"
@@ -105,3 +107,40 @@ def test_linux_closes_its_memory_files() -> None:
         ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), certificate, key
     )
     assert set(os.listdir("/proc/self/fd")) <= open_before | set()
+
+
+@pytest.mark.skipif(not hasattr(os, "memfd_create"), reason="Linux only")
+def test_linux_closes_a_memory_file_whose_write_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    open_before = set(os.listdir("/proc/self/fd"))
+
+    def failing_write(fd: int, data: object) -> int:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(tundra.os, "write", failing_write)
+    with pytest.raises(OSError, match="No space"):
+        tundra.PLATFORM.load_cert_chain(ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), b"c", b"k")
+    monkeypatch.undo()
+    assert set(os.listdir("/proc/self/fd")) <= open_before
+
+
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+
+
+@windows_only
+def test_windows_releases_a_pipe_nobody_opened() -> None:
+    pipe = meadow._OneShotPipe(b"secret")  # noqa: SLF001 - the pipe's own cleanup is under test
+    pipe.finish()
+    assert not pipe.thread.is_alive()
+    assert pipe.error is None
+
+
+@windows_only
+def test_windows_refuses_a_client_from_another_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(meadow.os, "getpid", lambda: -1)  # every client looks foreign
+    pipe = meadow._OneShotPipe(b"secret")  # noqa: SLF001 - the process check is under test
+    received = b""
+    with contextlib.suppress(OSError), open(pipe.name, "rb") as handle:  # noqa: PTH123
+        received = handle.read()
+    pipe.finish()
+    assert received == b""
+    assert isinstance(pipe.error, PermissionError)
