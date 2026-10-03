@@ -4,7 +4,7 @@
 **Milestone:** M1
 **Risk badge:** none
 **Plan sections:** 8.3, 10.1, 10.2, 10.4, 10.6, 12.1, 12.2, 12.4, 15 (R-01, R-18), Reference R2
-(`routing.proxy_port`, `routing.upstream.*`), R3 (proxy address), R5 (M-PROXY-01 to M-PROXY-03)
+(`routing.proxy_port`, `routing.upstream.*`), R3 (proxy address), R5 (M-PROXY-01 to M-PROXY-05)
 
 ## Purpose
 
@@ -70,6 +70,10 @@ untouched.
   blocked."
 - M-PROXY-03 (Activity, new) "Port <port> was in use, so Verdra is using port <other> this
   session."
+- M-PROXY-04 (Activity, new) "Part of a feature failed on <host>, so it was skipped for that
+  request (<error>)." The error text is redacted (rule 4).
+- M-PROXY-05 (Activity, new) "A request or response for <host> was over 64 MB, so Verdra passed
+  it on without changing it."
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
 
@@ -113,6 +117,8 @@ untouched.
 - Test 1 states where the 1,000 responses come from (anonymised fixtures, plan 12.1).
 - The plan's symbionts are built in later milestones; at M1 the pipeline is tested with test
   symbionts only, which is why test 4 doesn't name a real one.
+- M-PROXY-04 and M-PROXY-05 are added so the events rules 1 and 3 log reach Activity with a
+  message ID (plan 16.2, F13).
 - **Diagnostic interception** (plan 16.2, settled): see Behaviour. It exists so the M1 gate can
   check verified TLS and ECDSA acceptance (R-17) on real clients before any feature
   intercepts.

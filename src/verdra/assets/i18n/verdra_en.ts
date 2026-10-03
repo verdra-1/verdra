@@ -377,9 +377,30 @@
     </message>
 </context>
 <context>
+    <name>M-PROXY-02</name>
+    <message>
+        <source>A Roblox server&apos;s certificate couldn&apos;t be verified ({host}). That request was blocked.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-PROXY-03</name>
     <message>
         <source>Port {port} was in use, so Verdra is using port {other} this session.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROXY-04</name>
+    <message>
+        <source>Part of a feature failed on {host}, so it was skipped for that request ({error}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROXY-05</name>
+    <message>
+        <source>A request or response for {host} was over 64 MB, so Verdra passed it on without changing it.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
