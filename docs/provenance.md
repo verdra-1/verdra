@@ -14,7 +14,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/` | Reference R1 (module tree) | Standard library (`importlib.metadata`) | 2026-10-01 |
 | `verdra/__main__.py` | Reference R1, spec S-01 | Standard library | 2026-10-01 |
 | `verdra/bark/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/bark/husk.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/bark/husk.py` | Master plan 9.1, 10.6, 16.2 (R-10 CA-key fallback), spec S-10, Reference R3; `keyring` documentation (backends, errors); POSIX file-mode documentation | keyring | 2026-10-03 |
 | `verdra/bark/nectar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/pollinator.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/rain.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
