@@ -7,9 +7,13 @@
 
 from __future__ import annotations
 
-from typing import Final, Literal
+import os
+from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
+
+if TYPE_CHECKING:
+    import ssl
 
 
 class Tundra:
@@ -40,6 +44,31 @@ class Tundra:
             ["gsettings", "get", "org.gnome.desktop.interface", "enable-animations"]
         )
         return None if output is None else output == "false"
+
+    def load_cert_chain(self, context: ssl.SSLContext, certificate: bytes, key: bytes) -> None:
+        """Load the PEM certificate and key through anonymous memory files (memfd_create)."""
+        descriptors = [
+            _memory_file("verdra-certificate", certificate),
+            _memory_file("verdra-key", key),
+        ]
+        try:
+            context.load_cert_chain(*(f"/proc/self/fd/{fd}" for fd in descriptors))
+        finally:
+            for fd in descriptors:
+                os.close(fd)
+
+
+def _memory_file(name: str, data: bytes) -> int:
+    """Return a descriptor of an anonymous in-memory file holding `data` (never on disk)."""
+    fd = os.memfd_create(name, os.MFD_CLOEXEC)
+    try:
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view) :]
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
 
 
 PLATFORM: Final = Tundra()

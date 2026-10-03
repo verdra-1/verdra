@@ -85,3 +85,6 @@ All notable changes to Verdra are recorded here. The format follows
 - Proxy core (S-11, second part): connections to Roblox's servers go direct, through the
   system proxy, an HTTP CONNECT proxy or a SOCKS5 proxy, always with verified TLS 1.2 or newer
   and the real host name for SNI and the certificate check.
+- Leaf certificates load into TLS straight from memory (an anonymous memory file on Linux,
+  a one-shot pipe only Verdra's own process may open on Windows), so no leaf or its key ever
+  touches the disk.

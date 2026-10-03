@@ -10,9 +10,12 @@ implementations and macOS can return without restructuring. `PLATFORM` and every
 
 from __future__ import annotations
 
-from typing import Final, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
+
+if TYPE_CHECKING:
+    import ssl
 
 #: What every job answers on macOS while it is deferred (decision record 0014).
 UNSUPPORTED: Final = humus.Unsupported(system="macos", reason="deferred")
@@ -43,6 +46,10 @@ class Orchard:
     def prefers_reduced_motion(self) -> bool | None:
         """Return None: nothing is read from an unsupported system."""
         return None
+
+    def load_cert_chain(self, context: ssl.SSLContext, certificate: bytes, key: bytes) -> None:
+        """Refuse: macOS is deferred until after 1.0 (decision record 0014)."""
+        raise NotImplementedError(UNSUPPORTED)
 
 
 PLATFORM: Final = Orchard()
