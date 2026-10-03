@@ -18,7 +18,10 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    import ssl
 
 System = Literal["windows", "macos", "linux"]
 
@@ -69,6 +72,14 @@ class Platform(Protocol):
 
     def prefers_reduced_motion(self) -> bool | None:
         """Return whether the OS asks apps to reduce motion, or None when it can't be read."""
+        ...
+
+    def load_cert_chain(self, context: ssl.SSLContext, certificate: bytes, key: bytes) -> None:
+        """Load a PEM certificate and key into `context` without writing them to disk.
+
+        Python's ssl module reads them only from paths, and leaf keys must never touch the disk
+        (Master plan 10.3, spec S-10), so each system hands OpenSSL an in-memory file.
+        """
         ...
 
 
