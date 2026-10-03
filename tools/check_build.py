@@ -17,8 +17,13 @@ out of the build.
 It also checks that the build carries LICENSE, NOTICE and PRIVACY.md exactly as they are at the
 repository root.
 
+It also checks that the diagnostic interception of spec S-11 (roots/litmus, source only) isn't
+in the build: no loose file and no module in the executable's archive may carry its marker, and
+no archived module may have its name (test 10, decision record 0015).
+
 With `--launch`, the built app is also started once without a screen (Qt's offscreen platform,
-a throwaway data folder) and must report its main window ready within 60 seconds.
+a throwaway data folder) and must report its main window ready within 60 seconds. It is then
+started with `--diagnose-interception` and must refuse it: exit code 2, before it writes a log.
 
 Usage: uv run python tools/check_build.py dist/Verdra [--launch]
 """
@@ -35,7 +40,7 @@ import sys
 import tempfile
 import time
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
@@ -56,6 +61,9 @@ WINDOW_BUDGET_MS = 1500
 #: The legal texts the About dialog shows; the build copies them from the repository root.
 LEGAL_TEXTS = ("LICENSE", "NOTICE", "PRIVACY.md")
 LAUNCH_TIMEOUT_S = 60
+#: Spec S-11 test 10: the source-only diagnostic module and the flag a build must refuse.
+DIAGNOSTIC_MODULE = "verdra.roots.litmus"
+DIAGNOSE_FLAG = "--diagnose-interception"
 
 # libQt6Core.so.6, Qt6Core.dll, libQt6Core.6.dylib
 LIBRARY = re.compile(r"^(?:lib)?Qt6([A-Za-z0-9]+?)(?:\.\d+)*\.(?:dll|so|dylib)(?:\.\d+)*$")
@@ -244,6 +252,69 @@ def launch(folder: Path, timeout: float = LAUNCH_TIMEOUT_S) -> Launch:
             process.wait()
 
 
+def diagnostic_marker() -> bytes:
+    """Return the marker only roots/litmus carries (read from the source tree)."""
+    from verdra.roots import litmus  # noqa: PLC0415 - only the build check needs it
+
+    return litmus.MARKER.encode()
+
+
+def archived_modules(folder: Path) -> Iterator[tuple[str, bytes]]:
+    """Yield (name, decompressed bytes) of every module in the executable's embedded archive."""
+    from PyInstaller.archive.readers import CArchiveReader  # noqa: PLC0415 - build group only
+
+    executable = folder / (terrain.EXECUTABLE + (".exe" if sys.platform == "win32" else ""))
+    if not executable.is_file():
+        return
+    archive = CArchiveReader(str(executable))
+    for entry in archive.toc:
+        if not entry.endswith(".pyz"):
+            continue
+        modules = archive.open_embedded_archive(entry)
+        for name in modules.toc:
+            yield name, modules.extract(name, raw=True) or b""
+
+
+def check_no_diagnostics(
+    folder: Path, marker: bytes, modules: Iterable[tuple[str, bytes]]
+) -> list[str]:
+    """Return a problem for every file or archived module holding the diagnostic code path."""
+    reason = "holds the diagnostic interception code path (spec S-11 test 10)"
+    problems = [
+        f"{path.relative_to(folder).as_posix()} {reason}"
+        for path in sorted(folder.rglob("*"))
+        if path.is_file() and marker in path.read_bytes()
+    ]
+    problems += [
+        f"the archived module {name} {reason}"
+        for name, data in modules
+        if name == DIAGNOSTIC_MODULE or name.startswith(DIAGNOSTIC_MODULE + ".") or marker in data
+    ]
+    return problems
+
+
+def refuses_diagnosis(folder: Path, timeout: float = LAUNCH_TIMEOUT_S) -> str | None:
+    """Start the built app with the diagnostic flag; return a problem unless it refuses it."""
+    name = terrain.EXECUTABLE + (".exe" if sys.platform == "win32" else "")
+    with tempfile.TemporaryDirectory() as home:
+        environment = os.environ | {"VERDRA_HOME": home, "QT_QPA_PLATFORM": "offscreen"}
+        try:
+            finished = subprocess.run(  # noqa: S603 - the app just built
+                [str(folder / name), DIAGNOSE_FLAG],
+                env=environment,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return f"the built app didn't refuse {DIAGNOSE_FLAG} within {timeout:.0f} s"
+        if finished.returncode != 2:  # noqa: PLR2004 - argparse's exit code for a usage error
+            return f"the built app exited with code {finished.returncode} for {DIAGNOSE_FLAG}"
+        if (Path(home) / "logs" / terrain.LOG_FILE).exists():
+            return f"the built app started logging before refusing {DIAGNOSE_FLAG}"
+    return None
+
+
 def report_window_time(window_ms: int | None) -> None:
     """Print the window-visible time against the 12.4 budget (and to the CI job summary)."""
     if window_ms is None:
@@ -275,9 +346,15 @@ def main(argv: list[str] | None = None) -> int:
     problems = check(arguments.folder, load_config(), installed_modules())
     problems += check_legal_texts(arguments.folder)
     problems += check_build_stamp(arguments.folder)
+    problems += check_no_diagnostics(
+        arguments.folder, diagnostic_marker(), archived_modules(arguments.folder)
+    )
     started = launch(arguments.folder) if arguments.launch else None
     if started is not None and started.problem is not None:
         problems.append(started.problem)
+    refused = refuses_diagnosis(arguments.folder) if arguments.launch else None
+    if refused is not None:
+        problems.append(refused)
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:
@@ -286,6 +363,7 @@ def main(argv: list[str] | None = None) -> int:
     print("The built folder holds allowed Qt modules only.")
     if started is not None:
         print("The built app started and reported its main window ready.")
+        print(f"The built app refused {DIAGNOSE_FLAG}.")
         report_window_time(started.window_ms)
     return 0
 
