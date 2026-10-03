@@ -1,8 +1,8 @@
 {
   "requests": 1000,
-  "median_ms": 0.38141099992117233,
-  "p95_ms": 0.5703770000309305,
-  "direct_median_ms": 0.18092300001626427,
-  "median_ratio": 1.9340261630155797,
-  "p95_ratio": 3.152595302861747
+  "median_ms": 0.418,
+  "p95_ms": 0.594,
+  "direct_median_ms": 0.211,
+  "median_ratio": 1.971,
+  "p95_ratio": 2.791
 }
