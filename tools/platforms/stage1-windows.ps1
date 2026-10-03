@@ -12,6 +12,8 @@ nothing anywhere (no network commands at all) and never opens Roblox's login, co
 settings files: only the names of the files directly in the Roblox folder are listed.
 
 It writes exactly one file, the report (by default verdra-stage1-windows.txt on the Desktop).
+(Windows PowerShell itself, not this script, refreshes its own small startup cache in its own
+folder whenever it runs.)
 In the report your user folder is written as %USERPROFILE%, so your user name isn't in it.
 
 Run:  powershell -NoProfile -ExecutionPolicy Bypass -File stage1-windows.ps1
