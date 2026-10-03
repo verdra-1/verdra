@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
     close_requested = Signal()
     about_requested = Signal()
     setup_requested = Signal()
+    erase_requested = Signal()
 
     def __init__(self, services: Services | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -121,7 +122,11 @@ class MainWindow(QMainWindow):
         }
         if services is not None:
             self.screens["settings"] = SettingsScreen(
-                services.settings, self.setup_requested.emit, self.stack, pool=services.tendrils
+                services.settings,
+                self.setup_requested.emit,
+                self.stack,
+                pool=services.tendrils,
+                on_erase=self.erase_requested.emit,
             )
         for screen in self.screens.values():
             self.stack.addWidget(screen)
@@ -233,6 +238,7 @@ class Shell:
         self.window.close_requested.connect(self.close_window)
         self.window.about_requested.connect(self.show_about)
         self.window.setup_requested.connect(self.run_setup)
+        self.window.erase_requested.connect(self.quit_and_erase)
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
@@ -357,6 +363,11 @@ class Shell:
                 if self.tray is not None:
                     self.tray.icon.showMessage("Verdra", text)  # noqa: VT001 - the product name
             return
+        self.quit()
+
+    def quit_and_erase(self) -> None:
+        """Quit; shutdown then deletes Verdra's own folders (reset option, spec S-16)."""
+        self.services.erase_own_data = True
         self.quit()
 
     def quit(self) -> None:

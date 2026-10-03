@@ -482,6 +482,27 @@
     </message>
 </context>
 <context>
+    <name>M-RESET-09</name>
+    <message>
+        <source>When you close this window, Verdra deletes your profiles, library and settings and quits.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-RESET-10</name>
+    <message>
+        <source>Your profiles, library and settings were kept, because some changes couldn&apos;t be removed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-RESET-11</name>
+    <message>
+        <source>Verdra couldn&apos;t delete everything in {folders}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RISK-01</name>
     <message>
         <source>I understand the risk</source>
@@ -1066,6 +1087,10 @@
     </message>
     <message>
         <source>Advanced mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Also delete my profiles, library and settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

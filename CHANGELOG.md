@@ -116,6 +116,8 @@ All notable changes to Verdra are recorded here. The format follows
 - Reset everything in the window (S-16): Settings › System changes and the tray menu ask first
   (Cancel is the default), then show each change as it is removed and the summary, and write
   every line to Activity.
+- Reset everything can also delete your profiles, library and settings (off by default). It only
+  does so when every change was removed; Verdra then quits and deletes its own folders last.
 
 ### Changed
 

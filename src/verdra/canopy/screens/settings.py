@@ -10,6 +10,7 @@ why. A settings file from a newer Verdra makes the whole screen read-only (M-SET
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -18,6 +19,7 @@ from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QFrame,
@@ -45,6 +47,8 @@ from verdra.canopy.leaves.switch import Switch
 from verdra.trunk import tendrils
 from verdra.trunk.branches import fallow
 from verdra.trunk.sapwood import startup
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -341,8 +345,11 @@ def groups() -> list[tuple[str, str, list[Row]]]:
 
 
 def confirm_reset(parent: QWidget | None = None) -> DestructiveConfirmation:
-    """Return M-RESET-03: "Reset everything" or "Cancel", with Cancel as the default."""
-    return DestructiveConfirmation(
+    """Return M-RESET-03: "Reset everything" or "Cancel", with Cancel as the default.
+
+    It carries the option "Also delete my profiles, library and settings" as `erase`, off.
+    """
+    question = DestructiveConfirmation(
         QCoreApplication.translate(
             "M-RESET-03", "Remove everything Verdra changed on this computer?"
         ),
@@ -350,14 +357,27 @@ def confirm_reset(parent: QWidget | None = None) -> DestructiveConfirmation:
         QCoreApplication.translate("M-RESET-03", "Your profiles and library stay."),
         parent,
     )
+    erase = QCheckBox(
+        QCoreApplication.translate("Settings", "Also delete my profiles, library and settings"),
+        question,
+    )
+    question.layout_.insertWidget(question.layout_.count() - 1, erase)
+    question.erase = erase  # type: ignore[attr-defined]
+    return question
 
 
 class ResetDialog(QDialog):
     """Reset everything's progress: each change as it is removed, then the summary (S-16)."""
 
-    def __init__(self, job: tendrils.Job, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, job: tendrils.Job, parent: QWidget | None = None, *, erase: bool = False
+    ) -> None:
         super().__init__(parent)
         self.job = job
+        #: The option "Also delete my profiles, library and settings" was ticked.
+        self.erase = erase
+        #: Set once reset removed everything with the option ticked: Verdra quits on Close.
+        self.quit_to_erase = False
         title = QCoreApplication.translate("Settings", "Reset everything")
         self.setWindowTitle(title)
         self.setAccessibleName(title)
@@ -400,7 +420,23 @@ class ResetDialog(QDialog):
 
     def _succeeded(self, summary: fallow.Summary) -> None:
         self.progress.set_value(100)
-        self._finish(fallow.summary_line(summary))
+        text = fallow.summary_line(summary)
+        if self.erase and summary.failed:
+            text += " " + QCoreApplication.translate(
+                "M-RESET-10",
+                "Your profiles, library and settings were kept, because some changes couldn't "
+                "be removed.",
+            )
+        elif self.erase:
+            self.quit_to_erase = True
+            text += " " + QCoreApplication.translate(
+                "M-RESET-09",
+                "When you close this window, Verdra deletes your profiles, library and settings "
+                "and quits.",
+            )
+        if self.erase:
+            log.info("%s", text)
+        self._finish(text)
 
     def _failed(self, _reason: str) -> None:
         self._finish(self.job.message())
@@ -426,8 +462,10 @@ class SettingsScreen(QWidget):
         settings: Any,
         run_setup: Callable[[], None] | None = None,
         parent: QWidget | None = None,
+        *,
         list_changes: Callable[[], list[fallow.Change]] = fallow.system_changes,
         pool: tendrils.Tendrils | None = None,
+        on_erase: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -489,6 +527,8 @@ class SettingsScreen(QWidget):
             QCoreApplication.translate("Settings", "Reset everything…"), changes
         )
         self.pool = pool
+        #: Quits Verdra so shutdown deletes its own folders (the reset option, spec S-16).
+        self.on_erase = on_erase
         if pool is None:
             self.reset_everything.setEnabled(False)
             self.reset_everything.setToolTip(soon())
@@ -693,19 +733,23 @@ class SettingsScreen(QWidget):
         if self.pool is None or self.reset_dialog is not None:
             return self.reset_dialog
         question = confirm_reset(self)
+        erase = question.erase  # type: ignore[attr-defined]
         if question.exec() != QDialog.DialogCode.Accepted:
             return None
-        dialog = ResetDialog(fallow.start(self.pool), self)
+        dialog = ResetDialog(fallow.start(self.pool), self, erase=erase.isChecked())
         dialog.finished.connect(self._reset_closed)
         self.reset_dialog = dialog
         dialog.open()
         return dialog
 
     def _reset_closed(self) -> None:
+        quit_to_erase = self.reset_dialog is not None and self.reset_dialog.quit_to_erase
         if self.reset_dialog is not None:
             self.reset_dialog.deleteLater()
             self.reset_dialog = None
         self.refresh_changes()
+        if quit_to_erase and self.on_erase is not None:
+            self.on_erase()
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's name
         """Show the ledger as it is now: routing may have changed it since the last visit."""
