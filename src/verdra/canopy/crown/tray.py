@@ -49,6 +49,7 @@ class Tray(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.status = Status.IDLE
+        self.reason = ""
         self.icon = QSystemTrayIcon(self)
         # A menu can only have a widget as parent, so it goes when the tray goes.
         self.menu = QMenu()
@@ -94,14 +95,21 @@ class Tray(QObject):
         scheme = QGuiApplication.styleHints().colorScheme()
         return "dark" if scheme == Qt.ColorScheme.Dark else "light"
 
-    def set_status(self, status: Status, replacements: int = 0) -> None:
-        """Show a routing status in the icon, its tooltip and the menu's status line."""
+    def set_status(self, status: Status, replacements: int = 0, reason: str = "") -> None:
+        """Show a routing status in the icon, its tooltip and the menu's status line.
+
+        The line reads M-STATUS-02 in Routing, and the state word with its reason otherwise
+        (spec S-14, "Tray").
+        """
         self.status = status
+        self.reason = reason
         self.icon.setIcon(tray_icon(status, self.variant()))
         if status is Status.ROUTING:
             # M-STATUS-02: "Routing · <n> replacements active". `tr` with a count makes this a
             # plural entry in the catalog ("1 replacement", "2 replacements").
             line = self.tr("Routing · %n replacements active", "M-STATUS-02", replacements)
+        elif reason:
+            line = self.tr("{state}: {reason}").format(state=status.label(), reason=reason)
         else:
             line = status.label()
         self.status_action.setText(line)
@@ -116,7 +124,7 @@ class Tray(QObject):
         self.icon.hide()
 
     def _scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
-        self.set_status(self.status)
+        self.set_status(self.status, reason=self.reason)
 
     def _activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:

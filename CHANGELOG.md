@@ -121,6 +121,8 @@ All notable changes to Verdra are recorded here. The format follows
 - One routing status (S-14, first part): Idle, Routing, Degraded or Error with its reason, from
   the events routing reports; Error wins over Degraded, and each change of state is written to
   Activity once.
+- The header pill, its popover and the tray show that one status: the state, its reason, the
+  other reasons, and the fix the state offers.
 
 ### Changed
 

@@ -97,3 +97,14 @@ Always show whether routing works, and why not.
 - M-STATUS-03 to 05 are taken from R5 ("new" entries).
 - **Dependency, not a change:** "keeper unavailable" only exists with Hosts-file routing (S-13,
   M6). At M1 that trigger is defined but can't occur; its test is added at M6.
+
+## Refinements from the plan
+
+- The one fix for every Error reason is "Try again" (S-15 names it for M-COEX-01; a proxy that
+  couldn't start and an unavailable keeper are retried the same way). Degraded (b) has no fix.
+- The tray status line reads "<state>: <reason>" when the status has a reason, and the state word
+  alone otherwise; in Routing it reads M-STATUS-02.
+- The popover lists the other active reasons under the shown one, most recent first.
+- Until the action behind a fix exists (starting routing, launching Roblox, repairing the
+  certificate), its button is shown disabled with M-SOON-01; the interface enables a fix only
+  when a service handles it.
