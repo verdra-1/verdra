@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml  # PyYAML comes with pre-commit (dev group)
+import yaml  # PyYAML, dev group
 
 CI = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "ci.yml"
 ALL = "All gates green"

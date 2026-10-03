@@ -27,7 +27,8 @@ place has to be chosen. Two more facts shape the choice:
   3 October 2026; Reference R1 and `docs/architecture.md` list it as source only.
 - `trunk/sapwood/cli` accepts the flag only when Verdra isn't frozen and `roots/litmus.py` is
   present next to its package. Otherwise argparse rejects it with its own "unrecognized
-  arguments" error and exit code 2, before logging, the window or routing start.
+  arguments" error and exit code 2, before logging, the window or routing start. The refusal
+  needs no message ID: only developers pass the flag (plan 16.2, "M1 decisions").
 - `packaging/verdra.spec` excludes `verdra.roots.litmus`. `tools/check_build.py` fails if the
   marker is in any loose file of the built folder or in any module of the executable's archive,
   or if an archived module has the diagnostic module's name; with `--launch` it also starts the
