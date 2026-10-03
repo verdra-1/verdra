@@ -69,6 +69,9 @@ class Services:
     started: float = field(default_factory=time.monotonic)
     #: The OS's reduced-motion preference (plan 6.6), asked once at startup; None if unknown.
     os_reduce_motion: bool | None = None
+    #: Set by Reset everything's option "Also delete my profiles, library and settings": shutdown
+    #: then saves nothing and deletes Verdra's own folders last (spec S-16).
+    erase_own_data: bool = False
 
     def elapsed_ms(self) -> int:
         """Return milliseconds since launch."""

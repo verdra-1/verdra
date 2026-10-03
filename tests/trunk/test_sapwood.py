@@ -324,3 +324,36 @@ def test_what_settings_report_on_loading_reaches_the_log(
     assert UNKNOWN_KEY.format(key="future_key") in log
     activity = [record.message for record in built[0].services.rings.ring.snapshot()]
     assert UNKNOWN_KEY.format(key="future_key") in activity
+
+
+def test_shutdown_after_reset_with_the_option_saves_nothing_and_deletes_the_folders(
+    tmp_path: Path, qapp: QApplication
+) -> None:
+    """Spec S-16, "Also delete my profiles, library and settings": the log folder goes last."""
+    from verdra.trunk import rings, tendrils
+    from verdra.trunk.almanac.store import SettingsStore, StateStore
+    from verdra.trunk.branches import fallow
+    from verdra.trunk.sapwood.single import SingleInstance
+
+    settings = SettingsStore()
+    settings.load()
+    state = StateStore()
+    state.load()
+    logs = rings.Rings()
+    logs.start()
+    services = startup.Services(
+        app=qapp,
+        arguments=cli.Arguments(),
+        settings=settings,
+        state=state,
+        rings=logs,
+        tendrils=tendrils.Tendrils(workers=1),
+        single=SingleInstance(f"verdra-test-{tmp_path.name}"),
+    )
+    settings.set("appearance.theme", "dark")  # a pending save that must not be written
+    state.set("screen.last", "settings")
+    (terrain.default_library_dir() / "blobs").mkdir(parents=True)
+    assert terrain.logs_dir().exists()
+    services.erase_own_data = True
+    shutdown.run(services)
+    assert not any(folder.exists() for folder in fallow.own_folders())

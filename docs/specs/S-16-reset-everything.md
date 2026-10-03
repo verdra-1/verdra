@@ -65,6 +65,15 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   removed.
 - M-RESET-08 (Activity and command line, new) "Couldn't remove <change> (<target>): <reason>"
   One line per change that couldn't be removed.
+- M-RESET-09 (Dialog, new) "When you close this window, Verdra deletes your profiles, library and
+  settings and quits." After the summary, when the option was ticked and every change was
+  removed.
+- M-RESET-10 (Dialog, new) "Your profiles, library and settings were kept, because some changes
+  couldn't be removed." After the summary, when the option was ticked and something failed: the
+  ledger must stay so the failed changes can be retried.
+- M-RESET-11 (command line, new) "Verdra couldn't delete everything in <folders>." Printed to the
+  error stream when the folders can't be deleted completely at the end of the run, when logging
+  has already stopped.
 - M-RESET-01 and M-RESET-02 have singular forms ("Removed 1 change.", "1 change couldn't be
   removed.").
 
@@ -118,8 +127,14 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   or M-RESET-02 and a Close button, which becomes the default. Escape doesn't close it while
   reset runs, because reset can't stop halfway. If the ledger can't be read, the job fails and
   the window shows M-JOB-02 with M-RESET-05's path; Activity has M-RESET-05. The tray item opens
-  Settings and starts the same flow there. The option "Also delete my profiles, library and
-  settings" follows in its own part.
+  Settings and starts the same flow there.
+- The option "Also delete my profiles, library and settings" is a checkbox in M-RESET-03, off.
+  Its folders are only deleted if every change was removed (M-RESET-09; otherwise M-RESET-10).
+  Closing the window then quits Verdra; shutdown saves no settings or window state, and once
+  background jobs and logging have stopped it deletes the config folder, the default library
+  folder and the log folder (plan 9.1). A library the user moved to a folder of their choosing
+  isn't deleted wholesale, because that folder may hold their own files; when moving the
+  library is built (M2), its own files are deleted there.
 - The command line loads the message catalogue for the language in the settings before it
   prints, so its lines and the summary's plural forms match the window's. If the ledger can't
   be read, it prints M-RESET-05, changes nothing (the CA key stays, because trust files may

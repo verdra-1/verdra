@@ -239,3 +239,40 @@ def test_tests_never_reach_the_real_secret_store_or_home_folder(tmp_path: Path) 
     home = Path(os.environ[terrain.HOME_OVERRIDE_VARIABLE])
     assert home.is_relative_to(tmp_path.parent)  # pytest's temporary folder for this run
     assert terrain.config_dir().is_relative_to(home)
+
+
+def test_erasing_deletes_config_library_and_logs(tmp_path: Path) -> None:
+    for folder in fallow.own_folders():
+        (folder / "inside").mkdir(parents=True, exist_ok=True)
+        (folder / "inside" / "file").write_text("x", encoding="utf-8")
+    outside = tmp_path / "Documents" / "keep.txt"  # the user's own files are never touched
+    outside.parent.mkdir()
+    outside.write_text("mine", encoding="utf-8")
+    assert fallow.erase_own_folders() == []
+    assert not any(folder.exists() for folder in fallow.own_folders())
+    assert outside.read_text(encoding="utf-8") == "mine"
+    assert fallow.erase_own_folders() == []  # nothing left: nothing to do
+
+
+def test_erasing_names_a_folder_it_couldnt_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = terrain.config_dir()
+    config.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(fallow.shutil, "rmtree", lambda *_args, **_kwargs: None)
+    assert fallow.erase_own_folders() == [config]
+
+
+def test_a_moved_library_is_not_deleted_wholesale() -> None:
+    """The user may have chosen a folder with their own files in it (S-16 refinements)."""
+    assert fallow.own_folders() == [
+        terrain.config_dir(),
+        terrain.default_library_dir(),
+        terrain.logs_dir(),
+    ]
+
+
+def test_erasing_never_deletes_a_home_folder_or_a_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    deleted: list[object] = []
+    monkeypatch.setattr(fallow.shutil, "rmtree", lambda path, **_kwargs: deleted.append(path))
+    monkeypatch.setattr(fallow, "own_folders", lambda: [Path.home(), Path(Path.home().anchor)])
+    assert fallow.erase_own_folders() == [Path.home(), Path(Path.home().anchor)]
+    assert deleted == []

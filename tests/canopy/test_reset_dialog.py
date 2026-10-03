@@ -166,3 +166,67 @@ def test_the_tray_item_opens_settings_and_starts_reset(
     assert started == [True]
     assert shell.window.current == "settings"
     assert shell.window.isVisible()
+
+
+def answer_with_erase(monkeypatch: pytest.MonkeyPatch, *, erase: bool) -> None:
+    """Accept M-RESET-03, with the option ticked or not."""
+
+    def exec_(dialog: QDialog) -> int:
+        dialog.erase.setChecked(erase)  # type: ignore[attr-defined]
+        dialog.deleteLater()
+        return int(QDialog.DialogCode.Accepted.value)
+
+    monkeypatch.setattr(settings_module.DestructiveConfirmation, "exec", exec_)
+
+
+def test_the_option_to_delete_my_data_is_off_by_default(qtbot: QtBot) -> None:
+    question = confirm_reset()
+    qtbot.addWidget(question)
+    erase = question.erase  # type: ignore[attr-defined]
+    assert erase.text() == "Also delete my profiles, library and settings"
+    assert not erase.isChecked()
+
+
+@pytest.mark.parametrize("fails", [False, True], ids=["all removed", "one failed"])
+def test_with_the_option_verdra_quits_to_delete_its_folders_only_if_all_was_removed(
+    services: Services,
+    qtbot: QtBot,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fails: bool,
+) -> None:
+    files = trust_files(tmp_path)
+    gardener.ensure_ca(husk.Husk(), scar.Ledger(), files, NOW)
+    if fails:
+        files[0].unlink()
+        files[0].mkdir()  # its undo fails, so the ledger must stay
+    erased: list[bool] = []
+    screen = SettingsScreen(
+        services.settings, pool=services.tendrils, on_erase=lambda: erased.append(True)
+    )
+    qtbot.addWidget(screen)
+    answer_with_erase(monkeypatch, erase=True)
+    dialog = screen.start_reset()
+    assert dialog is not None
+    qtbot.waitUntil(dialog.close_button.isEnabled, timeout=10_000)
+    if fails:
+        assert dialog.summary.text().endswith(
+            "Your profiles, library and settings were kept, because some changes couldn't be "
+            "removed."
+        )
+    else:
+        assert dialog.summary.text() == (
+            f"Removed {len(files)} changes. Verdra left nothing behind. When you close this "
+            "window, Verdra deletes your profiles, library and settings and quits."
+        )
+    dialog.accept()
+    qtbot.waitUntil(lambda: screen.reset_dialog is None)
+    assert erased == ([] if fails else [True])
+
+
+def test_quitting_to_erase_tells_shutdown(shell: Shell, monkeypatch: pytest.MonkeyPatch) -> None:
+    quits: list[bool] = []
+    monkeypatch.setattr(QApplication, "quit", lambda: quits.append(True))
+    shell.window.erase_requested.emit()
+    assert shell.services.erase_own_data
+    assert quits == [True]

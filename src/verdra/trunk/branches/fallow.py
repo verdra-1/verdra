@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,6 +28,7 @@ from PySide6.QtCore import QCoreApplication, QObject
 
 from verdra.bark import husk, scar
 from verdra.roots import gardener
+from verdra.soil import terrain
 from verdra.trunk import tendrils
 
 log = logging.getLogger(__name__)
@@ -277,3 +279,42 @@ def start(pool: tendrils.Tendrils) -> tendrils.Job:
         return summary
 
     return pool.submit(QCoreApplication.translate("Settings", "Reset everything"), work)
+
+
+def own_folders() -> list[Path]:
+    """Return the folders the option "Also delete my profiles, library and settings" deletes.
+
+    Plan 9.1: the config folder (settings, profiles, presets, ledger), the default library
+    folder and the log folder. A library moved to a folder the user chose isn't deleted
+    wholesale: that folder may hold the user's own files (spec S-16, refinements).
+    """
+    return [terrain.config_dir(), terrain.default_library_dir(), terrain.logs_dir()]
+
+
+def erase_own_folders() -> list[Path]:
+    """Delete Verdra's own folders and return the ones that couldn't be deleted completely.
+
+    Shutdown calls this last, after background jobs and logging have stopped, so nothing writes
+    the folders back and the log folder goes at the end of the run (spec S-16).
+    """
+    left: list[Path] = []
+    for folder in own_folders():
+        if _too_broad(folder):
+            left.append(folder)
+            continue
+        if folder.exists():
+            shutil.rmtree(folder, ignore_errors=True)
+        if folder.exists():
+            left.append(folder)
+    return left
+
+
+def _too_broad(folder: Path) -> bool:
+    """Return whether `folder` is one Verdra must never delete whole: a root or a home folder.
+
+    The folders come from soil/terrain and are always Verdra's own; this guards against a
+    misconfigured override (VERDRA_HOME pointing at a home folder makes `config` a subfolder,
+    never the home folder itself, but a guard costs nothing).
+    """
+    resolved = folder.resolve()
+    return resolved.parent == resolved or resolved == Path.home().resolve()
