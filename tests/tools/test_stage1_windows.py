@@ -75,6 +75,7 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     report = tmp_path / "out" / "report.txt"
     report.parent.mkdir()
     before = {p: p.stat().st_mtime_ns for p in tmp_path.rglob("*")}
+    files = {p: p.read_bytes() for p in before if p.is_file()}
     environment = os.environ | {"LOCALAPPDATA": str(local), "USERPROFILE": str(tmp_path)}
     powershell = shutil.which("powershell.exe")
     assert powershell is not None
@@ -95,7 +96,11 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
 
     appeared = {p for p in set(after) - set(before) if not powershells(p)}
     assert appeared == {report}  # nothing but the report appeared
-    assert {p: after[p] for p in before} == before  # and nothing that was there changed
+    assert set(before) <= set(after)  # nothing disappeared
+    # And nothing that was there changed: every file keeps its contents and date. (A folder's
+    # date moves whenever an entry is added inside it, so folders are checked by `appeared`.)
+    assert {p: p.read_bytes() for p in files} == files
+    assert {p: after[p] for p in files} == {p: before[p] for p in files}
     text = report.read_text(encoding="utf-8-sig")
     assert str(tmp_path) not in text  # the user folder is hidden
     assert r"%USERPROFILE%\AppData\Local\Roblox\Versions\version-0123456789abcdef" in text
