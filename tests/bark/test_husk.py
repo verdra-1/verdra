@@ -11,35 +11,13 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import serialization
-from keyring.backend import KeyringBackend
 from keyring.backends import fail, null
-from keyring.errors import PasswordDeleteError
 
+from tests.support.isolation import MemoryKeyring
 from verdra.bark import husk, resin
 from verdra.soil import terrain
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
-
-
-class MemoryKeyring(KeyringBackend):
-    """A secret store that keeps everything in memory."""
-
-    priority = 1  # pyright: ignore[reportAssignmentType] - keyring declares it as a property
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.items: dict[tuple[str, str], str] = {}
-
-    def get_password(self, service: str, username: str) -> str | None:
-        return self.items.get((service, username))
-
-    def set_password(self, service: str, username: str, password: str) -> None:
-        self.items[(service, username)] = password
-
-    def delete_password(self, service: str, username: str) -> None:
-        if (service, username) not in self.items:
-            raise PasswordDeleteError(username)
-        del self.items[(service, username)]
 
 
 @pytest.fixture

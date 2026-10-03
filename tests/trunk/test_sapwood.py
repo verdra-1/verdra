@@ -67,13 +67,6 @@ def test_a_build_refuses_the_diagnose_flag_before_starting(
     assert cli.parse(["--minimized"]).minimized  # other flags still work
 
 
-def test_reset_everything_says_it_does_nothing_yet(capsys: pytest.CaptureFixture[str]) -> None:
-    assert startup.run(["verdra", "--reset-everything"], lambda _services: None) == 0  # type: ignore[arg-type, return-value]
-    assert "Nothing was changed" in capsys.readouterr().out
-    assert startup.run(["verdra", "--reset-everything", "--quiet"], lambda _s: None) == 0  # type: ignore[arg-type, return-value]
-    assert capsys.readouterr().out == ""
-
-
 class FakeInterface:
     def __init__(self, services: startup.Services) -> None:
         self.services = services

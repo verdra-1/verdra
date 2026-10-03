@@ -416,9 +416,19 @@ MESSAGE_ID = re.compile(r"^M-[A-Z]+-\d+$")
 
 
 def catalog() -> list[tuple[str, str]]:
+    """Return (message ID or context, source) for every message.
+
+    A plural message (`self.tr(text, message_id, n)`, the only form lupdate makes plural
+    entries from) carries its ID as the disambiguation comment; its context is the class.
+    """
     root = ET.parse(ROOT / "src" / "verdra" / "assets" / "i18n" / "verdra_en.ts").getroot()  # noqa: S314
     return [
-        (context.findtext("name", ""), message.findtext("source", ""))
+        (
+            comment
+            if MESSAGE_ID.match(comment := message.findtext("comment", ""))
+            else context.findtext("name", ""),
+            message.findtext("source", ""),
+        )
         for context in root.iter("context")
         for message in context.iter("message")
     ]
@@ -533,7 +543,7 @@ def test_every_system_change_kind_has_a_plain_name(qapp: QApplication) -> None:
     from typing import get_args
 
     from verdra.bark import scar
-    from verdra.canopy.screens.settings import kind_names
+    from verdra.trunk.branches.fallow import kind_names
 
     assert set(kind_names()) == set(get_args(scar.Kind))
     assert all(name and "_" not in name for name in kind_names().values())

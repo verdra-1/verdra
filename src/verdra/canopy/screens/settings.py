@@ -69,28 +69,6 @@ def feature_names() -> dict[str, str]:
     }
 
 
-def kind_names() -> dict[str, str]:
-    """Return the plain name of each system change kind (plan 9.4; spec S-16)."""
-    return {
-        "ca_roblox_bundle": QCoreApplication.translate(
-            "Settings", "Verdra's certificate in Roblox"
-        ),
-        "hosts_entries": QCoreApplication.translate("Settings", "Hosts file entries"),
-        "keeper_install": QCoreApplication.translate("Settings", "Verdra Keeper helper"),
-        "scheduled_task": QCoreApplication.translate("Settings", "Scheduled task"),
-        "launch_agent": QCoreApplication.translate("Settings", "Launch agent"),
-        "launch_daemon": QCoreApplication.translate("Settings", "Launch daemon"),
-        "polkit_policy": QCoreApplication.translate("Settings", "Permission policy"),
-        "systemd_unit": QCoreApplication.translate("Settings", "System service"),
-        "autostart": QCoreApplication.translate("Settings", "Start with the system"),
-        "launcher_entry": QCoreApplication.translate("Settings", "Launcher entry"),
-        "uri_handler": QCoreApplication.translate("Settings", "Roblox link handler"),
-        "file_tweak": QCoreApplication.translate("Settings", "File tweak"),
-        "client_settings_file": QCoreApplication.translate("Settings", "Client settings file"),
-        "frame_rate_setting": QCoreApplication.translate("Settings", "Frame-rate cap"),
-    }
-
-
 #: The columns of the System changes list, as functions so the titles follow the language.
 CHANGE_COLUMNS: tuple[Callable[[], str], ...] = (
     lambda: QCoreApplication.translate("Settings", "Change"),
@@ -114,7 +92,7 @@ def change_cells(change: fallow.Change) -> tuple[str, str, str, str]:
             state=state, reason=change.reason
         )
     return (
-        kind_names().get(change.kind, change.kind),
+        fallow.kind_names().get(change.kind, change.kind),
         change.target,
         QLocale().toString(made, QLocale.FormatType.ShortFormat),
         state,

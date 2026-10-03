@@ -13,7 +13,7 @@ import pytest
 from PySide6.QtCore import QTimer
 from pytestqt.qtbot import QtBot
 
-from tests.bark.test_husk import MemoryKeyring
+from tests.support.isolation import MemoryKeyring
 from verdra.bark import husk, resin, scar
 from verdra.roots import gardener
 from verdra.soil import terrain

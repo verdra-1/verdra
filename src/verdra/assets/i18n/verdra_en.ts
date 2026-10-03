@@ -439,16 +439,30 @@
     </message>
 </context>
 <context>
-    <name>M-RESET-04</name>
+    <name>M-RESET-05</name>
     <message>
-        <source>Reset everything isn&apos;t available in this version yet. Nothing was changed.</source>
+        <source>Verdra can&apos;t read its list of system changes in {path}.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
-    <name>M-RESET-05</name>
+    <name>M-RESET-06</name>
     <message>
-        <source>Verdra can&apos;t read its list of system changes in {path}.</source>
+        <source>Verdra can&apos;t undo this kind of change in this version.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-RESET-07</name>
+    <message>
+        <source>Removed {change} ({target}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-RESET-08</name>
+    <message>
+        <source>Couldn&apos;t remove {change} ({target}): {reason}</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -717,6 +731,25 @@
     <message>
         <source>{n}%</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ResetSummary</name>
+    <message numerus="yes">
+        <source>Removed %n changes. Verdra left nothing behind.</source>
+        <comment>M-RESET-01</comment>
+        <translation>
+            <numerusform>Removed %n change. Verdra left nothing behind.</numerusform>
+            <numerusform>Removed %n changes. Verdra left nothing behind.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n changes couldn&apos;t be removed. See the list for details.</source>
+        <comment>M-RESET-02</comment>
+        <translation>
+            <numerusform>%n change couldn&apos;t be removed. See the list for details.</numerusform>
+            <numerusform>%n changes couldn&apos;t be removed. See the list for details.</numerusform>
+        </translation>
     </message>
 </context>
 <context>

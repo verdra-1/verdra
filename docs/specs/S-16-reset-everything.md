@@ -57,7 +57,16 @@ Undo every change Verdra made to the system, in one action, even after a crash.
 - M-RESET-03 (Dialog, new in R5) "Remove everything Verdra changed on this computer? Your
   profiles and library stay." Buttons "Reset everything", "Cancel".
 - M-RESET-05 (Notice, new) "Verdra can't read its list of system changes in <path>." Shown in
-  Settings › System changes when the ledger and its `.bak` copy are both damaged.
+  Settings › System changes, and printed by the command line, when the ledger and its `.bak`
+  copy are both damaged; reset then changes nothing.
+- M-RESET-06 (reason, new) "Verdra can't undo this kind of change in this version." The reason
+  stored with an entry whose kind has no undo action yet.
+- M-RESET-07 (Activity and command line, new) "Removed <change> (<target>)." One line per change
+  removed.
+- M-RESET-08 (Activity and command line, new) "Couldn't remove <change> (<target>): <reason>"
+  One line per change that couldn't be removed.
+- M-RESET-01 and M-RESET-02 have singular forms ("Removed 1 change.", "1 change couldn't be
+  removed.").
 
 ## Acceptance tests
 
@@ -103,6 +112,10 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   user's locale), State (Pending, Done, or "Failed: <reason>"). It is read again each time the
   screen is shown. M-RESET-05 is added for a ledger that can't be read, which the plan doesn't
   cover.
+- The command line loads the message catalogue for the language in the settings before it
+  prints, so its lines and the summary's plural forms match the window's. If the ledger can't
+  be read, it prints M-RESET-05, changes nothing (the CA key stays, because trust files may
+  still hold its block) and exits with 1.
 - Reset deletes the CA key and `trust/ca.crt`, which are in Verdra's own folders and the secret
   store and so aren't ledger entries; plan S-10 says reset deletes the key, so this is stated
   explicitly here.

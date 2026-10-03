@@ -30,6 +30,7 @@ import verdra
 from verdra.soil import humus, terrain
 from verdra.trunk import rings, tendrils
 from verdra.trunk.almanac.store import SettingsStore, StateStore
+from verdra.trunk.branches import fallow
 from verdra.trunk.sapwood import cli, shutdown
 from verdra.trunk.sapwood.single import SingleInstance
 
@@ -170,18 +171,30 @@ def launched_at() -> float:
     return time.monotonic() - max(0.0, age)
 
 
+def reset_everything(argv: list[str], *, quiet: bool) -> int:
+    """Run `--reset-everything` without the window (spec S-16, "Command line").
+
+    Its lines come from the message catalogue, which also gives the summary's plural forms, so
+    the catalogue is loaded for the language in the settings first.
+    """
+    app = QCoreApplication.instance() or QCoreApplication(argv)
+    settings = SettingsStore()
+    settings.load()
+    translator = install_translator(app, str(settings.value("general.language")))
+    try:
+        return fallow.command_line(quiet=quiet)
+    finally:
+        if translator is not None:
+            app.removeTranslator(translator)
+            translator.deleteLater()
+
+
 def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> int:
     """Start Verdra and return its exit code."""
     started = launched_at()
     arguments = cli.parse(argv[1:])
     if arguments.reset_everything:
-        if not arguments.quiet:
-            message = QCoreApplication.translate(
-                "M-RESET-04",
-                "Reset everything isn't available in this version yet. Nothing was changed.",
-            )
-            print(message)  # noqa: T201 - the command line's answer
-        return 0
+        return reset_everything(argv, quiet=arguments.quiet)
 
     # 8.4 step 1: a second launch hands its link to the running Verdra and exits. This needs no
     # Qt application, so nothing else is set up for a launch that only forwards a link.

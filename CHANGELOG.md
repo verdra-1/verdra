@@ -108,6 +108,11 @@ All notable changes to Verdra are recorded here. The format follows
 - Settings › System changes lists every change Verdra has in place outside its own folders
   (S-16): what it is, where, when it was made, and whether it is done, pending or failed with
   the reason. It says so if the list itself can't be read (M-RESET-05).
+- Reset everything from the command line (S-16): `verdra --reset-everything` undoes every change
+  in the ledger, newest first, including ones a crash left half done, then deletes Verdra's
+  certificate and its key. It prints one line per change and a summary (`--quiet` prints
+  nothing) and exits with 1 if anything couldn't be removed; that change stays listed with its
+  reason and is retried next time.
 
 ### Changed
 

@@ -6,8 +6,9 @@ import os
 
 from hypothesis import HealthCheck, settings
 
-# The Qt lifetime guard runs after every test; --shuffle runs the tests in a random order.
-pytest_plugins = ["tests.support.qt_lifetimes", "tests.support.shuffle"]
+# The Qt lifetime guard runs after every test; every test gets its own Verdra home folder and an
+# in-memory secret store; --shuffle runs the tests in a random order.
+pytest_plugins = ["tests.support.qt_lifetimes", "tests.support.isolation", "tests.support.shuffle"]
 
 # Pull requests run short property tests; the nightly workflow sets HYPOTHESIS_PROFILE=nightly.
 settings.register_profile("ci", max_examples=100, deadline=None)

@@ -156,9 +156,8 @@ offers at most one action. Every toast is also written to Activity (S-03).
   games from the Roblox website through Verdra (link handler)".
 - M-ABOUT-03 (new, help text) "Release builds include this text; this build doesn't." (Tooltip of
   an About button whose text this build doesn't carry.)
-- M-RESET-04 (new, command line) "Reset everything isn't available in this version yet. Nothing
-  was changed." (`verdra --reset-everything` before S-16 is built; printed, not shown in a
-  window.)
+- M-RESET-04 (retired with S-16 part 2): `verdra --reset-everything` printed it until Reset
+  everything was built; the command now runs S-16. The ID isn't reused.
 - Activity lines (new, kind Activity; plan 16.2, M0 review round 3: every line written for the
   user has an ID): M-SHELL-03 "Verdra received a Roblox link. Opening games from links isn't
   available in this version yet."; M-SHELL-04 "Verdra's translations couldn't be loaded, so it
