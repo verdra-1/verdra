@@ -84,6 +84,15 @@ Plan 11 doesn't mark this "(confirm at M1)", but every per-app feature depends o
 
 ## Windows (fact IDs W-…)
 
+**Stage 1 on Windows is one script:** `tools/platforms/stage1-windows.ps1` runs Step 0 and the
+stage 1 parts of W-01 to W-05, W-07 and W-10 in one go and writes one report file (the user
+folder written as `%USERPROFILE%`). It only reads, needs no administrator rights, sends nothing
+anywhere and never opens Roblox's login, cookie or settings files; `tests/tools/test_stage1_windows.py`
+checks that on every pull request (the commands it may use, and a run on the Windows runner
+that must write nothing but its report). For W-06 it lists only the names directly in the Roblox
+folder; the before-and-after comparison around a game session moves to stage 2 with W-09, because
+it needs a signed-in Roblox and a game.
+
 ### W-01 Per-user Roblox install
 
 | | |
