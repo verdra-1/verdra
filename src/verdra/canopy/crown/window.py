@@ -308,9 +308,14 @@ class Shell:
         if self.splash is None:
             reveal()
         else:
-            # The splash deletes itself once it has closed; the shell lets go of it now.
-            splash, self.splash = self.splash, None
-            splash.finish(reveal)
+            # The splash deletes itself once it has closed. The shell keeps its reference until
+            # then: dropping the last Python reference to a window without a parent deletes it at
+            # once, before its timer could close it and reveal the main window.
+            self.splash.destroyed.connect(self._splash_gone)
+            self.splash.finish(reveal)
+
+    def _splash_gone(self) -> None:
+        self.splash = None
 
     def activate(self, link: str) -> None:
         """Bring the window forward; a `roblox-player:` link is handed on from M1 (S-12)."""
