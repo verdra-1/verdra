@@ -64,14 +64,24 @@ if (Test-Path -LiteralPath $versions) {
 }
 
 Add-Section 'W-02' 'All-users install'
-$allUsers = Join-Path ${env:ProgramFiles(x86)} 'Roblox\Versions'
-if (Test-Path -LiteralPath $allUsers) {
-    Add-Line "Present: $allUsers"
-    Get-ChildItem -LiteralPath $allUsers -Directory | Sort-Object Name | ForEach-Object {
-        Add-Line ("Version folder: $($_.FullName)")
+# An installer run as administrator installs for all users; on a CI runner it went to Program
+# Files, not Program Files (x86) (Platform facts run 37163188729), so both are checked.
+$allUsers = @(${env:ProgramFiles}, ${env:ProgramFiles(x86)} | Where-Object { $_ } | Sort-Object -Unique | ForEach-Object {
+    Join-Path $_ 'Roblox\Versions'
+})
+foreach ($folder in $allUsers) {
+    if (Test-Path -LiteralPath $folder) {
+        Add-Line "Present: $folder"
+        Get-ChildItem -LiteralPath $folder -Directory | Sort-Object Name | ForEach-Object {
+            Add-Line ("Version folder: $($_.FullName)")
+            Get-ChildItem -LiteralPath $_.FullName -File -Filter '*.exe' | Sort-Object Name | ForEach-Object {
+                $version = $_.VersionInfo.ProductVersion
+                Add-Line ("  $($_.Name) | $($_.Length) bytes | $($_.LastWriteTime.ToString('yyyy-MM-dd')) | product version $version")
+            }
+        }
+    } else {
+        Add-Line "Not present: $folder"
     }
-} else {
-    Add-Line "Not present: $allUsers"
 }
 
 Add-Section 'W-03' 'The roblox-player link handler'
@@ -101,16 +111,14 @@ if ($store.Count -gt 0) {
 }
 
 Add-Section 'W-05' 'Trust files in each version folder'
-if (Test-Path -LiteralPath $versions) {
-    $found = @(Get-ChildItem -LiteralPath $versions -Recurse -File -Filter '*.pem' | Sort-Object FullName)
-    foreach ($file in $found) {
-        $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
-        Add-Line ("$($file.FullName) | $($file.Length) bytes | SHA-256 $hash | read-only $($file.IsReadOnly)")
-    }
-    if ($found.Count -eq 0) { Add-Line 'No .pem file in any version folder.' }
-} else {
-    Add-Line "Not found: $versions"
+$found = @(@($versions) + $allUsers | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object {
+    Get-ChildItem -LiteralPath $_ -Recurse -File -Filter '*.pem'
+} | Sort-Object FullName)
+foreach ($file in $found) {
+    $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+    Add-Line ("$($file.FullName) | $($file.Length) bytes | SHA-256 $hash | read-only $($file.IsReadOnly)")
 }
+if ($found.Count -eq 0) { Add-Line 'No .pem file in any version folder.' }
 
 Add-Section 'W-06' 'What is directly in the Roblox folder (names only, nothing opened)'
 if (Test-Path -LiteralPath $roblox) {
@@ -123,13 +131,11 @@ if (Test-Path -LiteralPath $roblox) {
 }
 
 Add-Section 'W-07' 'Client settings folder and settings file names'
-if (Test-Path -LiteralPath $versions) {
-    $settings = @(Get-ChildItem -LiteralPath $versions -Directory | ForEach-Object {
-        Join-Path $_.FullName 'ClientSettings'
-    } | Where-Object { Test-Path -LiteralPath $_ })
-    if ($settings.Count -gt 0) { $settings | ForEach-Object { Add-Line "Present: $_" } }
-    else { Add-Line 'No ClientSettings folder in any version folder.' }
-}
+$settings = @(@($versions) + $allUsers | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object {
+    Get-ChildItem -LiteralPath $_ -Directory | ForEach-Object { Join-Path $_.FullName 'ClientSettings' }
+} | Where-Object { Test-Path -LiteralPath $_ })
+if ($settings.Count -gt 0) { $settings | ForEach-Object { Add-Line "Present: $_" } }
+else { Add-Line 'No ClientSettings folder in any version folder.' }
 if (Test-Path -LiteralPath $roblox) {
     Get-ChildItem -LiteralPath $roblox -File -Filter '*.xml' | Sort-Object Name | ForEach-Object {
         Add-Line "Settings file name: $($_.Name)"
