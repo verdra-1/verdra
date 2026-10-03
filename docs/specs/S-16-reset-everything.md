@@ -56,6 +56,8 @@ Undo every change Verdra made to the system, in one action, even after a crash.
 - M-RESET-02 (Dialog) "<n> changes couldn't be removed. See the list for details."
 - M-RESET-03 (Dialog, new in R5) "Remove everything Verdra changed on this computer? Your
   profiles and library stay." Buttons "Reset everything", "Cancel".
+- M-RESET-05 (Notice, new) "Verdra can't read its list of system changes in <path>." Shown in
+  Settings › System changes when the ledger and its `.bak` copy are both damaged.
 
 ## Acceptance tests
 
@@ -90,6 +92,17 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   CA blocks and the link handler. The M8 installer smoke test (plan 13.x) is the full check.
 - Exit codes for `--quiet` are not in the plan; 0 and 1 above are a proposal so uninstallers
   can tell success from failure.
+- The System changes list shows, newest first (the order reset undoes them), each kind by a
+  plain name (plan 4.3, R6): `ca_roblox_bundle` "Verdra's certificate in Roblox",
+  `hosts_entries` "Hosts file entries", `keeper_install` "Verdra Keeper helper",
+  `scheduled_task` "Scheduled task", `launch_agent` "Launch agent", `launch_daemon` "Launch
+  daemon", `polkit_policy` "Permission policy", `systemd_unit` "System service", `autostart`
+  "Start with the system", `launcher_entry` "Launcher entry", `uri_handler` "Roblox link
+  handler", `file_tweak` "File tweak", `client_settings_file` "Client settings file",
+  `frame_rate_setting` "Frame-rate cap". Columns: Change, Where, Made (date and time in the
+  user's locale), State (Pending, Done, or "Failed: <reason>"). It is read again each time the
+  screen is shown. M-RESET-05 is added for a ledger that can't be read, which the plan doesn't
+  cover.
 - Reset deletes the CA key and `trust/ca.crt`, which are in Verdra's own folders and the secret
   store and so aren't ledger entries; plan S-10 says reset deletes the key, so this is stated
   explicitly here.

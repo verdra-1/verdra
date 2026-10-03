@@ -12,18 +12,23 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -33,6 +38,7 @@ from verdra.canopy.crown.about import TextViewer
 from verdra.canopy.leaves.empty import soon
 from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.leaves.switch import Switch
+from verdra.trunk.branches import fallow
 from verdra.trunk.sapwood import startup
 
 
@@ -61,6 +67,58 @@ def feature_names() -> dict[str, str]:
         "displayed_name": QCoreApplication.translate("Settings", "Name display"),
         "traffic_editing": QCoreApplication.translate("Settings", "Traffic editing"),
     }
+
+
+def kind_names() -> dict[str, str]:
+    """Return the plain name of each system change kind (plan 9.4; spec S-16)."""
+    return {
+        "ca_roblox_bundle": QCoreApplication.translate(
+            "Settings", "Verdra's certificate in Roblox"
+        ),
+        "hosts_entries": QCoreApplication.translate("Settings", "Hosts file entries"),
+        "keeper_install": QCoreApplication.translate("Settings", "Verdra Keeper helper"),
+        "scheduled_task": QCoreApplication.translate("Settings", "Scheduled task"),
+        "launch_agent": QCoreApplication.translate("Settings", "Launch agent"),
+        "launch_daemon": QCoreApplication.translate("Settings", "Launch daemon"),
+        "polkit_policy": QCoreApplication.translate("Settings", "Permission policy"),
+        "systemd_unit": QCoreApplication.translate("Settings", "System service"),
+        "autostart": QCoreApplication.translate("Settings", "Start with the system"),
+        "launcher_entry": QCoreApplication.translate("Settings", "Launcher entry"),
+        "uri_handler": QCoreApplication.translate("Settings", "Roblox link handler"),
+        "file_tweak": QCoreApplication.translate("Settings", "File tweak"),
+        "client_settings_file": QCoreApplication.translate("Settings", "Client settings file"),
+        "frame_rate_setting": QCoreApplication.translate("Settings", "Frame-rate cap"),
+    }
+
+
+#: The columns of the System changes list, as functions so the titles follow the language.
+CHANGE_COLUMNS: tuple[Callable[[], str], ...] = (
+    lambda: QCoreApplication.translate("Settings", "Change"),
+    lambda: QCoreApplication.translate("Settings", "Where"),
+    lambda: QCoreApplication.translate("Settings", "Made"),
+    lambda: QCoreApplication.translate("Settings", "State"),
+)
+
+
+def change_cells(change: fallow.Change) -> tuple[str, str, str, str]:
+    """Return the text of one row of the System changes list."""
+    made = QDateTime.fromMSecsSinceEpoch(round(change.created.timestamp() * 1000))
+    states = {
+        "pending": QCoreApplication.translate("Settings", "Pending"),
+        "done": QCoreApplication.translate("Settings", "Done"),
+        "failed": QCoreApplication.translate("Settings", "Failed"),
+    }
+    state = states.get(change.state, change.state)
+    if change.reason:
+        state = QCoreApplication.translate("Settings", "{state}: {reason}").format(
+            state=state, reason=change.reason
+        )
+    return (
+        kind_names().get(change.kind, change.kind),
+        change.target,
+        QLocale().toString(made, QLocale.FormatType.ShortFormat),
+        state,
+    )
 
 
 def groups() -> list[tuple[str, str, list[Row]]]:
@@ -307,6 +365,7 @@ class SettingsScreen(QWidget):
         settings: Any,
         run_setup: Callable[[], None] | None = None,
         parent: QWidget | None = None,
+        list_changes: Callable[[], list[fallow.Change]] = fallow.system_changes,
     ) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -363,14 +422,7 @@ class SettingsScreen(QWidget):
             self.column.addWidget(panel)
 
         changes = self._panel(body, QCoreApplication.translate("Settings", "System changes"))
-        empty = QLabel(
-            QCoreApplication.translate(
-                "M-SET-12", "Verdra hasn't changed anything outside its own folders."
-            ),
-            changes,
-        )
-        empty.setProperty("muted", True)
-        changes.layout().addWidget(empty)  # type: ignore[union-attr]
+        self._system_changes(changes, list_changes)
         self.reset_everything = QPushButton(
             QCoreApplication.translate("Settings", "Reset everything…"), changes
         )
@@ -382,6 +434,7 @@ class SettingsScreen(QWidget):
 
         settings.changed.connect(self._changed)
         self._load_all()
+        self.refresh_changes()
 
     # --- Building -------------------------------------------------------------------------
 
@@ -502,6 +555,74 @@ class SettingsScreen(QWidget):
             TextViewer(QCoreApplication.translate("About", "Privacy"), text, self).exec()
 
     # --- Values ---------------------------------------------------------------------------
+
+    def _system_changes(
+        self, panel: QFrame, list_changes: Callable[[], list[fallow.Change]]
+    ) -> None:
+        """Build the System changes list (spec S-16); `refresh_changes` fills it."""
+        self._list_changes = list_changes
+        self.changes_empty = QLabel(
+            QCoreApplication.translate(
+                "M-SET-12", "Verdra hasn't changed anything outside its own folders."
+            ),
+            panel,
+        )
+        self.changes_empty.setProperty("muted", True)
+        #: Shown while the ledger can't be read (M-RESET-05); made when needed, because a
+        #: notice writes its sentence to Activity.
+        self.changes_error: Notice | None = None
+        self.changes_table = QTableWidget(0, len(CHANGE_COLUMNS), panel)
+        self.changes_table.setAccessibleName(
+            QCoreApplication.translate("Settings", "System changes Verdra made")
+        )
+        self.changes_table.setHorizontalHeaderLabels([title() for title in CHANGE_COLUMNS])
+        self.changes_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.changes_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.changes_table.setAlternatingRowColors(True)
+        self.changes_table.setShowGrid(False)
+        self.changes_table.setWordWrap(False)
+        self.changes_table.verticalHeader().hide()
+        header = self.changes_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._changes_layout = cast(QVBoxLayout, panel.layout())  # made by _panel
+        self._changes_layout.addWidget(self.changes_empty)
+        self._changes_layout.addWidget(self.changes_table)
+
+    def refresh_changes(self) -> None:
+        """Read the system changes again and show them (on build and whenever shown)."""
+        try:
+            changes = self._list_changes()
+        except fallow.LedgerUnreadableError as error:
+            if self.changes_error is None:
+                self.changes_error = Notice(
+                    QCoreApplication.translate(
+                        "M-RESET-05", "Verdra can't read its list of system changes in {path}."
+                    ).format(path=error.path),
+                    Tone.DANGER,
+                    self.changes_table.parentWidget(),
+                )
+                self._changes_layout.insertWidget(1, self.changes_error)
+            self.changes_empty.hide()
+            self.changes_table.hide()
+            return
+        if self.changes_error is not None:
+            self.changes_error.hide()
+            self.changes_error.deleteLater()
+            self.changes_error = None
+        self.changes_empty.setVisible(not changes)
+        self.changes_table.setVisible(bool(changes))
+        self.changes_table.setRowCount(len(changes))
+        for row, change in enumerate(changes):
+            for column, text in enumerate(change_cells(change)):
+                item = QTableWidgetItem(text)
+                item.setToolTip(text)
+                self.changes_table.setItem(row, column, item)
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's name
+        """Show the ledger as it is now: routing may have changed it since the last visit."""
+        self.refresh_changes()
+        super().showEvent(event)
 
     def _load_all(self) -> None:
         self._loading = True

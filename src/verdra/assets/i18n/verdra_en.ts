@@ -446,6 +446,13 @@
     </message>
 </context>
 <context>
+    <name>M-RESET-05</name>
+    <message>
+        <source>Verdra can&apos;t read its list of system changes in {path}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RISK-01</name>
     <message>
         <source>I understand the risk</source>
@@ -858,6 +865,94 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Verdra&apos;s certificate in Roblox</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hosts file entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verdra Keeper helper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scheduled task</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Launch agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Launch daemon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Permission policy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>System service</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start with the system</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Launcher entry</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Roblox link handler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File tweak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Client settings file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Frame-rate cap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Where</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Made</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>State</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{state}: {reason}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Appearance</source>
         <translation type="unfinished"></translation>
     </message>
@@ -959,6 +1054,10 @@
     </message>
     <message>
         <source>Warnings you accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>System changes Verdra made</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

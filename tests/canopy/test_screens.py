@@ -466,3 +466,74 @@ def test_the_tray_has_every_plan_size_and_shows_why_items_are_off(qapp: QApplica
     for action in (tray.apply_action, tray.pause_action, tray.reset_action):
         assert not action.isEnabled()
         assert action.toolTip() == soon()
+
+
+def test_system_changes_lists_the_ledger(services: Services, qtbot: QtBot) -> None:
+    """Spec S-16: every ledger entry that isn't removed, with its plain name, place and state."""
+    from verdra.bark import scar
+
+    screen = SettingsScreen(services.settings)
+    qtbot.addWidget(screen)
+    screen.show()
+    assert screen.changes_empty.isVisible()
+    assert not screen.changes_table.isVisible()
+
+    ledger = scar.Ledger()
+    done = ledger.begin("ca_roblox_bundle", "/roblox/1/cacert.pem", {"mode": 0o644})
+    ledger.mark(done.id, "done")
+    gone = ledger.begin("ca_roblox_bundle", "/roblox/0/cacert.pem", {"mode": 0o644})
+    ledger.mark(gone.id, "removed")
+    failed = ledger.begin("uri_handler", "roblox-player", {})
+    ledger.mark(failed.id, "failed", error="Access denied")
+    screen.hide()
+    screen.show()  # read again whenever the screen is shown
+    table = screen.changes_table
+    assert table.isVisible() and not screen.changes_empty.isVisible()
+    rows = [
+        [table.item(row, column).text() for column in (0, 1, 3)]  # type: ignore[union-attr]
+        for row in range(table.rowCount())
+    ]
+    assert rows == [
+        ["Roblox link handler", "roblox-player", "Failed: Access denied"],
+        ["Verdra's certificate in Roblox", "/roblox/1/cacert.pem", "Done"],
+    ]
+    assert table.item(0, 2).text()  # type: ignore[union-attr] # the date, in the user's locale
+    assert table.accessibleName() == "System changes Verdra made"
+    assert table.editTriggers() == table.EditTrigger.NoEditTriggers
+
+
+def test_system_changes_says_when_the_ledger_cant_be_read(
+    services: Services, qtbot: QtBot, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    from verdra.trunk.branches import fallow
+
+    broken = True
+
+    def list_changes() -> list[fallow.Change]:
+        if broken:
+            raise fallow.LedgerUnreadableError(tmp_path / "changes.json")
+        return []
+
+    with caplog.at_level(logging.ERROR):
+        screen = SettingsScreen(services.settings, list_changes=list_changes)
+    qtbot.addWidget(screen)
+    screen.show()
+    assert screen.changes_error is not None and screen.changes_error.isVisible()
+    expected = f"Verdra can't read its list of system changes in {tmp_path / 'changes.json'}."
+    assert screen.changes_error.label.text() == expected
+    assert [r.getMessage() for r in caplog.records] == [expected]  # written to Activity once
+    assert not screen.changes_table.isVisible() and not screen.changes_empty.isVisible()
+    broken = False
+    screen.refresh_changes()
+    assert screen.changes_error is None
+    assert screen.changes_empty.isVisible()
+
+
+def test_every_system_change_kind_has_a_plain_name(qapp: QApplication) -> None:
+    from typing import get_args
+
+    from verdra.bark import scar
+    from verdra.canopy.screens.settings import kind_names
+
+    assert set(kind_names()) == set(get_args(scar.Kind))
+    assert all(name and "_" not in name for name in kind_names().values())
