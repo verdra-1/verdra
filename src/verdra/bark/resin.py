@@ -166,3 +166,24 @@ def key_from_secret(text: str) -> ec.EllipticCurvePrivateKey:
 def matches(certificate: x509.Certificate, key: ec.EllipticCurvePrivateKey) -> bool:
     """Return whether `key` is the private key of `certificate`."""
     return certificate.public_key() == key.public_key()
+
+
+def strip_blocks(data: bytes) -> bytes:
+    """Return trust-file bytes with every Verdra block removed, markers and line ends included.
+
+    Used when a file holds a block the ledger doesn't know about, so a file never ends up with
+    two (spec S-10, rule 2).
+    """
+    begin = terrain.CA_BEGIN_MARKER.encode("ascii")
+    end = terrain.CA_END_MARKER.encode("ascii")
+    while (start := data.find(begin)) != -1:
+        stop = data.find(end, start)
+        if stop == -1:
+            break
+        stop += len(end)
+        if data[stop : stop + 2] == b"\r\n":
+            stop += 2
+        elif data[stop : stop + 1] == b"\n":
+            stop += 1
+        data = data[:start] + data[stop:]
+    return data
