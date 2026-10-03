@@ -66,3 +66,6 @@ All notable changes to Verdra are recorded here. The format follows
   reference only while macOS is deferred).
 - M1 test plan (layers, `tools/fake_roblox.py`, acceptance and negative tests) and the M1
   risk review.
+- Local certificate authority (S-10, first part): the CA and per-host leaf certificates with
+  the plan 10.3 profiles, created in memory; Name Constraints limit the CA to `roblox.com` and
+  `rbxcdn.com`.
