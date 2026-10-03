@@ -102,6 +102,9 @@ All notable changes to Verdra are recorded here. The format follows
   only when running from source, decrypts every plan 10.2 host, changes nothing, writes both
   sides' TLS details to Activity (M-DIAG-02) and shows M-DIAG-01 while it is on. Builds leave the
   code out, refuse the flag, and the build check proves both (decision record 0015).
+- Proxy latency benchmark (S-11 test 5, `tools/bench.py`): the latency Verdra adds to an
+  intercepted request, against plan 12.4's budget (median 5 ms, 95th percentile 20 ms) on every
+  pull request, and nightly against a committed baseline, failing above 20 % regression.
 
 ### Changed
 

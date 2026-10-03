@@ -119,6 +119,12 @@ untouched.
   transports) but S-11 doesn't test; tests 9 and 10 cover the diagnostic interception settled in
   16.2.
 - Test 1 states where the 1,000 responses come from (anonymised fixtures, plan 12.1).
+- Test 5 measures the added latency as the difference between a request fetched through Verdra
+  and the same request fetched directly, back to back on keep-alive connections (handshakes left
+  out: the budget is per request). The 20 % regression is judged on that difference divided by
+  the direct round trip of the same run, against a baseline committed as
+  `tools/bench_baseline.json` from the nightly runner, so a faster or slower runner doesn't count
+  as a change; the budget itself is judged in milliseconds.
 - The plan's symbionts are built in later milestones; at M1 the pipeline is tested with test
   symbionts only, which is why test 4 doesn't name a real one.
 - M-DIAG-02 is added so test 9's TLS details reach Activity with a message ID. Where the

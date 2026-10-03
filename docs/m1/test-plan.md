@@ -62,7 +62,7 @@ A test tool, not shipped. Written from the plan and the public HTTP and TLS spec
 | S-11 | 2 Tunnelling | Integration | Fake server sees the client's own ClientHello |
 | S-11 | 3 Upstream certificate failures | Integration | Self-signed and wrong host → 502, M-PROXY-02, Degraded |
 | S-11 | 4 Symbiont exception | Integration | Test symbiont that raises; Activity record redacted |
-| S-11 | 5 Latency | Benchmark | Nightly; 20 % regression fails |
+| S-11 | 5 Latency | Benchmark | `tools/bench.py`: each replay fetched directly and through Verdra in back-to-back pairs on keep-alive connections; added latency per pair; best of 5 rounds of 1,000. Nightly: budget (median ≤ 5 ms, 95th percentile ≤ 20 ms) and at most 20 % over `tools/bench_baseline.json`, judged relative to the direct round trip so the runner's speed doesn't count. Every pull request: a 200-pair run against the budget |
 | S-11 | 6 Loopback only, port fallback | Integration | Port held by a test socket; every port refused by a fake binder |
 | S-11 | 7 Limits | Integration | 257 connections, 30 s idle (fake clock), 65 MB body |
 | S-11 | 8 Transports | Integration | Direct, system (fake system proxy setting), HTTP CONNECT, SOCKS5 |
