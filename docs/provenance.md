@@ -78,7 +78,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/roots/symbionts/mimicry.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/streams.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/trailguard.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/taproot.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/roots/taproot.py` | Master plan 10.4, spec S-11 (tests 3 and 8), Reference R2 (`routing.upstream.*`); RFC 1928 (SOCKS5), RFC 1929 (SOCKS username/password), RFC 9110 9.3.6 (CONNECT) and 11.7.2 (Proxy-Authorization), RFC 7617 (Basic); `truststore`, Python `ssl` and `urllib.request.getproxies` documentation | truststore | 2026-10-03 |
 | `verdra/seedbank/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/seedbank/harvest.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/seedbank/kinds.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
