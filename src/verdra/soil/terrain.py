@@ -83,6 +83,11 @@ SETTINGS_FILE: Final = "settings.json"
 STATE_FILE: Final = "state.json"
 LEDGER_FILE: Final = "changes.json"
 LOG_FILE: Final = "verdra.log"
+#: Under the config folder (plan 9.1): the CA certificate, and on Linux without a secret store
+#: the CA key file (mode 0600, M-CA-03; plan 16.2, risk R-10).
+TRUST_FOLDER: Final = "trust"
+CA_CERTIFICATE_FILE: Final = "ca.crt"
+CA_KEY_FALLBACK_FILE: Final = "ca.key"
 
 
 def _override() -> Path | None:

@@ -25,6 +25,11 @@ class Tundra:
         """The system's name as people read it in messages (M-PLAT-01)."""
         return "Linux"
 
+    @property
+    def key_file_fallback(self) -> bool:
+        """Whether the CA key may live in a user-only file when there is no secret store."""
+        return True
+
     def support(self) -> humus.Unsupported | None:
         """Return None: Linux with Sober is supported."""
         return None

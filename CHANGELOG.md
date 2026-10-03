@@ -69,3 +69,5 @@ All notable changes to Verdra are recorded here. The format follows
 - Local certificate authority (S-10, first part): the CA and per-host leaf certificates with
   the plan 10.3 profiles, created in memory; Name Constraints limit the CA to `roblox.com` and
   `rbxcdn.com`.
+- Local certificate authority (S-10, second part): the CA key lives in the OS secret store;
+  on Linux without a Secret Service it lives in one file only the user can read.

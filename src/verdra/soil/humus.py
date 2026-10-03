@@ -59,6 +59,14 @@ class Platform(Protocol):
         """Return None when Verdra supports this system, else why it doesn't."""
         ...
 
+    @property
+    def key_file_fallback(self) -> bool:
+        """Whether the CA key may live in a user-only file when there is no secret store.
+
+        Only Linux, where a desktop may lack a Secret Service (plan 16.2, risk R-10).
+        """
+        ...
+
     def prefers_reduced_motion(self) -> bool | None:
         """Return whether the OS asks apps to reduce motion, or None when it can't be read."""
         ...
