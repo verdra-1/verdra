@@ -4,12 +4,13 @@
 
 import os
 import stat
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from verdra.bark import resin, scar
+from tests.bark.test_husk import MemoryKeyring
+from verdra.bark import husk, resin, scar
 from verdra.roots import gardener
 from verdra.soil import terrain
 
@@ -159,3 +160,78 @@ def test_removing_from_a_file_that_is_gone_or_was_replaced(
     path.unlink()
     gardener.remove_ca(second, book)
     assert [e.state for e in book.entries()] == ["removed", "removed"]
+
+
+# --- Creation and rotation (spec S-10, test 4) -------------------------------------------------
+
+
+@pytest.fixture
+def setup(tmp_path: Path) -> tuple[husk.Husk, scar.Ledger, list[Path], Path]:
+    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    book = scar.Ledger(tmp_path / "changes.json")
+    files = []
+    for name, data in (("one", FIXTURES["lf"]), ("two", FIXTURES["crlf"])):
+        path = tmp_path / name / "cacert.pem"
+        path.parent.mkdir()
+        path.write_bytes(data)
+        files.append(path)
+    return vault, book, files, tmp_path / "trust" / "ca.crt"
+
+
+def test_the_first_start_creates_the_ca_and_adds_it(
+    setup: tuple[husk.Husk, scar.Ledger, list[Path], Path],
+) -> None:
+    vault, book, files, cert_file = setup
+    authority = gardener.ensure_ca(vault, book, files, NOW, cert_file)
+    stored = vault.load_ca_key()
+    assert stored is not None
+    assert resin.matches(authority.certificate, resin.key_from_secret(stored))
+    assert cert_file.read_bytes() == resin.certificate_pem(authority.certificate)
+    for path in files:
+        assert blocks(path.read_bytes()) == 1
+    # The next start finds the same CA and changes nothing.
+    again = gardener.ensure_ca(vault, book, files, NOW + timedelta(days=1), cert_file)
+    assert again.certificate == authority.certificate
+    assert len(book.entries()) == 2
+
+
+@pytest.mark.spec("S-10", 4)
+def test_rotation_leaves_one_block_signed_by_the_new_ca(
+    setup: tuple[husk.Husk, scar.Ledger, list[Path], Path],
+) -> None:
+    vault, book, files, cert_file = setup
+    old = gardener.ensure_ca(vault, book, files, NOW, cert_file)
+    old_key_text = vault.load_ca_key()
+    rotate_at = old.certificate.not_valid_after_utc - timedelta(days=30)
+    new = gardener.ensure_ca(vault, book, files, rotate_at, cert_file)
+    assert new.certificate != old.certificate
+    assert not resin.needs_rotation(new.certificate, rotate_at)
+    for path in files:
+        data = path.read_bytes()
+        assert blocks(data) == 1
+        newline = "\r\n" if b"\r\n" in data else "\n"
+        assert resin.trust_block(new.certificate).replace("\n", newline).encode() in data
+    stored = vault.load_ca_key()
+    assert stored is not None and stored != old_key_text  # the old key is gone from the store
+    assert resin.matches(new.certificate, resin.key_from_secret(stored))
+    assert cert_file.read_bytes() == resin.certificate_pem(new.certificate)
+    assert [e.state for e in book.entries()] == ["removed", "removed", "done", "done"]
+    # Reset everything afterwards leaves the files as they were before Verdra.
+    for entry in list(book.open_entries()):
+        gardener.remove_ca(entry, book)
+    assert [p.read_bytes() for p in files] == [FIXTURES["lf"], FIXTURES["crlf"]]
+
+
+def test_a_certificate_without_its_key_means_a_new_ca(
+    setup: tuple[husk.Husk, scar.Ledger, list[Path], Path],
+) -> None:
+    vault, book, files, cert_file = setup
+    first = gardener.ensure_ca(vault, book, files, NOW, cert_file)
+    vault.delete_ca_key()
+    second = gardener.ensure_ca(vault, book, files, NOW, cert_file)
+    assert second.certificate != first.certificate
+    for path in files:
+        assert blocks(path.read_bytes()) == 1
+    cert_file.write_bytes(b"not a certificate")
+    third = gardener.ensure_ca(vault, book, files, NOW, cert_file)
+    assert third.certificate != second.certificate

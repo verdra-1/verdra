@@ -16,11 +16,13 @@ import contextlib
 import hashlib
 import os
 import stat
+from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 
 from cryptography import x509
 
-from verdra.bark import resin, scar
+from verdra.bark import husk, resin, scar
 from verdra.soil import atomic, terrain
 
 
@@ -89,3 +91,52 @@ def remove_ca(entry: scar.Entry, ledger: scar.Ledger) -> None:
     else:
         os.chmod(path, mode)
     ledger.mark(entry.id, "removed")
+
+
+def certificate_path() -> Path:
+    """Return `trust/ca.crt` in the config folder (plan 9.1)."""
+    return terrain.config_dir() / terrain.TRUST_FOLDER / terrain.CA_CERTIFICATE_FILE
+
+
+def _load(vault: husk.Husk, cert_file: Path) -> resin.Authority | None:
+    """Return the stored CA, or None if the certificate or its key is missing or doesn't match."""
+    text = vault.load_ca_key()
+    if text is None or not cert_file.exists():
+        return None
+    try:
+        certificate = x509.load_pem_x509_certificate(atomic.read_bytes(cert_file))
+        key = resin.key_from_secret(text)
+    except ValueError:
+        return None
+    return resin.Authority(certificate, key) if resin.matches(certificate, key) else None
+
+
+def ensure_ca(
+    vault: husk.Husk,
+    ledger: scar.Ledger,
+    trust_files: Iterable[Path],
+    now: datetime,
+    cert_file: Path | None = None,
+) -> resin.Authority:
+    """Return a valid CA, in every trust file; create or rotate it first if needed (S-10).
+
+    Rotation (30 days before expiry) follows the spec's order: a new CA is created, the old
+    block is removed from every trust file, the new block is added, and only then is the old
+    key replaced in the secret store. No file ever holds two blocks.
+    """
+    cert_file = cert_file if cert_file is not None else certificate_path()
+    files = list(trust_files)
+    current = _load(vault, cert_file)
+    if current is not None and not resin.needs_rotation(current.certificate, now):
+        for path in files:
+            add_ca(path, current.certificate, ledger)
+        return current
+    fresh = resin.create_authority(now)
+    for entry in list(ledger.open_entries()):
+        if entry.kind == "ca_roblox_bundle":
+            remove_ca(entry, ledger)
+    for path in files:
+        add_ca(path, fresh.certificate, ledger)
+    vault.save_ca_key(resin.key_to_secret(fresh.key))
+    atomic.write_atomic(cert_file, resin.certificate_pem(fresh.certificate))
+    return fresh
