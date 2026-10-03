@@ -86,9 +86,9 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/seedbank/vault.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/atomic.py` | Master plan 9.7, decision record 0005, spec S-02; POSIX `rename`/`fsync` and Python `os.replace` documentation | Standard library | 2026-10-01 |
-| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS); Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION), macOS `com.apple.universalaccess reduceMotion`, GNOME `enable-animations` documentation | Standard library (`ctypes`, `subprocess`) | 2026-10-01 |
+| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS) and 16.2 (macOS deferred; the Platform interface); Reference R1; Python `typing.Protocol` documentation | Standard library (`subprocess`) | 2026-10-03 |
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/meadow/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/meadow/` | Reference R1; Master plan 6.6; Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION) documentation | Standard library (`ctypes`) | 2026-10-03 |
 | `verdra/soil/meadow/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/hotkeys.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -97,17 +97,17 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/meadow/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/hotkeys.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/instances.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/keeper.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/orchard/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/orchard/` | Reference R1; Master plan 16.2 (macOS deferred until after 1.0); decision record 0014 | — | 2026-10-03 |
+| `verdra/soil/orchard/autostart.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/files.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/hotkeys.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/instances.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/keeper.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/keeper_client.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/launcher.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
+| `verdra/soil/orchard/watchdog.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
 | `verdra/soil/terrain.py` | Reference R3 (system identifiers), Master plan 9.1 (folders) | platformdirs | 2026-10-01 |
-| `verdra/soil/tundra/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/tundra/` | Reference R1; Master plan 6.6; GNOME `org.gnome.desktop.interface enable-animations` documentation | Standard library | 2026-10-03 |
 | `verdra/soil/tundra/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/hotkeys.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

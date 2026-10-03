@@ -87,3 +87,9 @@ def test_the_job_parser_sees_every_job() -> None:
     text = "on: push\npermissions: {}\njobs:\n  a:\n    permissions: {}\n  b-c:\n    steps: []\n"
     assert list(jobs(text)) == ["a", "b-c"]
     assert "permissions" not in jobs(text)["b-c"]
+
+
+@pytest.mark.parametrize("path", WORKFLOWS, ids=lambda path: path.name)
+def test_no_workflow_runs_on_macos(path: Path) -> None:
+    # macOS is deferred until after 1.0 (decision record 0014): Windows and Linux runners only.
+    assert re.search(r"macos-\w", path.read_text(encoding="utf-8")) is None

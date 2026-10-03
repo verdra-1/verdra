@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tray or menu-bar icon, the tray menu (7.10), status-variant icons.
 
-The icon shows the routing status (Master plan 4.6): on Windows and Linux the symbol in
-`ink-muted` with a status dot, drawn for the taskbar's light or dark theme; on macOS a template
-image the menu bar recolours, with the node carrying the status. Left-click opens the window on
-Windows and Linux; on macOS the icon opens the menu.
+The icon shows the routing status (Master plan 4.6): the symbol in `ink-muted` with a status
+dot, drawn for the taskbar's light or dark theme. Left-click opens the window. (The macOS
+template images are still generated, but macOS is deferred until after 1.0: decision record
+0014.)
 """
 
 from __future__ import annotations
 
-import sys
 from typing import Literal
 
 from PySide6.QtCore import QObject, Qt, Signal
@@ -21,18 +20,16 @@ from verdra.canopy.crown import theme
 from verdra.canopy.leaves.badge import Status
 from verdra.canopy.leaves.empty import soon
 
-#: Plan 4.6 tray sizes: Windows 16, 20, 24, 32; Linux 22, 24; macOS 18 pt (18 and 36 px).
-TRAY_SIZES = (16, 18, 20, 22, 24, 32, 36)
+#: Plan 4.6 tray sizes: Windows 16, 20, 24, 32; Linux 22, 24.
+TRAY_SIZES = (16, 20, 22, 24, 32)
 
 
-def tray_icon(status: Status, variant: Literal["light", "dark", "template"]) -> QIcon:
+def tray_icon(status: Status, variant: Literal["light", "dark"]) -> QIcon:
     """Return the tray icon for a status, rendered at every tray size."""
     path = theme.brand_file(f"tray-{status.value}-{variant}.svg")
     result = QIcon()
     for size in TRAY_SIZES:
         result.addPixmap(theme.svg_pixmap(path, size))
-    if variant == "template":
-        result.setIsMask(True)
     return result
 
 
@@ -86,10 +83,8 @@ class Tray(QObject):
         """Return whether the system has a tray or menu bar for the icon."""
         return QSystemTrayIcon.isSystemTrayAvailable()
 
-    def variant(self) -> Literal["light", "dark", "template"]:
+    def variant(self) -> Literal["light", "dark"]:
         """Return which icon set suits the system's tray."""
-        if sys.platform == "darwin":
-            return "template"
         scheme = QGuiApplication.styleHints().colorScheme()
         return "dark" if scheme == Qt.ColorScheme.Dark else "light"
 
@@ -115,7 +110,5 @@ class Tray(QObject):
         self.icon.hide()
 
     def _activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        if sys.platform == "darwin":
-            return  # The menu bar icon opens its menu.
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             self.open_requested.emit()

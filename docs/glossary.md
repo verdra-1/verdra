@@ -71,7 +71,7 @@ brand moments (splash, empty states).
 | terrain | Constants: IDs and paths | — |
 | atomic | Safe file writes | — |
 | lichen | Keeper protocol | — |
-| meadow / orchard / tundra | Windows / macOS / Linux adapters | — |
+| meadow / orchard / tundra | Windows / macOS (deferred until after 1.0) / Linux adapters | — |
 | keeper | Privileged helper for Hosts-file routing | Helper, Verdra Keeper |
 ## Product terms
 

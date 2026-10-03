@@ -2,22 +2,66 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Platform protocol every OS package implements; picks the right one at startup.
 
-M0 holds the parts the app shell needs: which system Verdra runs on, and whether the system asks
-for reduced motion (Master plan 6.6). The routing, launching and keeper parts of the protocol
-arrive with their specs (M1 onward).
+meadow (Windows), orchard (macOS) and tundra (Linux and Sober) each provide one `Platform`.
+Nothing outside soil checks the operating system: it asks `current()` (Master plan 16.2). M0
+holds the parts the app shell needs: which system Verdra runs on, whether Verdra supports it,
+and whether the system asks for reduced motion (6.6). The routing, launching and keeper parts
+of the protocol arrive with their specs (M1 onward).
+
+macOS is deferred until after 1.0 (decision record 0014): orchard answers every job with
+`Unsupported`.
 """
 
 from __future__ import annotations
 
-import ctypes
 import shutil
 import subprocess
 import sys
-from typing import Literal
+from dataclasses import dataclass
+from typing import Literal, Protocol
 
 System = Literal["windows", "macos", "linux"]
 
 _TIMEOUT_SECONDS = 1.0
+
+
+#: Why a job isn't available. "deferred": the whole system waits for a later release (macOS,
+#: decision record 0014). More reasons arrive with the specs that need them (S-51 instances).
+Reason = Literal["deferred"]
+
+
+@dataclass(frozen=True, slots=True)
+class Unsupported:
+    """A job this system can't do, with the reason, so the UI can explain it (Reference R1).
+
+    It carries no text: the UI turns it into M-PLAT-01 ("<Feature> isn't available on
+    <system>: <reason>.") from the message catalog.
+    """
+
+    system: System
+    reason: Reason
+
+
+class Platform(Protocol):
+    """What each OS package provides."""
+
+    @property
+    def system(self) -> System:
+        """The system this package is for."""
+        ...
+
+    @property
+    def name(self) -> str:
+        """The system's name as people read it in messages (M-PLAT-01)."""
+        ...
+
+    def support(self) -> Unsupported | None:
+        """Return None when Verdra supports this system, else why it doesn't."""
+        ...
+
+    def prefers_reduced_motion(self) -> bool | None:
+        """Return whether the OS asks apps to reduce motion, or None when it can't be read."""
+        ...
 
 
 def system() -> System:
@@ -29,46 +73,44 @@ def system() -> System:
     return "linux"
 
 
+def platform_for(which: System) -> Platform:
+    """Return the OS package's Platform for a system."""
+    # Imported here, not at the top: the OS packages import this module for the protocol.
+    match which:
+        case "windows":
+            from verdra.soil import meadow  # noqa: PLC0415
+
+            return meadow.PLATFORM
+        case "macos":
+            from verdra.soil import orchard  # noqa: PLC0415
+
+            return orchard.PLATFORM
+        case "linux":
+            from verdra.soil import tundra  # noqa: PLC0415
+
+            return tundra.PLATFORM
+
+
+def current() -> Platform:
+    """Return the Platform for the system Verdra runs on."""
+    return platform_for(system())
+
+
 def system_name() -> str:
     """Return the system's name as people read it in messages (M-PLAT-01)."""
-    return {"windows": "Windows", "macos": "macOS", "linux": "Linux"}[system()]
+    return current().name
 
 
 def prefers_reduced_motion() -> bool | None:
-    """Return whether the OS asks apps to reduce motion, or None when it can't be read.
-
-    Windows: the "Show animations in Windows" setting (client-area animation). macOS: Accessibility
-    › Display › "Reduce motion". Linux: GNOME's `enable-animations`.
-    """
+    """Return whether the OS asks apps to reduce motion, or None when it can't be read."""
     try:
-        match system():
-            case "windows":
-                return _windows_reduced_motion()
-            case "macos":
-                output = _read(["defaults", "read", "com.apple.universalaccess", "reduceMotion"])
-                return None if output is None else output == "1"
-            case "linux":
-                output = _read(
-                    ["gsettings", "get", "org.gnome.desktop.interface", "enable-animations"]
-                )
-                return None if output is None else output == "false"
+        return current().prefers_reduced_motion()
     except OSError:
         return None
 
 
-def _windows_reduced_motion() -> bool | None:
-    spi_get_client_area_animation = 0x1042
-    enabled = ctypes.c_int()
-    windll = getattr(ctypes, "windll", None)
-    if windll is None:
-        return None
-    ok = windll.user32.SystemParametersInfoW(
-        spi_get_client_area_animation, 0, ctypes.byref(enabled), 0
-    )
-    return None if not ok else not enabled.value
-
-
-def _read(command: list[str]) -> str | None:
+def read_command(command: list[str]) -> str | None:
+    """Run a fixed command without a shell; return its trimmed output, or None if it failed."""
     executable = shutil.which(command[0])
     if executable is None:
         return None

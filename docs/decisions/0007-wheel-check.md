@@ -1,6 +1,7 @@
 # 0007. Wheel check for Python 3.14 (risk R-08)
 
-- **Status:** Accepted
+- **Status:** Accepted; the Intel-macOS cryptography cap and the macOS lock targets are removed
+  by 0014
 - **Date:** 2026-10-01
 - **Plan sections:** 8.1, 11.1 (ARM64), 15 (R-08), Reference R4
 

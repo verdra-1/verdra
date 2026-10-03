@@ -1,6 +1,6 @@
 # 0009. macos-15 for Apple silicon in CI
 
-- **Status:** Accepted
+- **Status:** Superseded by 0014 (no macOS runners while macOS is deferred)
 - **Date:** 2026-10-01
 - **Plan sections:** 13.5, 16.2
 

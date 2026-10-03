@@ -18,7 +18,7 @@ import pytest
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from verdra.soil import terrain
+from verdra.soil import humus, terrain
 from verdra.trunk.sapwood import cli, shutdown, startup
 
 #: M-SET-16, as the store reports an unknown key.
@@ -101,6 +101,8 @@ def test_startup_order_and_shutdown(
     steps = ["settings and logging ready", "splash shown", "window shown"]
     positions = [log.index(f"Startup: {step}") for step in steps]
     assert positions == sorted(positions)
+    # M-SHELL-05 names the system as people read it, from the Platform (plan 16.2).
+    assert f"started on {humus.system_name()}." in log
     assert "Shutdown finished" in log
     shutdown.run(services)  # a second call does nothing
 

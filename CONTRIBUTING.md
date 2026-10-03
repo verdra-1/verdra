@@ -96,7 +96,7 @@ uv run pytest
 A pull request is ready to merge when:
 
 1. It links to its spec, and the spec's acceptance tests are added or updated.
-2. All CI gates are green on Windows, macOS and Linux.
+2. All CI gates are green on Windows and Linux.
 3. New modules have a provenance entry.
 4. User-facing text follows the voice rules and is in the message catalogue.
 5. `CHANGELOG.md` has an entry under "Unreleased".
