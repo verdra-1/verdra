@@ -14,6 +14,18 @@ Roblox tool. Facts come only from what the operating system shows (file listings
 registry and package queries, process lists) and from the public documentation of Sober and the
 operating system (clean room, plan 3.1).
 
+## Facts from CI runners
+
+Facts that need only an installed client may be established on throwaway CI runners instead
+(plan 16.2, "M1 decisions"): the **Platform facts** workflow (`.github/workflows/platform-facts.yml`,
+started by hand) installs Sober from Flathub on Linux (`tools/platforms/facts-linux.sh`: L-01,
+L-02, L-03, L-04, L-05, L-07; Sober itself is never started) and the official Roblox Player on
+Windows (`tools/platforms/install-roblox-windows.ps1`, then the stage 1 script), uninstalls
+Sober, and uploads the findings. No login, no game launch, no contact with Roblox beyond the
+installer download and what the installer itself does. A row filled this way says "confirmed on
+CI runner", with the run link, version and date; the maintainer's PC stays the reference for
+Windows.
+
 ## How to record
 
 Each step below says which row of `docs/platforms/<os>.md` it fills. For every step:
