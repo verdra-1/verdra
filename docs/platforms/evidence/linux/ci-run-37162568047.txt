@@ -1,0 +1,108 @@
+# Copied from the job log of https://github.com/verdra-1/verdra/actions/runs/37162568047/job/111318887372
+# (Platform facts workflow, job "Sober on Linux", 2026-10-03; log timestamps removed). Names, sizes,
+# hashes and package metadata only. Sober was never started; it was uninstalled after this report.
+Verdra platform facts, Linux CI runner (docs/platforms/protocol.md)
+Date: 2026-10-03 23:42 UTC
+
+== Step 0 The machine ==
+$ grep -E ^(NAME|VERSION)= /etc/os-release
+NAME="Ubuntu"
+VERSION="24.04.5 LTS (Noble Numbat)"
+$ uname -m
+x86_64
+$ flatpak --version
+Flatpak 1.14.6
+
+== L-01 Sober's ID, version, commit, runtime and permissions ==
+$ flatpak info org.vinegarhq.Sober
+
+Sober - Play, chat & explore on Roblox
+
+          ID: org.vinegarhq.Sober
+         Ref: app/org.vinegarhq.Sober/x86_64/stable
+        Arch: x86_64
+      Branch: stable
+     Version: 1.8.0
+     License: LicenseRef-proprietary=https://sober.vinegarhq.org/notice.txt
+      Origin: flathub
+  Collection: org.flathub.Stable
+Installation: system
+   Installed: 18.2 MB
+     Runtime: org.gnome.Platform/x86_64/51
+         Sdk: org.gnome.Sdk/x86_64/51
+
+      Commit: a985be6b24cae14e4d7c3e683977c6443a4fb54d89d6a2746be34f664a54b6a1
+      Parent: 519698271f0d249119db199431a64b7e56b394d7a5c5d184f4b76974050e2372
+     Subject: Update Sober to 2026-10-03_bda35ab (1.8.0) (5bcb572d5a4d)
+        Date: 2026-10-02 23:17:55 +0000
+$ flatpak info --show-permissions org.vinegarhq.Sober
+[Context]
+shared=network;ipc;
+sockets=wayland;pulseaudio;fallback-x11;
+devices=dri;
+features=devel;
+$ flatpak info --show-metadata org.vinegarhq.Sober
+[Application]
+name=org.vinegarhq.Sober
+runtime=org.gnome.Platform/x86_64/51
+sdk=org.gnome.Sdk/x86_64/51
+tags=proprietary;
+command=sober
+
+[Context]
+shared=ipc;network;
+sockets=fallback-x11;pulseaudio;wayland;
+devices=dri;
+features=devel;
+
+[Build]
+built-extensions=org.vinegarhq.Sober.Sources;
+
+== L-02 Trust files Sober ships (names, sizes, SHA-256), and its runtime ==
+Install location: /var/lib/flatpak/app/org.vinegarhq.Sober/x86_64/stable/a985be6b24cae14e4d7c3e683977c6443a4fb54d89d6a2746be34f664a54b6a1
+(end of trust-file list)
+$ flatpak info --show-runtime org.vinegarhq.Sober
+org.gnome.Platform/x86_64/51
+
+== L-02/L-03/L-04 Sober's per-user folders before any start ==
+Not present: ~/.var/app/org.vinegarhq.Sober (Flatpak creates it on Sober's first start)
+
+== L-03/L-04 Every file name Sober installs (names and sizes only, nothing opened) ==
+.ref | 0 bytes
+bin/libbadcpu.so | 390104 bytes
+bin/libloader.so | 4134513 bytes
+bin/sober | 7599760 bytes
+bin/sober_services | 1132200 bytes
+manifest.json | 1804 bytes
+share/app-info/icons/flatpak/... (5 icon files)
+share/app-info/media/org/vinegarhq/Sober/.../ (2 icons, 12 screenshots)
+share/app-info/xmls/org.vinegarhq.Sober.xml.gz | 2485 bytes
+share/applications/org.vinegarhq.Sober.desktop | 456 bytes
+share/icons/hicolor/scalable/apps/org.vinegarhq.Sober.svg | 1147 bytes
+share/licenses/org.vinegarhq.Sober/EULA.txt | 37631 bytes
+share/licenses/org.vinegarhq.Sober/PRIVACY.txt | 8478 bytes
+share/metainfo/org.vinegarhq.Sober.metainfo.xml | 17022 bytes
+(icon and screenshot lines shortened here; the job log has each one)
+
+== L-05 Link handler ==
+Desktop entry: /var/lib/flatpak/exports/share/applications/org.vinegarhq.Sober.desktop
+Name=Sober
+MimeType=x-scheme-handler/roblox;x-scheme-handler/roblox-player;
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=sober --file-forwarding org.vinegarhq.Sober -- @@u %u @@
+Name=Settings
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=sober org.vinegarhq.Sober config
+$ env XDG_DATA_DIRS=/var/lib/flatpak/exports/share:/usr/share xdg-mime query default x-scheme-handler/roblox-player
+org.vinegarhq.Sober.desktop
+
+== L-07 /etc/hosts from the host and from inside Sober's sandbox (hashes only) ==
+$ sha256sum /etc/hosts
+82f94686d6cebc0f6f055969675811f4a9af1cfe6f21b4abf84cdc2c56673a1f  /etc/hosts
+$ flatpak run --command=sha256sum org.vinegarhq.Sober /etc/hosts
+(flatpak run:3033): dconf-CRITICAL **: unable to create file '/run/user/1001/dconf/user': Permission denied.  dconf will not work properly.
+82f94686d6cebc0f6f055969675811f4a9af1cfe6f21b4abf84cdc2c56673a1f  /etc/hosts
+
+End of report.
+
+# Uninstall step (same job): app/org.vinegarhq.Sober/x86_64/stable and the runtimes
+# org.gnome.Platform 51, org.gnome.Platform.Locale 51, org.freedesktop.Platform.GL.default 26.08,
+# 26.08-extra and codecs-extra 26.08-extra were uninstalled.

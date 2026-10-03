@@ -45,6 +45,7 @@ jobs:
           sudo flatpak uninstall -y --noninteractive --unused || true
           echo "Installed afterwards:" >> findings/linux.txt
           flatpak list --app --columns=application >> findings/linux.txt 2>&1 || true
+          tail -n 2 findings/linux.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -68,6 +69,10 @@ jobs:
       - name: Record the facts (the Stage 1 script, as on the maintainer's PC)
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/platforms/stage1-windows.ps1 -OutFile findings/windows.txt
+      - name: Show the findings in the log (the evidence links to it)
+        if: always()
+        shell: pwsh
+        run: Get-ChildItem findings -Filter '*.txt' | ForEach-Object { "### $($_.Name)"; Get-Content -LiteralPath $_.FullName }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
