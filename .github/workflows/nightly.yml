@@ -20,6 +20,10 @@ on:
         description: Run only the shuffled repeats (for proving a pull request's fix)
         type: boolean
         default: false
+      benchmarks_only:
+        description: Run only the benchmarks (for measuring a pull request's baseline)
+        type: boolean
+        default: false
 
 # No permissions unless a job asks for them.
 permissions: {}
@@ -35,7 +39,7 @@ defaults:
 jobs:
   fuzz:
     name: Long property and fuzz tests (${{ matrix.runner }})
-    if: ${{ !inputs.repeat_only }}
+    if: ${{ !inputs.repeat_only && !inputs.benchmarks_only }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     permissions:
@@ -80,14 +84,14 @@ jobs:
         run: uv sync
       - name: Run benchmarks
         id: bench
-        # tools/bench.py arrives with the first budget it measures (M1: proxy latency). Until
-        # then this step reports that nothing is measured yet.
+        # Spec S-11 test 5: the latency the proxy adds (plan 12.4), against the budget and against
+        # tools/bench_baseline.json. The result goes to the job summary.
         run: |
-          if [ -f tools/bench.py ]; then
-            uv run python tools/bench.py --max-regression 20
-          else
-            echo "No benchmarks yet." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo '```'
+            uv run python -m tools.bench --max-regression 20
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Open an issue on regression
         if: failure() && steps.bench.outcome == 'failure'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -97,13 +101,13 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `Nightly benchmark regression (${new Date().toISOString().slice(0, 10)})`,
-              body: `A benchmark regressed by more than 20%. Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              body: `A benchmark missed its budget (plan 12.4) or regressed by more than 20%. Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               labels: ["performance"],
             });
 
   audit:
     name: Vulnerabilities and freshness
-    if: ${{ !inputs.repeat_only }}
+    if: ${{ !inputs.repeat_only && !inputs.benchmarks_only }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -128,6 +132,7 @@ jobs:
 
   repeat:
     name: Whole suite, repeated in shuffled order (${{ matrix.runner }})
+    if: ${{ !inputs.benchmarks_only }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     permissions:
@@ -177,7 +182,7 @@ jobs:
 
   newest-python:
     name: Whole suite on the newest Python 3.14 (${{ matrix.runner }})
-    if: ${{ !inputs.repeat_only }}
+    if: ${{ !inputs.repeat_only && !inputs.benchmarks_only }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
