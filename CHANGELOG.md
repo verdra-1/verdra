@@ -77,3 +77,5 @@ All notable changes to Verdra are recorded here. The format follows
   leaving the file byte for byte as it was, read-only flag included.
 - Local certificate authority (S-10, fourth part): the CA is created when routing first
   starts and replaced 30 days before it expires, with one block per trust file throughout.
+- Local certificate authority (S-10, fifth part): when Roblox installs a new version while
+  Verdra runs, the CA is added to it within seconds and Activity says so (M-CA-02).

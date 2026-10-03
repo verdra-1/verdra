@@ -165,6 +165,13 @@
     </message>
 </context>
 <context>
+    <name>M-CA-02</name>
+    <message>
+        <source>Roblox updated. Verdra added its certificate to the new version.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>

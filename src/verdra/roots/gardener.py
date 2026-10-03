@@ -14,16 +14,21 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import logging
 import os
 import stat
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
 
 from cryptography import x509
+from PySide6.QtCore import QCoreApplication, QFileSystemWatcher, QObject, QTimer, Signal
 
 from verdra.bark import husk, resin, scar
 from verdra.soil import atomic, terrain
+
+log = logging.getLogger(__name__)
 
 
 def _newline(data: bytes) -> bytes:
@@ -140,3 +145,82 @@ def ensure_ca(
     vault.save_ca_key(resin.key_to_secret(fresh.key))
     atomic.write_atomic(cert_file, resin.certificate_pem(fresh.certificate))
     return fresh
+
+
+class VersionWatch(QObject):
+    """Watches the Roblox install folders and adds the CA to each new version (S-10, test 3).
+
+    A new version folder appears before the installer has written its files, so a new folder
+    is checked every second until each of its trust files has the block, for at most
+    `PATIENCE_SECONDS`. Each version updated writes M-CA-02 to Activity.
+    """
+
+    #: How long a new version folder is checked for its trust files.
+    PATIENCE_SECONDS = 120.0
+
+    updated = Signal(str)
+
+    def __init__(
+        self,
+        install_folders: Iterable[Path],
+        trust_files_in: Callable[[Path], Iterable[Path]],
+        certificate: x509.Certificate,
+        ledger: scar.Ledger,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.trust_files_in = trust_files_in
+        self.certificate = certificate
+        self.ledger = ledger
+        self.folders = [path for path in install_folders if path.is_dir()]
+        self.known = {child for folder in self.folders for child in _subfolders(folder)}
+        self.pending: dict[Path, float] = {}
+        self.watcher = QFileSystemWatcher([str(folder) for folder in self.folders], self)
+        self.watcher.directoryChanged.connect(self._changed)
+        self.timer = QTimer(self)
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self._check_pending)
+
+    def _changed(self, _folder: str) -> None:
+        now = time.monotonic()
+        for folder in self.folders:
+            for child in _subfolders(folder):
+                if child not in self.known:
+                    self.known.add(child)
+                    self.pending[child] = now
+        self._check_pending()
+
+    def _check_pending(self) -> None:
+        now = time.monotonic()
+        for version, since in list(self.pending.items()):
+            files = [path for path in self.trust_files_in(version) if path.is_file()]
+            if files and all(self._add(path) for path in files):
+                del self.pending[version]
+                log.info(
+                    "%s",
+                    QCoreApplication.translate(
+                        "M-CA-02",
+                        "Roblox updated. Verdra added its certificate to the new version.",
+                    ),
+                )
+                self.updated.emit(str(version))
+            elif now - since > self.PATIENCE_SECONDS:
+                del self.pending[version]
+        if self.pending and not self.timer.isActive():
+            self.timer.start()
+        elif not self.pending:
+            self.timer.stop()
+
+    def _add(self, path: Path) -> bool:
+        try:
+            add_ca(path, self.certificate, self.ledger)
+        except OSError:
+            return False  # the installer may still be writing it; tried again next second
+        return True
+
+
+def _subfolders(folder: Path) -> set[Path]:
+    try:
+        return {child for child in folder.iterdir() if child.is_dir()}
+    except OSError:
+        return set()
