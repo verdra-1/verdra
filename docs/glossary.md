@@ -37,6 +37,7 @@ brand moments (splash, empty states).
 | roots | Network engine (the proxy) | Routing |
 | mycelium | Proxy listener | — |
 | hyphae | One proxied connection | — |
+| litmus | Diagnostic interception, from source only (decision record 0015) | — |
 | taproot | Upstream connections | Internet connection |
 | gardener | Routing lifecycle and status | Routing status |
 | burrow | Hosts-file routing | Hosts-file routing |
