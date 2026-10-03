@@ -66,7 +66,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/streams.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/gardener.py` | Master plan 9.4, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2 and 7); Python `os.chmod`/`stat` and `hashlib` documentation | cryptography | 2026-10-03 |
+| `verdra/roots/gardener.py` | Master plan 9.4, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2, 4 and 7); Python `os.chmod`/`stat` and `hashlib` documentation | cryptography | 2026-10-03 |
 | `verdra/roots/hyphae.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/mycelium.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

@@ -75,3 +75,5 @@ All notable changes to Verdra are recorded here. The format follows
   before it is made, so Reset everything can undo it, even after a crash. Local certificate
   authority (S-10, third part): the CA block goes into a trust file once and comes out
   leaving the file byte for byte as it was, read-only flag included.
+- Local certificate authority (S-10, fourth part): the CA is created when routing first
+  starts and replaced 30 days before it expires, with one block per trust file throughout.
