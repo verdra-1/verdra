@@ -718,3 +718,14 @@ def test_the_toast_filter_does_nothing_once_its_attributes_are_gone(shell: Shell
         assert dew.eventFilter(host, event) is False
     finally:
         vars(dew).update(attributes)
+
+
+def test_the_window_is_revealed_after_the_splash_with_no_reference_kept(
+    qtbot: QtBot, shell: Shell
+) -> None:
+    """Startup's own sequence: nothing but the shell holds the splash. The main window must
+    appear after the splash closes, and the splash is then deleted and forgotten."""
+    shell.show_splash()
+    shell.show_window(minimized=False)
+    qtbot.waitUntil(shell.window.isVisible, timeout=3000)
+    qtbot.waitUntil(lambda: shell.splash is None, timeout=3000)
