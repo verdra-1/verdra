@@ -777,6 +777,10 @@ class Theme(QObject):
         self.style.mode = self.mode
         self.focus_tracker.update()
         for widget in self.app.allWidgets():
+            # PySide can hand back a stale wrapper of another type (a layout item that Qt deleted
+            # while Python still held it) for a widget created at the same address since.
+            if not isinstance(widget, QWidget):
+                continue
             name = widget.property(TEXT_STYLE_PROPERTY)
             if isinstance(name, str) and name:
                 widget.setFont(font(self.tokens, name, self.text_scale))
