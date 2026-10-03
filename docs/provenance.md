@@ -19,7 +19,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/bark/pollinator.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/rain.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/resin.py` | Master plan 10.2, 10.3, spec S-10; RFC 5280 (4.2.1.1, 4.2.1.2, 4.2.1.3, 4.2.1.6, 4.2.1.9, 4.2.1.10, 4.2.1.12); `cryptography` X.509 and verification documentation | cryptography | 2026-10-03 |
-| `verdra/bark/scar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/bark/scar.py` | Master plan 9.1, 9.3, 9.4, spec S-10 (test 7); `msgspec` documentation | msgspec | 2026-10-03 |
 | `verdra/bark/seal.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/veil.py` | Master plan 10.6 (header list, login-token pattern), spec S-03; the token's public warning prefix as Roblox documents it to users | Standard library (`re`, `logging`) | 2026-10-01 |
 | `verdra/canopy/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -66,7 +66,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/streams.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/gardener.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/roots/gardener.py` | Master plan 9.4, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2 and 7); Python `os.chmod`/`stat` and `hashlib` documentation | cryptography | 2026-10-03 |
 | `verdra/roots/hyphae.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/mycelium.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

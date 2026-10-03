@@ -71,3 +71,7 @@ All notable changes to Verdra are recorded here. The format follows
   `rbxcdn.com`.
 - Local certificate authority (S-10, second part): the CA key lives in the OS secret store;
   on Linux without a Secret Service it lives in one file only the user can read.
+- System change ledger (`changes.json`): every change outside Verdra's folders is recorded
+  before it is made, so Reset everything can undo it, even after a crash. Local certificate
+  authority (S-10, third part): the CA block goes into a trust file once and comes out
+  leaving the file byte for byte as it was, read-only flag included.
