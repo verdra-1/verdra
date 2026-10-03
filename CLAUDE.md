@@ -119,6 +119,8 @@ touch the hosts file, certificates or Roblox on any real machine yourself.
 ## 11. Everyday commands
 
 ```sh
+uv run python tools/gates.py   # every gate, each CI job's own steps, groups and Python
+uv run python tools/gates.py --jobs checks,tests,build --network   # everything CI runs
 uv sync --locked                      # set up the environment
 uv run ruff format --check . && uv run ruff check .
 uv run pyright
