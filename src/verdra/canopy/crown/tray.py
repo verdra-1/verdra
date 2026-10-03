@@ -48,7 +48,9 @@ class Tray(QObject):
         super().__init__(parent)
         self.status = Status.IDLE
         self.icon = QSystemTrayIcon(self)
+        # A menu can only have a widget as parent, so it goes when the tray goes.
         self.menu = QMenu()
+        self.destroyed.connect(self.menu.deleteLater)
         self.menu.setAccessibleName(self.tr("Verdra menu"))
         # Menus hide action tooltips unless asked; the unbuilt items explain themselves there.
         self.menu.setToolTipsVisible(True)
@@ -74,8 +76,9 @@ class Tray(QObject):
         self.menu.addAction(self.quit_action)
         self.icon.setContextMenu(self.menu)
         self.icon.activated.connect(self._activated)
-        hints = QGuiApplication.styleHints()
-        hints.colorSchemeChanged.connect(lambda _scheme: self.set_status(self.status))
+        # A bound method, not a lambda: Qt drops the connection when the tray is destroyed, so the
+        # app-wide signal never reaches a deleted menu.
+        QGuiApplication.styleHints().colorSchemeChanged.connect(self._scheme_changed)
         self.set_status(Status.IDLE)
 
     @staticmethod
@@ -108,6 +111,9 @@ class Tray(QObject):
     def hide(self) -> None:
         """Hide the icon."""
         self.icon.hide()
+
+    def _scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
+        self.set_status(self.status)
 
     def _activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:

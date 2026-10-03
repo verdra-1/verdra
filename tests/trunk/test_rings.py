@@ -246,3 +246,27 @@ def test_activity_model_follows_new_records(logging_on: rings.Rings, qtbot: QtBo
     assert model.data(model.index(0, 1)) == "Warning"
     assert model.data(model.index(0, 2)) == "first"
     assert rings.bundle_file_name(0).startswith("Verdra support bundle ")
+
+
+def test_the_listener_thread_survives_the_rings_that_started_it(tmp_path: Path) -> None:
+    """CI run 37110221102: a Rings dropped without stop() let Qt delete its bridge while the
+    listener thread still emitted through it ("Signal source has been deleted")."""
+    import gc
+    import threading
+
+    errors: list[BaseException | None] = []
+    previous = threading.excepthook
+    threading.excepthook = lambda args: errors.append(args.exc_value)
+    try:
+        logs = rings.Rings(tmp_path)
+        logs.start()
+        listener = logs._listener  # noqa: SLF001 - the thread outliving its owner is the test
+        assert listener is not None
+        del logs
+        gc.collect()
+        logging.getLogger("verdra.test").warning("after the Rings is gone")
+        listener.stop()  # flushes the queue through the handlers on the listener thread
+    finally:
+        threading.excepthook = previous
+        logging.getLogger(rings.LOGGER_NAME).handlers.clear()
+    assert errors == []

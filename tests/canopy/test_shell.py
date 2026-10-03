@@ -11,8 +11,9 @@ import time
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QPropertyAnimation, Qt
-from PySide6.QtGui import QPalette
+import shiboken6
+from PySide6.QtCore import QCoreApplication, QEvent, QPropertyAnimation, QSize, Qt
+from PySide6.QtGui import QPalette, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
     QApplication,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 from pytestqt.qtbot import QtBot
 
+from tests.support import qt_lifetimes
 from verdra.canopy.crown import splash as splash_module
 from verdra.canopy.crown import theme
 from verdra.canopy.crown.dew import DISMISS_MS, MAX_TOASTS, Kind
@@ -153,14 +155,17 @@ def test_tab_reaches_every_control_in_order(shell: Shell) -> None:
 @pytest.mark.spec("S-01", 4)
 def test_splash_stays_900_ms_and_closes_when_ready(qtbot: QtBot, shell: Shell) -> None:
     shell.show_splash()
-    assert shell.splash is not None
-    assert shell.splash.shown_at is not None
-    shown_at = shell.splash.shown_at
+    splash = shell.splash
+    assert splash is not None
+    assert splash.shown_at is not None
+    shown_at = splash.shown_at
     closed: list[float] = []
-    shell.splash.finish(lambda: closed.append(time.monotonic() - shown_at))
+    splash.finish(lambda: closed.append(time.monotonic() - shown_at))
     qtbot.waitUntil(lambda: bool(closed), timeout=3000)
     assert closed[0] >= 0.9
-    assert not shell.splash.isVisible()
+    # Once closed, the splash is deleted: nothing keeps it for the rest of the session.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert not shiboken6.isValid(splash)
 
 
 def test_splash_timeline_follows_section_4_5(
@@ -275,18 +280,18 @@ def test_closing_hides_to_the_tray_once_noticed(
 
 
 def layout_widgets(layout: QLayout) -> list[QWidget]:
-    """Return a layout's widgets without keeping its layout items alive in Python.
+    """Return a layout's widgets, in order, without making a Python wrapper of any layout item.
 
-    Qt deletes a layout item when its widget leaves the layout; a Python wrapper still holding
-    the item then goes stale, and PySide can return it for a widget made at the same address.
+    PySide keeps every `itemAt()` result alive, registered under the item's address, for as long
+    as the layout's wrapper lives. Qt frees the item when its widget leaves the layout, and PySide
+    then hands the stale wrapper back for a new object made at the same address (#33, and the
+    failure on main after #44). `QLayout.indexOf` searches in C++ and returns only a number.
     """
-    widgets: list[QWidget] = []
-    for index in range(layout.count()):
-        item = layout.itemAt(index)
-        widget = item.widget() if item is not None else None
-        if widget is not None:
-            widgets.append(widget)
-    return widgets
+    parent = layout.parentWidget()
+    if parent is None:
+        return []
+    children = parent.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly)
+    return sorted((w for w in children if layout.indexOf(w) >= 0), key=layout.indexOf)
 
 
 def css_colors(sheet: str) -> set[str]:
@@ -665,3 +670,51 @@ def test_diagnostic_interception_shows_a_lasting_notice(services: Services, qtbo
 
 def test_no_diagnostic_notice_without_the_flag(shell: Shell) -> None:
     assert layout_widgets(shell.window.notices) == []
+
+
+def test_reading_a_layout_leaves_no_stale_item_wrapper(shell: Shell) -> None:
+    """The cause of the failure on main after #44: a dismissed notice's layout item, freed by Qt,
+    stayed registered in PySide through an itemAt() wrapper and was handed back for the next
+    object made at its address (a table header). layout_widgets() must make no such wrapper."""
+    from verdra.canopy.leaves.notice import Notice
+
+    notice = Notice("text", parent=shell.window, dismissible=True)
+    shell.window.notices.addWidget(notice)
+    assert layout_widgets(shell.window.notices) == [notice]
+    assert notice.dismiss is not None
+    notice.dismiss.click()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert layout_widgets(shell.window.notices) == []
+    assert qt_lifetimes.stale_item_wrappers() == []
+
+
+def test_the_tray_goes_with_its_window_and_takes_its_menu(shell: Shell) -> None:
+    """The tray's menu has no widget parent; it is deleted with the tray, and the app-wide
+    color-scheme signal no longer reaches a deleted tray (it used to: a lambda kept it)."""
+    from PySide6.QtGui import QGuiApplication
+
+    from verdra.canopy.crown.tray import Tray
+
+    tray = Tray(shell.window)
+    menu = tray.menu
+    tray.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert not shiboken6.isValid(tray)
+    assert not shiboken6.isValid(menu)
+    # The tray read its menu when the scheme changed; with the tray gone nothing may answer.
+    QGuiApplication.styleHints().colorSchemeChanged.emit(Qt.ColorScheme.Dark)
+
+
+def test_the_toast_filter_does_nothing_once_its_attributes_are_gone(shell: Shell) -> None:
+    """CI run 37110221102: Qt called Dew.eventFilter on a Dew whose Python attributes were
+    already gone (window teardown). The filter must not raise then."""
+    dew = shell.window.dew
+    host = dew.host
+    attributes = dict(vars(dew))
+    vars(dew).clear()
+    try:
+        event = QResizeEvent(QSize(800, 600), QSize(640, 480))
+        assert dew.eventFilter(host, event) is False
+    finally:
+        vars(dew).update(attributes)

@@ -16,6 +16,15 @@ build when a Built spec has an untested acceptance test.
 | Benchmark | Nightly | S-11 test 5 (latency), idle CPU with routing on (S-04 test 3, plan 12.4) |
 | Platform smoke | M1 gate, manual | [`docs/platforms/protocol.md`](../platforms/protocol.md), S-10 test 8, S-12 tests 1 and 2 (Windows and Linux; macOS is deferred, decision record 0014) |
 
+## Qt object lifetimes and test order
+
+Every test runs under a guard (`tests/support/qt_lifetimes.py`, enabled in `tests/conftest.py`):
+after the test it carries out pending `deleteLater()` calls, then fails if a window the test made
+is still alive or if a Python wrapper of a layout item is stale (its item left every layout). The
+nightly workflow runs the whole suite several times in a shuffled order (`pytest --shuffle=random`,
+`tests/support/shuffle.py`); each run's seed is in the job summary, and `--shuffle=<seed>` replays
+it.
+
 ## `tools/fake_roblox.py`
 
 A test tool, not shipped. Written from the plan and the public HTTP and TLS specifications only.

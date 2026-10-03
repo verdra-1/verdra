@@ -261,7 +261,12 @@ class Dew(QObject):
         fade.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 - Qt API
-        """Keep the stack in the corner when the window resizes."""
-        if watched is self.host and event.type() == QEvent.Type.Resize:
+        """Keep the stack in the corner when the window resizes.
+
+        Qt can still call the filter while the window is being torn down, after Python has
+        already emptied this object's attributes (seen on CI, run 37110221102); then it does
+        nothing.
+        """
+        if event.type() == QEvent.Type.Resize and "host" in vars(self) and watched is self.host:
             self._layout()
         return False

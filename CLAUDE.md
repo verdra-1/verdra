@@ -98,6 +98,9 @@ operating system. The maintainer has one Windows PC; Linux runs in a virtual mac
 - No claim without evidence: a command and its output, or a CI run link.
 - Every fix comes with a test that fails without it (show the failing run).
 - Review your own diff adversarially before pushing; run every gate locally first.
+- A test that fails only sometimes is a real bug: find the cause, fix it, add a guard for the whole
+  category. Never re-run hoping it passes. If the cause isn't found quickly, revert first.
+- Run local gates with exactly the dependency groups and Python version each CI job uses.
 - Never guess on licensing, security or anything that changes the user's system. If the plan is
   wrong or impossible, explain it, propose a fix, and record the decision in `docs/decisions/`.
 - Say plainly what you could not verify.

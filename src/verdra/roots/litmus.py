@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Diagnostic interception, from source only: every 10.2 host, nothing changed, TLS details logged.
+"""Diagnostic interception (--diagnose-interception): pass-through only, TLS details logged; source
+runs only, excluded from builds (decision 0015).
 
 Spec S-11 (tests 9 and 10), plan 16.2. It exists so the M1 gate can check verified TLS and ECDSA
 leaf acceptance on real clients before any feature intercepts. The interception it builds
