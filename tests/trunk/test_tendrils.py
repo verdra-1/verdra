@@ -69,15 +69,24 @@ def test_quit_with_running_jobs_exits_within_4_s(tmp_path: Path) -> None:
             pool.submit("Polite", polite)
         pool.submit("Stubborn", stubborn)
         time.sleep(0.3)
+        print("quitting", flush=True)
         print("finished" if pool.shutdown() else "abandoned", flush=True)
         """
     )
-    started = time.monotonic()
-    result = subprocess.run(  # noqa: S603
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=10, check=True
+    # Timed from the quit to the process's exit; starting Python and Qt doesn't count.
+    process = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", script], stdout=subprocess.PIPE, text=True
     )
-    elapsed = time.monotonic() - started - 0.3
-    assert result.stdout.strip() == "abandoned"
+    assert process.stdout is not None
+    try:
+        assert process.stdout.readline().strip() == "quitting"
+        quit_at = time.monotonic()
+        rest, _ = process.communicate(timeout=10)
+        elapsed = time.monotonic() - quit_at
+    finally:
+        process.kill()
+    assert process.returncode == 0
+    assert rest.strip() == "abandoned"
     assert elapsed < 4.0
 
 
