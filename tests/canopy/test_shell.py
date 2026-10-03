@@ -640,28 +640,3 @@ def test_the_shortcut_overlay_lists_only_working_shortcuts(
     shell.show_shortcuts()
     qtbot.addWidget(opened[-1])
     assert set(opened[-1].listed) == shell.shortcuts.working
-
-
-@pytest.mark.spec("S-11", 9)
-def test_diagnostic_interception_shows_a_lasting_notice(services: Services, qtbot: QtBot) -> None:
-    """M-DIAG-01 shows for as long as the flag is on, so it has no Dismiss button."""
-    from verdra.canopy.leaves.notice import Notice, Tone
-    from verdra.trunk.sapwood import cli
-
-    services.arguments = cli.Arguments(diagnose_interception=True)
-    shell = Shell(services)
-    shell.build()
-    qtbot.addWidget(shell.window)
-    try:
-        (notice,) = layout_widgets(shell.window.notices)
-        assert isinstance(notice, Notice)
-        assert notice.label.text().startswith("Diagnostic interception is on.")
-        assert notice.tone is Tone.WARNING
-        assert notice.dismiss is None
-    finally:
-        shell.window.allow_close = True
-        shell.window.close()
-
-
-def test_no_diagnostic_notice_without_the_flag(shell: Shell) -> None:
-    assert layout_widgets(shell.window.notices) == []

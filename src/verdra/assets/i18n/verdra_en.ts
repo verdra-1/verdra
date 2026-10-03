@@ -172,40 +172,6 @@
     </message>
 </context>
 <context>
-    <name>M-DIAG-01</name>
-    <message>
-        <source>Diagnostic interception is on. Verdra is reading Roblox&apos;s traffic to check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>M-DIAG-02</name>
-    <message>
-        <source>Roblox to Verdra</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Verdra&apos;s certificate, key {key}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Verdra to the server</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>the server&apos;s certificate verified</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>the server&apos;s certificate not verified</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Diagnostic interception, {host} ({where}): {version}, {cipher}, {detail}.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>

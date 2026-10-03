@@ -255,8 +255,6 @@ class Shell:
         services.tendrils.submitted.connect(self._report_job_end)
         for notice in services.settings.notices:
             self.show_settings_notice(notice)
-        if services.arguments.diagnose_interception:
-            self.show_diagnostic_notice()
         self.window.restore_state()
 
     def _report_job_end(self, job: Job) -> None:
@@ -274,18 +272,6 @@ class Shell:
             return
         tone = Tone.WARNING if notice.message_id == "M-SET-01" else Tone.DANGER
         self.window.notices.addWidget(Notice(notice.text, tone, self.window, dismissible=True))
-
-    def show_diagnostic_notice(self) -> None:
-        """Show M-DIAG-01 for as long as diagnostic interception is on (spec S-11).
-
-        It lasts until Verdra restarts without the flag, so it has no Dismiss button.
-        """
-        text = QCoreApplication.translate(
-            "M-DIAG-01",
-            "Diagnostic interception is on. Verdra is reading Roblox's traffic to check it, and "
-            "changes nothing. Restart Verdra without --diagnose-interception to turn it off.",
-        )
-        self.window.notices.addWidget(Notice(text, Tone.WARNING, self.window))
 
     def show_splash(self) -> None:
         """Show the splash screen."""
