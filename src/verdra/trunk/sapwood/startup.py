@@ -235,7 +235,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     log.info(
         "%s",
         QCoreApplication.translate("M-SHELL-05", "Verdra {version} started on {system}.").format(
-            version=verdra.__version__, system=sys.platform
+            version=verdra.__version__, system=humus.system_name()
         ),
     )
     services.step("settings and logging ready")

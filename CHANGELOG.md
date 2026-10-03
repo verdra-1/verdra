@@ -13,10 +13,10 @@ All notable changes to Verdra are recorded here. The format follows
 - Project tooling: `pyproject.toml` with dependency floors, `uv.lock`, Python 3.14 pin,
   licence allowlist with its gate (`tools/licenses.py`), colour-literal gate
   (`tools/check_colors.py`) and pre-commit hooks.
-- CI on Windows, macOS (Apple silicon and Intel) and Linux with every gate from the build plan:
+- CI on Windows and Linux with every gate from the build plan:
   format, lint, types, layering, tests, coverage floors, licences, vulnerabilities, secrets,
   colours, translatable strings, US spelling in user-facing text and code, SPDX headers and docs; the licence gate
-  covers the runtime, dev and build dependency groups; every gate and all four runners on every
+  covers the runtime, dev and build dependency groups; every gate and both runners on every
   pull request and on main. Nightly fuzzing, benchmarks and audit; release stub.
 - Package skeleton: every area and module from the module tree, each with its one-line job,
   the layering contracts, and `docs/architecture.md`, `docs/glossary.md`, `docs/provenance.md`.
@@ -50,3 +50,7 @@ All notable changes to Verdra are recorded here. The format follows
 - Build check: a PyInstaller one-folder build (`packaging/verdra.spec`) on every system in CI,
   which fails if the built folder holds any Qt library, plugin or QML file outside the allowed
   Qt modules, and starts the built app once.
+- macOS deferred until after 1.0 (decision record 0014): Verdra 1.0 supports Windows and Linux
+  with Sober. The Platform interface (`soil/humus.py`) has a Windows, a macOS and a Linux
+  implementation; the macOS one reports "unsupported on this system", and CI no longer runs on
+  macOS.

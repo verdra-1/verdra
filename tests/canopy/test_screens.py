@@ -455,11 +455,12 @@ def test_every_message_id_is_listed_word_for_word_in_a_spec() -> None:
 
 
 def test_the_tray_has_every_plan_size_and_shows_why_items_are_off(qapp: QApplication) -> None:
-    """Plan 4.6 tray sizes include macOS's 18 px; unbuilt items show M-SOON-01 (finding L6)."""
+    """Plan 4.6 tray sizes for Windows and Linux; unbuilt items show M-SOON-01 (finding L6)."""
     from verdra.canopy.crown.tray import Status, tray_icon
 
-    sizes = {size.width() for size in tray_icon(Status.IDLE, "template").availableSizes()}
-    assert {16, 18, 20, 22, 24, 32, 36} <= sizes
+    for variant in ("light", "dark"):
+        sizes = {size.width() for size in tray_icon(Status.IDLE, variant).availableSizes()}
+        assert {16, 20, 22, 24, 32} <= sizes
     tray = Tray()
     assert tray.menu.toolTipsVisible()
     for action in (tray.apply_action, tray.pause_action, tray.reset_action):

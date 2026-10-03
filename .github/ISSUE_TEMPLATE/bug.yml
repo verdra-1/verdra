@@ -24,8 +24,6 @@ body:
       options:
         - Windows 11
         - Windows 10
-        - macOS (Apple silicon)
-        - macOS (Intel)
         - Linux (Sober)
     validations:
       required: true

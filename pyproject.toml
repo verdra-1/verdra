@@ -15,7 +15,6 @@ classifiers = [
   "Environment :: X11 Applications :: Qt",
   "Intended Audience :: End Users/Desktop",
   "Operating System :: Microsoft :: Windows",
-  "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3.14",
   "Private :: Do Not Upload",
@@ -27,9 +26,7 @@ dependencies = [
   "httpx>=0.28",
   "truststore>=0.10",
   "certifi",
-  # cryptography 49 and later publish no macOS x86-64 wheels (decision record 0007).
-  "cryptography>=45,<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-  "cryptography>=45; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  "cryptography>=45",
   "keyring>=25",
   "msgspec>=0.19",
   "zstandard>=0.23",
@@ -84,18 +81,16 @@ packages = ["src/verdra"]
 
 [tool.uv]
 default-groups = ["dev"]
-# Lock only for the systems Verdra ships on (Master plan 11) ...
+# Lock only for the systems Verdra ships on (Master plan 2; macOS is deferred until after 1.0,
+# decision record 0014) ...
 environments = [
   "sys_platform == 'win32'",
-  "sys_platform == 'darwin'",
   "sys_platform == 'linux'",
 ]
 # ... and fail the lock if any of them lacks a wheel (risk R-08). Windows ARM64 is not listed:
 # it runs the x64 build under emulation until every wheel exists (decision record 0007).
 required-environments = [
   "sys_platform == 'win32' and platform_machine == 'AMD64'",
-  "sys_platform == 'darwin' and platform_machine == 'arm64'",
-  "sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 
@@ -180,7 +175,7 @@ source = ["verdra"]
 branch = true
 
 [tool.coverage.paths]
-# Combine reports from the Windows, macOS and Linux runners.
+# Combine reports from the Windows and Linux runners.
 source = ["src/verdra", "*/src/verdra", "*\\src\\verdra"]
 
 [tool.coverage.report]

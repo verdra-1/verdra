@@ -4,9 +4,9 @@
 # Actions are pinned to full commit SHAs (13.5); Dependabot keeps them current.
 #
 # The repository is public (plan 13.2), so standard GitHub-hosted runners are free and every
-# run is a full run (decision record 0012): the static gates with gitleaks, every test on all
-# four runners, the combined and changed-lines coverage floors, and the PyInstaller build with
-# its Qt scan on all four runners.
+# run is a full run (decision record 0012): the static gates with gitleaks, every test on both
+# runners (Windows and Linux; macOS is deferred until after 1.0, decision record 0014), the
+# combined and changed-lines coverage floors, and the PyInstaller build with its Qt scan on both.
 # The final check is named for what it proves, from the event alone. "All gates green", which
 # branch protection requires, comes only from a run against main (a push, or a pull request
 # into main), so nothing reaches main without the full matrix passing on the exact commit
@@ -151,8 +151,6 @@ jobs:
       matrix:
         include:
           - { runner: windows-latest, system: windows }
-          - { runner: macos-15, system: macos } # Apple silicon (decision record 0009)
-          - { runner: macos-15-intel, system: macos }
           - { runner: ubuntu-24.04, system: linux }
     env:
       QT_QPA_PLATFORM: offscreen
@@ -229,7 +227,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [windows-latest, macos-15, macos-15-intel, ubuntu-24.04]
+        runner: [windows-latest, ubuntu-24.04]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

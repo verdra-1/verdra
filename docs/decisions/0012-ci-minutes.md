@@ -1,7 +1,8 @@
 # 0012. What CI runs, and on which events
 
 - **Status:** Accepted (revised in the third M0 review round, when the repository became public;
-  the wording on skipped runs corrected on 3 October 2026)
+  the wording on skipped runs corrected on 3 October 2026; the runners are Windows and Linux
+  only since decision record 0014)
 - **Date:** 2026-10-02
 - **Plan sections:** 12.1, 12.3, 13.2, 13.5, 16.2 ("CI runs on pull requests and on pushes to
   main only"; "M0 review round 3 decisions")

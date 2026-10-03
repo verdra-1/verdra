@@ -7,7 +7,8 @@ Reads a `coverage json` report and checks:
 - trunk, roots, bark, seedbank and strata at least 85% of lines;
 - canopy at least 60%;
 - soil at least 70%, counting only the shared modules and the package for the system the report
-  came from (`--system windows|macos|linux`; omit it for the combined report, which counts all);
+  came from (`--system windows|linux`; omit it for the combined report, which counts all). orchard
+  (macOS, deferred: decision record 0014) has no OS calls and counts on every system;
 - with `--diff-base REF`, at least 80% of the executable lines a pull request adds or changes.
 
 An area with no executable lines yet passes. Usage:
@@ -35,7 +36,7 @@ FLOORS: dict[str, float] = {
     "soil": 70.0,
 }
 CHANGED_LINES_FLOOR = 80.0
-SYSTEM_PACKAGES = {"windows": "meadow", "macos": "orchard", "linux": "tundra"}
+SYSTEM_PACKAGES = {"windows": "meadow", "linux": "tundra"}
 
 
 def repo_path(name: str) -> PurePosixPath:

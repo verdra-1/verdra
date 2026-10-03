@@ -16,16 +16,16 @@ Verdra keeps everything on your computer.
 - Captured assets in the library.
 - Logs, with secrets redacted.
 - Account login tokens and Verdra's certificate key, only in your system's secure storage
-  (Windows Credential Manager, macOS Keychain, or the Secret Service on Linux).
+  (Windows Credential Manager, or the Secret Service on Linux).
 
 ## Folders
 
-| Kind | Windows | macOS | Linux |
-| --- | --- | --- | --- |
-| Settings, profiles, presets, system changes | `%LOCALAPPDATA%\Verdra\` | `~/Library/Application Support/Verdra/` | `~/.config/verdra/` |
-| Library | `%LOCALAPPDATA%\Verdra\Library\` | `~/Library/Caches/Verdra/Library/` | `~/.cache/verdra/library/` |
-| Logs | `%LOCALAPPDATA%\Verdra\Logs\` | `~/Library/Logs/Verdra/` | `~/.local/state/verdra/logs/` |
-| Exports (only what you export) | `Documents\Verdra\` | `~/Documents/Verdra/` | `~/Documents/Verdra/` |
+| Kind | Windows | Linux |
+| --- | --- | --- |
+| Settings, profiles, presets, system changes | `%LOCALAPPDATA%\Verdra\` | `~/.config/verdra/` |
+| Library | `%LOCALAPPDATA%\Verdra\Library\` | `~/.cache/verdra/library/` |
+| Logs | `%LOCALAPPDATA%\Verdra\Logs\` | `~/.local/state/verdra/logs/` |
+| Exports (only what you export) | `Documents\Verdra\` | `~/Documents/Verdra/` |
 
 If you move the library in Settings › Library, it lives where you chose instead.
 

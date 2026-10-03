@@ -169,7 +169,7 @@ src/verdra/
 │   ├── atomic.py            Safe writes: temp file, fsync, rename, .bak rotation.
 │   ├── lichen.py            Keeper protocol: JSON-lines message types and version (standard library only).
 │   ├── meadow/              Windows.
-│   ├── orchard/             macOS.
+│   ├── orchard/             macOS: deferred until after 1.0; every module returns "unsupported on this system".
 │   └── tundra/              Linux and Sober.
 │       (each OS package has the same modules:)
 │       ├── launcher.py      Find Roblox, start it with the proxy variables, register the roblox-player: handler.
