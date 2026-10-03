@@ -40,33 +40,6 @@ def test_command_line() -> None:
     assert cli.parse(["https://example.com"]).link is None
 
 
-@pytest.mark.spec("S-11", 9)
-def test_the_diagnose_flag_works_from_source() -> None:
-    assert cli.diagnosis_available()
-    assert cli.parse(["--diagnose-interception"]).diagnose_interception
-    assert cli.parse(["--minimized", "--diagnose-interception"]).minimized
-    assert not cli.parse([]).diagnose_interception
-
-
-@pytest.mark.spec("S-11", 10)
-@pytest.mark.parametrize("why", ["frozen", "module missing"])
-def test_a_build_refuses_the_diagnose_flag_before_starting(
-    why: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    if why == "frozen":
-        monkeypatch.setattr(sys, "frozen", True, raising=False)
-    else:
-        monkeypatch.setattr(cli, "DIAGNOSTIC_SOURCE", "absent.py")
-    assert not cli.diagnosis_available()
-    built: list[object] = []
-    with pytest.raises(SystemExit) as exited:
-        startup.run(["verdra", "--diagnose-interception"], built.append)  # type: ignore[arg-type]
-    assert exited.value.code == 2
-    assert "unrecognized arguments: --diagnose-interception" in capsys.readouterr().err
-    assert built == []  # nothing started: no interface, so no routing
-    assert cli.parse(["--minimized"]).minimized  # other flags still work
-
-
 def test_reset_everything_says_it_does_nothing_yet(capsys: pytest.CaptureFixture[str]) -> None:
     assert startup.run(["verdra", "--reset-everything"], lambda _services: None) == 0  # type: ignore[arg-type, return-value]
     assert "Nothing was changed" in capsys.readouterr().out

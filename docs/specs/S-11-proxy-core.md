@@ -76,10 +76,6 @@ untouched.
   it on without changing it."
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
-- M-DIAG-02 (Activity, new) "Diagnostic interception, <host> (<where>): <version>, <cipher>,
-  <detail>." <where> is "Roblox to Verdra" or "Verdra to the server"; <detail> is "Verdra's
-  certificate, key <key>", "the server's certificate verified" or "the server's certificate not
-  verified".
 
 ## Acceptance tests
 
@@ -121,8 +117,6 @@ untouched.
 - Test 1 states where the 1,000 responses come from (anonymised fixtures, plan 12.1).
 - The plan's symbionts are built in later milestones; at M1 the pipeline is tested with test
   symbionts only, which is why test 4 doesn't name a real one.
-- M-DIAG-02 is added so test 9's TLS details reach Activity with a message ID. Where the
-  diagnostic code lives is decision record 0015 (`roots/litmus.py`, source only).
 - M-PROXY-04 and M-PROXY-05 are added so the events rules 1 and 3 log reach Activity with a
   message ID (plan 16.2, F13).
 - **Diagnostic interception** (plan 16.2, settled): see Behaviour. It exists so the M1 gate can

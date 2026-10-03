@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """The build gate: only allowed Qt modules in the built folder."""
 
-import sys
 from pathlib import Path, PurePath
 
 import pytest
@@ -201,62 +200,3 @@ def test_the_launch_turns_on_detailed_logging(
     assert store.notices == []
     assert store.value("advanced.detailed_logging") is True
     assert not detailed_logging_expired(store.value("advanced.detailed_logging_since"))
-
-
-MARKER = b"diagnostic marker for the test"
-
-
-@pytest.mark.spec("S-11", 10)
-def test_the_marker_is_the_one_litmus_carries() -> None:
-    from verdra.roots import litmus
-
-    assert check_build.diagnostic_marker() == litmus.MARKER.encode()
-    source = Path(litmus.__file__).read_text(encoding="utf-8")
-    assert litmus.MARKER in source
-
-
-@pytest.mark.spec("S-11", 10)
-def test_a_build_holding_the_diagnostic_code_fails(tmp_path: Path) -> None:
-    (tmp_path / "_internal").mkdir()
-    (tmp_path / "_internal" / "clean.so").write_bytes(b"nothing here")
-    assert check_build.check_no_diagnostics(tmp_path, MARKER, [("verdra.roots.hyphae", b"")]) == []
-    (tmp_path / "_internal" / "leak.pyc").write_bytes(b"xx" + MARKER + b"yy")
-    archived = [
-        ("verdra.roots.litmus", b""),
-        ("verdra.other", b"code " + MARKER),
-        ("verdra.fine", b"code"),
-    ]
-    problems = check_build.check_no_diagnostics(tmp_path, MARKER, archived)
-    assert [problem.split(" ")[0:4] for problem in problems] == [
-        ["_internal/leak.pyc", "holds", "the", "diagnostic"],
-        ["the", "archived", "module", "verdra.roots.litmus"],
-        ["the", "archived", "module", "verdra.other"],
-    ]
-
-
-def test_a_folder_without_the_executable_has_no_archived_modules(tmp_path: Path) -> None:
-    assert list(check_build.archived_modules(tmp_path)) == []
-
-
-def stand_in(folder: Path, script: str) -> None:
-    executable = folder / terrain.EXECUTABLE
-    executable.write_text("#!/bin/sh\n" + script + "\n", encoding="utf-8")
-    executable.chmod(0o755)
-
-
-@pytest.mark.spec("S-11", 10)
-@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in app is a POSIX shell script")
-def test_the_launch_check_requires_the_flag_refused(tmp_path: Path) -> None:
-    stand_in(tmp_path, "exit 2")
-    assert check_build.refuses_diagnosis(tmp_path) is None
-    stand_in(tmp_path, "exit 0")
-    assert check_build.refuses_diagnosis(tmp_path) == (
-        "the built app exited with code 0 for --diagnose-interception"
-    )
-    stand_in(
-        tmp_path,
-        f'mkdir -p "$VERDRA_HOME/logs" && touch "$VERDRA_HOME/logs/{terrain.LOG_FILE}"; exit 2',
-    )
-    assert "started logging" in (check_build.refuses_diagnosis(tmp_path) or "")
-    stand_in(tmp_path, "sleep 5")
-    assert "didn't refuse" in (check_build.refuses_diagnosis(tmp_path, timeout=0.5) or "")

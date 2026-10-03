@@ -42,8 +42,7 @@ analysis = Analysis(
         (str(BUILD_STAMP), "verdra/assets"),
         *copy_metadata("verdra"),
     ],
-    # roots/litmus is diagnostic interception from source only (spec S-11, decision record 0015).
-    excludes=[*EXCLUDED, "tkinter", check_build.DIAGNOSTIC_MODULE],
+    excludes=[*EXCLUDED, "tkinter"],
     noarchive=False,
 )
 

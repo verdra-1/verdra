@@ -32,7 +32,7 @@ from collections.abc import Awaitable, Callable, Collection, Sequence
 from compression import zstd
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Final, Literal, Protocol
+from typing import Final, Protocol
 
 import h11
 from cryptography.hazmat.primitives import serialization
@@ -58,8 +58,6 @@ _NO_BODY_STATUSES: Final = frozenset({204, 304})
 Headers = tuple[tuple[bytes, bytes], ...]
 Streams = tuple[asyncio.StreamReader, asyncio.StreamWriter]
 Opener = Callable[[str, int], Awaitable[Streams]]
-#: Called with (host, side, TLS object) after each handshake; side is "client" or "upstream".
-TlsObserver = Callable[[str, Literal["client", "upstream"], ssl.SSLObject], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +157,6 @@ class Interception:
         pipeline: Callable[[], Pipeline] = Pipeline,
         *,
         on_verification_failure: Callable[[str, str], None] | None = None,
-        on_tls: TlsObserver | None = None,
         idle_timeout: float = 30.0,
         max_body: int = MAX_BUFFERED_BODY,
     ) -> None:
@@ -168,7 +165,6 @@ class Interception:
         self.open_upstream = open_upstream
         self.pipeline = pipeline
         self.on_verification_failure = on_verification_failure
-        self.on_tls = on_tls
         self.idle_timeout = idle_timeout
         self.max_body = max_body
 
@@ -183,23 +179,10 @@ class Interception:
         await writer.start_tls(
             self.leaves.context_for(host.lower()), ssl_handshake_timeout=self.idle_timeout
         )
-        self.observe(host, "client", writer)
         try:
             await Hyphae(self, host, port).serve(reader, writer)
         except h11.ProtocolError as error:
             log.debug("Closed a connection to %s: %s", host, error)
-
-    def observe(
-        self, host: str, side: Literal["client", "upstream"], writer: asyncio.StreamWriter
-    ) -> None:
-        """Report a finished handshake to `on_tls`; an observer's error never fails a request."""
-        tls = writer.get_extra_info("ssl_object")
-        if self.on_tls is None or not isinstance(tls, ssl.SSLObject):
-            return
-        try:
-            self.on_tls(host, side, tls)
-        except Exception as error:  # noqa: BLE001 - observing must not break the connection
-            log.debug("The TLS observer failed on %s: %s", host, type(error).__name__)
 
 
 @dataclass(slots=True)
@@ -380,7 +363,6 @@ class Hyphae:
             )
             side = _Side(h11.Connection(h11.CLIENT), reader, writer, self.timeout)
             self.upstream = side
-            self.interception.observe(self.host, "upstream", writer)
         return side
 
     async def _close_upstream(self) -> None:

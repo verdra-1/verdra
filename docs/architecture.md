@@ -132,7 +132,6 @@ src/verdra/
 │   ├── burrow.py            Hosts-file routing: keeper client calls, DNS pre-resolution (dnspython), 20 s lease heartbeat.
 │   ├── owl.py               Crash watchdog registration (scheduled task, launchd job or systemd unit) and its cleanup command.
 │   ├── rules.py             Immutable rule snapshot types shared by trunk and the proxy.
-│   ├── litmus.py            Diagnostic interception, from source only: every 10.2 host, nothing changed, TLS details logged.
 │   └── symbionts/           Request and response handlers in the proxy pipeline. A crash in one never fails the request.
 │       ├── grafter.py       Rewrites asset batch requests and responses; serves replacement content.
 │       ├── forager.py       Copies downloaded assets into the library queue.
@@ -191,9 +190,6 @@ src/verdra/
     └── legal/               LICENSE, NOTICE, PRIVACY and the generated THIRD_PARTY_NOTICES for the About dialog.
 ```
 
-
-One module differs from R1: `roots/litmus.py`, the diagnostic interception of spec S-11, runs
-from source only and is left out of every build (decision record 0015).
 
 Tests mirror this tree under `tests/` (for example `tests/roots/test_hyphae.py`). A module whose
 platform doesn't support a feature (for example `tundra/instances.py`) still exists and returns a

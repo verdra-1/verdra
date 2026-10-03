@@ -68,7 +68,6 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/gardener.py` | Master plan 9.4, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2, 3, 4 and 7); Qt `QFileSystemWatcher` and `QTimer` documentation; Python `os.chmod`/`stat` and `hashlib` documentation | cryptography, PySide6 | 2026-10-03 |
 | `verdra/roots/hyphae.py` | Master plan 8.3, 10.2, 10.3, 10.6, spec S-11 (rules 1, 3, 4 and 5, tests 3, 4 and 7); RFC 9110 (semantics, 100-continue), RFC 9112 (HTTP/1.1 framing, chunked coding); h11 documentation; Python `ssl`, `asyncio` streams (`start_tls`), `zlib` and `compression.zstd` documentation | h11, cryptography, PySide6 (translations) | 2026-10-03 |
-| `verdra/roots/litmus.py` | Master plan 10.2, 16.2 (diagnostic interception at M1), spec S-11 (tests 9 and 10), decision record 0015; Python `ssl.SSLObject` documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/mycelium.py` | Master plan 8.3, 10.1, 10.2, spec S-11 (rules 1 and 2, tests 2, 6, 7; hand-off to interception); RFC 9110 9.3.6 (CONNECT); Python `asyncio` streams documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/rules.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -143,7 +142,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/budding.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/rings.py` | Spec S-03, Master plan 13.9 (support bundle), Reference R2 (`advanced.detailed_logging`) | Standard library (`logging.handlers`, `zipfile`), PySide6 (QtCore) | 2026-10-01 |
 | `verdra/trunk/sapwood/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/sapwood/cli.py` | Reference R1, spec S-01, spec S-11 (`--diagnose-interception`), decision record 0015 | Standard library (`argparse`) | 2026-10-03 |
+| `verdra/trunk/sapwood/cli.py` | Reference R1, spec S-01 | Standard library (`argparse`) | 2026-10-01 |
 | `verdra/trunk/sapwood/shutdown.py` | Master plan 8.4, specs S-01, S-04 | Standard library | 2026-10-01 |
 | `verdra/trunk/sapwood/single.py` | Reference R3 (channel name), spec S-01 | PySide6 (QtNetwork) | 2026-10-01 |
 | `verdra/trunk/sapwood/startup.py` | Master plan 8.4, 12.4, spec S-01 | PySide6 | 2026-10-01 |
@@ -155,7 +154,7 @@ Not part of the app, but written under the same clean-room rules (review finding
 
 | File | Built from | Libraries | Date |
 | --- | --- | --- | --- |
-| `tools/check_build.py` | Master plan 8.1, 12.3, 12.4, 13.4, 13.6, risk R-07, decision records 0002 and 0010; PyInstaller one-folder layout and archive reader (`PyInstaller.archive.readers`) as documented; spec S-11 test 10, decision record 0015 | Standard library, PyInstaller (archive reader) | 2026-10-03 |
+| `tools/check_build.py` | Master plan 8.1, 12.3, 12.4, 13.4, 13.6, risk R-07, decision records 0002 and 0010; PyInstaller one-folder layout as documented | Standard library | 2026-10-02 |
 | `tools/check_colors.py` | Master plan 5.6, 12.3 | Standard library | 2026-10-01 |
 | `tools/check_docs.py` | Master plan 3.1, 12.3, 12.6, Reference R1 | Standard library (`ast`) | 2026-10-01 |
 | `tools/check_spelling.py` | Master plan 4.3, 16.2, decision record 0010; Qt Linguist `.ts` format documentation | Standard library | 2026-10-02 |
