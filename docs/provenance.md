@@ -18,7 +18,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/bark/nectar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/pollinator.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/rain.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/bark/resin.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/bark/resin.py` | Master plan 10.2, 10.3, spec S-10; RFC 5280 (4.2.1.1, 4.2.1.2, 4.2.1.3, 4.2.1.6, 4.2.1.9, 4.2.1.10, 4.2.1.12); `cryptography` X.509 and verification documentation | cryptography | 2026-10-03 |
 | `verdra/bark/scar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/seal.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/veil.py` | Master plan 10.6 (header list, login-token pattern), spec S-03; the token's public warning prefix as Roblox documents it to users | Standard library (`re`, `logging`) | 2026-10-01 |
