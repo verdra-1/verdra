@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-License-Identifier: Apache-2.0
+# Platform facts that only need an installed client, established on throwaway CI runners (plan
+# 16.2, "M1 decisions"; docs/platforms/protocol.md). Started by hand only.
+#
+# Limits, which every step keeps: no Roblox login, account or cookies; no game launch; Sober is
+# never started; no contact with Roblox beyond the installer download and what the installer
+# itself does; nothing that probes or bypasses Roblox security; the findings hold names, sizes,
+# hashes, dates and package metadata only, never the contents of Roblox's or Sober's program files.
+name: Platform facts
+
+on:
+  workflow_dispatch:
+
+# No permissions unless a job asks for them.
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sober:
+    name: Sober on Linux (install, inspect, uninstall)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Flatpak and Sober from Flathub
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q flatpak xdg-utils
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y --noninteractive flathub org.vinegarhq.Sober
+      - name: Record the facts (Sober is never started)
+        run: bash tools/platforms/facts-linux.sh findings/linux.txt
+      - name: Uninstall
+        if: always()
+        run: |
+          sudo flatpak uninstall -y --noninteractive org.vinegarhq.Sober || true
+          sudo flatpak uninstall -y --noninteractive --unused || true
+          echo "Installed afterwards:" >> findings/linux.txt
+          flatpak list --app --columns=application >> findings/linux.txt 2>&1 || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: platform-facts-linux
+          path: findings/
+          if-no-files-found: error
+
+  roblox:
+    name: Roblox Player on Windows (install, inspect)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download and run the official installer
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/platforms/install-roblox-windows.ps1 findings/install.txt
+      - name: Record the facts (the Stage 1 script, as on the maintainer's PC)
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/platforms/stage1-windows.ps1 -OutFile findings/windows.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: platform-facts-windows
+          path: findings/
+          if-no-files-found: error
