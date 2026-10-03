@@ -78,7 +78,10 @@ def test_an_unverified_upstream_is_reported_as_such(caplog: pytest.LogCaptureFix
 
 
 def test_a_failing_tls_observer_never_breaks_the_connection() -> None:
-    def broken(_host: str, _side: str, _tls: ssl.SSLObject) -> None:
+    called: list[str] = []
+
+    def broken(host: str, _side: str, _tls: ssl.SSLObject) -> None:
+        called.append(host)
         raise RuntimeError("observer")
 
     interception = hyphae.Interception(None, frozenset, None, on_tls=broken)  # type: ignore[arg-type]
@@ -86,7 +89,8 @@ def test_a_failing_tls_observer_never_breaks_the_connection() -> None:
     class Writer:
         def get_extra_info(self, _name: str) -> object:
             return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).wrap_bio(
-                ssl.MemoryBIO(), ssl.MemoryBIO()
+                ssl.MemoryBIO(), ssl.MemoryBIO(), server_hostname="apis.roblox.com"
             )
 
     interception.observe("apis.roblox.com", "client", Writer())  # type: ignore[arg-type]
+    assert called == ["apis.roblox.com"]  # it ran, raised, and the error stayed inside
