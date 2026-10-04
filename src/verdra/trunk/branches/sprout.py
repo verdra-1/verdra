@@ -33,7 +33,8 @@ import psutil
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from verdra.bark import husk, resin, scar
-from verdra.roots import gardener, hyphae, mycelium, taproot
+from verdra.roots import gardener, hyphae, mycelium, rules, taproot
+from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import humus, terrain
 from verdra.trunk import tendrils
 
@@ -274,9 +275,12 @@ class Sprout(QObject):
         connect: mycelium.Connector | None = None,
         pool: tendrils.Tendrils | None = None,
         diagnose: bool = False,
+        snapshots: rules.SnapshotHolder | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        #: The replacements the proxy applies (S-21), published by trunk/branches/grafts.
+        self.snapshots = snapshots or rules.SnapshotHolder()
         self.settings = settings
         self.status = status
         self.platform = platform or humus.current()
@@ -407,7 +411,7 @@ class Sprout(QObject):
                     ).format(path=path, reason=error.strerror or error),
                 )
             )
-        interceptor = self._diagnostic(authority) if self.diagnose else None
+        interceptor = self._diagnostic(authority) if self.diagnose else self._features(authority)
         try:
             self.router.start(
                 int(self.settings.value("routing.proxy_port")), self.connector, interceptor
@@ -490,16 +494,28 @@ class Sprout(QObject):
             username=str(self.settings.value("routing.upstream.username")),
         )
 
+    async def _open_upstream(self, host: str, port: int) -> mycelium.Streams:
+        return await taproot.open_tls(
+            self._transport(), host, port, proxy_port=self.router.port or 0
+        )
+
+    def _features(self, authority: resin.Authority) -> mycelium.Interceptor:
+        """Decrypt only the hosts the current snapshot needs (plan 10.1, 10.2; S-21)."""
+        grafter = Grafter(self.snapshots)
+        pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
+        return hyphae.Interception(
+            hyphae.LeafContexts(authority),
+            lambda: self.snapshots.current.hosts(),  # noqa: PLW0108 - read the newest snapshot
+            self._open_upstream,
+            lambda: pipeline,
+            on_verification_failure=self.router.report_certificate_failure,
+        )
+
     def _diagnostic(self, authority: resin.Authority) -> mycelium.Interceptor:
         from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision record 0015)
 
-        async def open_upstream(host: str, port: int) -> mycelium.Streams:
-            return await taproot.open_tls(
-                self._transport(), host, port, proxy_port=self.router.port or 0
-            )
-
         return litmus.interception(
             hyphae.LeafContexts(authority),
-            open_upstream,
+            self._open_upstream,
             on_verification_failure=self.router.report_certificate_failure,
         )

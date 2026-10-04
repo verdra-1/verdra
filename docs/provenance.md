@@ -75,7 +75,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/roots/symbionts/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/forager.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/symbionts/grafter.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/roots/symbionts/grafter.py` | Spec S-21 (Asset ID kind, rules 2 and 4); fact V1 in `docs/platforms/windows.md` (the batch shape, from public descriptions); RFC 8259 (JSON) | — | 2026-10-04 |
 | `verdra/roots/symbionts/mimicry.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/streams.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/trailguard.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

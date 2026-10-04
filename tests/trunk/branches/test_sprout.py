@@ -651,3 +651,26 @@ def test_the_check_runs_off_the_ui_thread(
         assert platform.checked_on == [False]
     finally:
         pool.shutdown(grace=1.0)
+
+
+@pytest.mark.spec("S-21", 9)
+def test_routing_decrypts_only_what_the_replacements_need(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    from types import MappingProxyType  # noqa: PLC0415
+
+    from verdra.roots import rules  # noqa: PLC0415
+
+    made, _platform, _ledger = routed
+    assert made.start_routing() is None
+    interceptor = made.router._proxy.interceptor  # type: ignore[union-attr]  # noqa: SLF001
+    assert interceptor is not None
+    hosts = ("assetdelivery.roblox.com", "fts.rbxcdn.com", "apis.roblox.com", "example.com")
+    assert [interceptor.wants(h, 443) for h in hosts] == [False] * 4  # no replacement: tunnels
+    graft = rules.Graft(1111111, None, "asset_id", "2222222", "P", "r")
+    made.snapshots.publish(rules.GraftSnapshot(MappingProxyType({(1111111, None): graft})))
+    # Published while routing: the next connection already sees it.
+    assert [interceptor.wants(h, 443) for h in hosts] == [True, False, False, False]
+    assert [s.name for s in interceptor.pipeline().request] == ["grafter"]  # type: ignore[attr-defined]
+    made.snapshots.publish(rules.GraftSnapshot())
+    assert not interceptor.wants("assetdelivery.roblox.com", 443)

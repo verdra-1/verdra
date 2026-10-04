@@ -61,8 +61,8 @@ Make Roblox receive the replacement instead of the original asset.
 ## Acceptance tests
 
 1. Each target kind, against recorded batch and CDN fixtures, produces the expected
-   client-visible response: the swapped item comes back with the original's request ID, other
-   items byte-identical.
+   client-visible response: the swapped item comes back under the original's request ID and
+   asset ID, and every other item and field is unchanged.
 2. A slot replacement changes only its map.
 3. A missing URL target passes the original through and flags the replacement.
 4. Mesh conversion output parses with the FileMesh reader for each supported version.
@@ -72,6 +72,9 @@ Make Roblox receive the replacement instead of the original asset.
 7. The proxy hook does no disk or network access (both are blocked during the test and every
    kind still works).
 8. A snapshot published while a batch is in flight doesn't change that batch.
+9. With no replacement, routing decrypts nothing for Replacements; with only Asset ID
+   replacements it decrypts `assetdelivery.roblox.com` alone; a snapshot published while
+   routing applies from the next connection.
 
 ## Lives in
 
@@ -80,7 +83,7 @@ Make Roblox receive the replacement instead of the original asset.
 
 ## Refinements from the plan
 
-- Tests 6 to 8 are added for rules 2 and 4 and the snapshot swap.
+- Tests 6 to 9 are added for rules 2 and 4, the snapshot swap and the interception set.
 - **Facts.** The asset batch request and response shape (an array of items with an asset ID and
   a request ID; the response naming each item's content location) and the CDN host that serves
   asset content (`fts.rbxcdn.com`, seen in the Stage 2 capture) are recorded as fact V1 in
