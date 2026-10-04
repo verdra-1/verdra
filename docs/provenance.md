@@ -121,7 +121,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/strata/amber/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/clay/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/granite/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/strata/ochre/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/strata/ochre/` | Khronos KTX 2.0 specification (file layout, level index, supercompression) and Khronos Data Format specification 1.3 (the basic descriptor block); Vulkan's VkFormat numbers; plan 10.7 (limits); spec S-33 | Pillow, texture2ddecoder, zstandard | 2026-10-04 |
 | `verdra/strata/sway/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/almanac/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
