@@ -1,10 +1,10 @@
 # S-10 Local certificate authority
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1
 **Risk badge:** none (part of routing)
 **Plan sections:** 9.4, 10.1, 10.3, 10.6, 10.8, 11.1–11.3 (trust files, confirm at M1), 15 (R-03, inactive;
-R-10, R-17), Reference R3 (CA subject, markers, secret item `ca-key`), R5 (M-CA-01 to M-CA-03)
+R-10, R-17), Reference R3 (CA subject, markers, secret item `ca-key`), R5 (M-CA-01 to M-CA-04)
 
 ## Purpose
 
@@ -59,6 +59,8 @@ only by Roblox.
 - M-CA-02 (Activity) "Roblox updated. Verdra added its certificate to the new version."
 - M-CA-03 (Notice, new) "Your system has no secure storage. Verdra keeps its certificate key in a
   file only your user can read."
+- M-CA-04 (status reason, new) "Verdra couldn't add its certificate to the Roblox version
+  <version>, so Roblox isn't routed." Shown as S-14 Degraded (c) with "Repair certificate".
 
 ## Acceptance tests
 

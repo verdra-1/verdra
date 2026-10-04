@@ -1,6 +1,6 @@
 # S-15 Coexistence
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1 (per-app part); M6 (Hosts-file part, marked below)
 **Risk badge:** none
 **Plan sections:** 10.1 (Coexistence), 14 (M1: "coexistence check"), 16.2 (M0 review round 2:

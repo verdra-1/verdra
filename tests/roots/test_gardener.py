@@ -293,3 +293,31 @@ def test_a_version_folder_that_never_gets_a_trust_file_is_given_up(
     (install / "version-empty").mkdir()
     qtbot.waitUntil(lambda: not watch.pending and not watch.timer.isActive(), timeout=10_000)
     assert book.entries() == []
+
+
+def test_a_version_whose_trust_file_cant_take_the_block_is_missing_until_repaired(
+    tmp_path: Path, authority: resin.Authority, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S-14 Degraded (c): reported after the patience runs out, cleared by `repair`."""
+    install = tmp_path / "Versions"
+    install.mkdir()
+    book = scar.Ledger(tmp_path / "changes.json")
+    watch = gardener.VersionWatch([install], trust_files_in, authority.certificate, book)
+    watch.PATIENCE_SECONDS = 0.5
+
+    def locked(*_args: object) -> None:
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(gardener, "add_ca", locked)
+    version = install / "version-locked"
+    with qtbot.waitSignal(watch.missing, timeout=10_000) as signal:
+        (version / "ssl").mkdir(parents=True)
+        (version / "ssl" / "cacert.pem").write_bytes(FIXTURES["lf"])
+    assert signal.args == [str(version)]
+    assert watch.lacking == {version}
+    assert not watch.repair()  # still locked
+    monkeypatch.undo()
+    with qtbot.waitSignal(watch.updated, timeout=1_000):
+        assert watch.repair()
+    assert watch.lacking == set()
+    assert blocks((version / "ssl" / "cacert.pem").read_bytes()) == 1

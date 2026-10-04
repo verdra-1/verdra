@@ -10,7 +10,8 @@ Master plan 12.3 ("Docs"), 3.1 (process control 3) and Reference R1:
    `src/` (`verdra/trunk/rings.py`); a package's `__init__.py` may be named by its folder
    (`verdra/trunk/`). Every entry ends with the date it was written (`| 2026-10-01 |`).
 3. Every spec in `docs/specs/` whose status is Built or Verified has each automatable acceptance
-   test referenced by a test marked `@pytest.mark.spec("S-02", 3)`.
+   test referenced by a test marked `@pytest.mark.spec("S-02", 3)`. A test that starts with a
+   later milestone than the spec's own ("(M6) …" in an M1 spec) is carried to that milestone.
 
 Usage: python tools/check_docs.py
 """
@@ -33,6 +34,10 @@ DATED_ENTRY = re.compile(r"^\|\s*`[^`]+`\s*\|.*\|\s*\d{4}-\d{2}-\d{2}\s*\|$")
 STATUS = re.compile(r"^\*\*Status:\*\*\s*(\w+)", re.MULTILINE)
 ACCEPTANCE = re.compile(r"^## Acceptance tests\s*$(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
 NUMBERED = re.compile(r"^(\d+)\.\s+(.*?)(?=^\d+\.\s|\Z)", re.MULTILINE | re.DOTALL)
+#: The spec's own milestone, from its "**Milestone:** M1" line.
+MILESTONE = re.compile(r"^\*\*Milestone:\*\* M(\d)", re.MULTILINE)
+#: An acceptance test carried to a later milestone starts with it: "(M6) …".
+LATER = re.compile(r"\(M(\d)\)")
 TREE_BLOCK = re.compile(r"^```text\nsrc/verdra/\n(.*?)^```", re.MULTILINE | re.DOTALL)
 TREE_LINE = re.compile(r"^([│ ]*)[├└]── (\S+)\s*(.*)$")
 # The tree lists the OS adapter modules once, under tundra/; meadow/ and orchard/ have the same.
@@ -147,8 +152,13 @@ def check_specs() -> list[str]:
         if section is None:
             problems.append(f"{path.relative_to(ROOT).as_posix()}: no acceptance tests section")
             continue
+        milestone = MILESTONE.search(text)
+        own = int(milestone.group(1)) if milestone else None
         for number, wording in NUMBERED.findall(section.group(1)):
             if "(manual" in wording:
+                continue
+            later = LATER.match(wording.strip())
+            if later and own is not None and int(later.group(1)) > own:
                 continue
             if (spec_id, int(number)) not in referenced:
                 problems.append(

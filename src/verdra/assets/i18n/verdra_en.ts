@@ -179,6 +179,13 @@
     </message>
 </context>
 <context>
+    <name>M-CA-04</name>
+    <message>
+        <source>Verdra couldn&apos;t add its certificate to the Roblox version {version}, so Roblox isn&apos;t routed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-COEX-01</name>
     <message>
         <source>Try again</source>

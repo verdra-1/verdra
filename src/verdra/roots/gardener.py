@@ -161,13 +161,20 @@ class VersionWatch(QObject):
 
     A new version folder appears before the installer has written its files, so a new folder
     is checked every second until each of its trust files has the block, for at most
-    `PATIENCE_SECONDS`. Each version updated writes M-CA-02 to Activity.
+    `PATIENCE_SECONDS`. Each version updated writes M-CA-02 to Activity; a version that still
+    lacks the block after that is reported through `missing` (S-14 Degraded (c)) until `repair`
+    succeeds.
+
+    Signals:
+        updated(str): The block was added to this version folder.
+        missing(str): The block couldn't be added to this version folder.
     """
 
     #: How long a new version folder is checked for its trust files.
     PATIENCE_SECONDS = 120.0
 
     updated = Signal(str)
+    missing = Signal(str)
 
     def __init__(
         self,
@@ -184,6 +191,8 @@ class VersionWatch(QObject):
         self.folders = [path for path in install_folders if path.is_dir()]
         self.known = {child for folder in self.folders for child in _subfolders(folder)}
         self.pending: dict[Path, float] = {}
+        #: Version folders whose trust files still lack the block after `PATIENCE_SECONDS`.
+        self.lacking: set[Path] = set()
         self.watcher = QFileSystemWatcher([str(folder) for folder in self.folders], self)
         self.watcher.directoryChanged.connect(self._changed)
         self.timer = QTimer(self)
@@ -202,8 +211,7 @@ class VersionWatch(QObject):
     def _check_pending(self) -> None:
         now = time.monotonic()
         for version, since in list(self.pending.items()):
-            files = [path for path in self.trust_files_in(version) if path.is_file()]
-            if files and all(self._add(path) for path in files):
+            if self._add_all(version):
                 del self.pending[version]
                 log.info(
                     "%s",
@@ -215,10 +223,30 @@ class VersionWatch(QObject):
                 self.updated.emit(str(version))
             elif now - since > self.PATIENCE_SECONDS:
                 del self.pending[version]
+                # A folder that never got a trust file isn't a Player version (Studio, a
+                # leftover): nothing is missing there.
+                if self._trust_files(version):
+                    self.lacking.add(version)
+                    self.missing.emit(str(version))
         if self.pending and not self.timer.isActive():
             self.timer.start()
         elif not self.pending:
             self.timer.stop()
+
+    def repair(self) -> bool:
+        """Try again to add the block to every version that lacks it; True if none is left."""
+        for version in sorted(self.lacking):
+            if self._add_all(version):
+                self.lacking.discard(version)
+                self.updated.emit(str(version))
+        return not self.lacking
+
+    def _trust_files(self, version: Path) -> list[Path]:
+        return [path for path in self.trust_files_in(version) if path.is_file()]
+
+    def _add_all(self, version: Path) -> bool:
+        files = self._trust_files(version)
+        return bool(files) and all(self._add(path) for path in files)
 
     def _add(self, path: Path) -> bool:
         try:

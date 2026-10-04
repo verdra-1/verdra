@@ -1,6 +1,6 @@
 # S-16 Reset everything
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1
 **Risk badge:** none
 **Plan sections:** 1 (principle "Rooted"), 2 (zero entries after reset), 7.7 (Settings › System

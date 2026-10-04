@@ -37,6 +37,9 @@ class StubSprout(QObject):
     def retry(self) -> None:
         self.calls.append(("retry", None))
 
+    def repair_certificate(self) -> None:
+        self.calls.append(("repair", None))
+
     def roblox_running(self) -> bool:
         return self.running
 
@@ -95,11 +98,11 @@ def test_a_refusal_is_a_notice(launching: Shell, stub: StubSprout) -> None:
 
 def test_the_status_fixes_start_routing_or_relaunch(launching: Shell, stub: StubSprout) -> None:
     popover = launching.window.header.popover
-    assert set(popover.handled) == {"start", "retry", "restart_roblox"}
+    assert set(popover.handled) == {"start", "retry", "restart_roblox", "repair_certificate"}
     assert popover.fix.isEnabled()  # Idle: "Start routing"
-    for key in ("start", "retry", "restart_roblox"):
+    for key in ("start", "retry", "restart_roblox", "repair_certificate"):
         popover.fix_requested.emit(key)
-    assert stub.calls == [("start", None), ("retry", None), ("launch", None)]
+    assert stub.calls == [("start", None), ("retry", None), ("launch", None), ("repair", None)]
 
 
 def test_quitting_while_roblox_runs_asks_first(

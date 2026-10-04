@@ -18,12 +18,12 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 | [S-02](S-02-settings-store.md) | Settings store | M0 | Built |
 | [S-03](S-03-activity-log.md) | Activity log | M0 | Built |
 | [S-04](S-04-background-jobs.md) | Background jobs | M0 | Built |
-| [S-10](S-10-local-certificate-authority.md) | Local certificate authority | M1 | Agreed |
-| [S-11](S-11-proxy-core.md) | Proxy core | M1 | Agreed |
-| [S-12](S-12-per-app-routing-and-launching.md) | Per-app routing and launching | M1 | Agreed |
-| [S-14](S-14-routing-status.md) | Routing status | M1 | Agreed |
-| [S-15](S-15-coexistence.md) | Coexistence (per-app part; Hosts-file part M6) | M1 | Agreed |
-| [S-16](S-16-reset-everything.md) | Reset everything | M1 | Agreed |
+| [S-10](S-10-local-certificate-authority.md) | Local certificate authority | M1 | Built |
+| [S-11](S-11-proxy-core.md) | Proxy core | M1 | Built |
+| [S-12](S-12-per-app-routing-and-launching.md) | Per-app routing and launching | M1 | Built |
+| [S-14](S-14-routing-status.md) | Routing status | M1 | Built |
+| [S-15](S-15-coexistence.md) | Coexistence (per-app part; Hosts-file part M6) | M1 | Built |
+| [S-16](S-16-reset-everything.md) | Reset everything | M1 | Built |
 
 macOS is deferred until after 1.0 (decision record 0014): the macOS parts of the specs stay as
 reference only, and nothing macOS-specific is built or tested.

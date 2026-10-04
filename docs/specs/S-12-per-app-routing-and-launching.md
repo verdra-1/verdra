@@ -1,6 +1,6 @@
 # S-12 Per-app routing and launching
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1
 **Risk badge:** none
 **Plan sections:** 7.9 (onboarding routing step), 7.10 (tray), 9.4, 10.1 (per-app routing), 11.1–11.3
@@ -76,7 +76,7 @@ Start Roblox through Verdra on every platform without administrator rights.
 3. Turning handling off restores the previous handler exactly (registry value, Launch Services
    default or `xdg-mime` default compared before and after, on a test profile), and turning it on
    again records a new ledger entry.
-4. Cache clearing removes only the files listed for the platform, on a fixture folder that also
+4. (M2) Cache clearing removes only the files listed for the platform, on a fixture folder that also
    contains files with similar names, and closes only the process Verdra started.
 5. The launched process's environment contains `HTTPS_PROXY` and `HTTP_PROXY` pointing at the
    current proxy port, and otherwise equals the user's environment (fake launcher).
@@ -115,4 +115,5 @@ Start Roblox through Verdra on every platform without administrator rights.
   would reach Sober unrouted.
 - **Waiting for facts:** Microsoft Store detection (M-LAUNCH-02, test 7's second half) waits
   until a Store install is observed (W-04: none on the maintainer's PC); cache clearing (test 4)
-  waits for the cache file list (W-06, not settled by a listing).
+  waits for the cache file list (W-06, not settled by a listing) and is carried to M2, where
+  Apply now (S-24) is its first use.
