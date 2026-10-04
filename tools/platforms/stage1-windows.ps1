@@ -14,7 +14,9 @@ settings files: only the names of the files directly in the Roblox folder are li
 It writes exactly one file, the report (by default verdra-stage1-windows.txt on the Desktop).
 (Windows PowerShell itself, not this script, refreshes its own small startup cache in its own
 folder whenever it runs.)
-In the report your user folder is written as %USERPROFILE%, so your user name isn't in it.
+In the report your user folder is written as %USERPROFILE%, so your user name isn't in it, and
+any folder or file name made only of digits (such as a Roblox user ID) is written as
+<numeric name>.
 
 Run:  powershell -NoProfile -ExecutionPolicy Bypass -File stage1-windows.ps1
 #>
@@ -35,7 +37,14 @@ function Hide-User([string]$Text) {
     return $Text
 }
 
-function Add-Line([string]$Text) { $report.Add((Hide-User $Text)) }
+function Hide-Numbers([string]$Text) {
+    # A folder or file name made only of digits may be a Roblox user ID: it never reaches the
+    # report. Names stand after a path separator or after "| " in a listing, and end at a path
+    # separator, the end of the line or " |"; sizes ("| 21 bytes") don't match.
+    return [regex]::Replace($Text, '(?:(?<=[\\/])|(?<=\| ))\d+(?=[\\/]|$| \|)', '<numeric name>')
+}
+
+function Add-Line([string]$Text) { $report.Add((Hide-Numbers (Hide-User $Text))) }
 
 function Add-Section([string]$Id, [string]$Title) {
     $report.Add('')

@@ -32,7 +32,7 @@ READ_ONLY = {
     "Get-Date", "Test-Path", "Join-Path", "Sort-Object", "ForEach-Object", "Where-Object",
     "Measure-Object", "Write-Host", "New-Object",
     # The script's own helpers.
-    "Hide-User", "Add-Line", "Add-Section",
+    "Hide-User", "Hide-Numbers", "Add-Line", "Add-Section",
     # The one write: the report itself (checked below to be the only one).
     "Set-Content",
 }  # fmt: skip
@@ -72,6 +72,9 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     pem = b"-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n"
     (version / "ssl" / "cacert.pem").write_bytes(pem)
     (local / "Roblox" / "GlobalBasicSettings_13.xml").write_text("<settings/>", encoding="utf-8")
+    # Names made only of digits (a Roblox user ID, say) never reach the report.
+    (local / "Roblox" / "1234567890").mkdir()
+    (local / "Roblox" / "42").write_bytes(b"x")
     # An install made as administrator (Platform facts run 37163188729): under Program Files.
     programs = tmp_path / "Program Files"
     shared = programs / "Roblox" / "Versions" / "version-fedcba9876543210"
@@ -117,5 +120,54 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     assert f"Version folder: {shown}" in text
     assert "RobloxPlayerBeta.exe | 9 bytes" in text
     assert f"Present: {shown}\\ClientSettings" in text
+    assert "1234567890" not in text
+    assert "| 42" not in text
+    assert text.count("<numeric name>") == 2
     assert "== W-10 The hosts file is readable as a normal user ==" in text
     assert text.rstrip().endswith("End of report.")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="runs Windows PowerShell")
+def test_by_default_the_script_checks_both_program_files_folders(tmp_path: Path) -> None:
+    """The real run passes no -ProgramFolders: the default must name both all-users folders."""
+    report = tmp_path / "report.txt"
+    powershell = shutil.which("powershell.exe")
+    assert powershell is not None
+    result = subprocess.run(  # noqa: S603 - Windows PowerShell running the repository's script
+        [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT),
+         "-OutFile", str(report)],
+        capture_output=True, text=True, timeout=120, check=False,
+    )  # fmt: skip
+    assert result.returncode == 0, result.stderr
+    text = report.read_text(encoding="utf-8-sig")
+    print(text)  # shown when an assertion below fails
+    w02 = text.split("== W-02")[1].split("== W-03")[0]
+    for name in ("PROGRAMFILES", "PROGRAMFILES(X86)"):
+        assert str(Path(os.environ[name]) / "Roblox" / "Versions") in w02
+
+
+def numeric_pattern() -> re.Pattern[str]:
+    """The pattern the script's Hide-Numbers uses."""
+    found = re.search(r"Replace\(\$Text, '([^']+)', '<numeric name>'\)", SCRIPT.read_text("utf-8"))
+    assert found is not None, "the script has no Hide-Numbers pattern"
+    return re.compile(found[1])
+
+
+@pytest.mark.parametrize(
+    ("line", "shown"),
+    [
+        ("  folder | 1234567890", "  folder | <numeric name>"),
+        ("  file | 42", "  file | <numeric name>"),
+        (r"C:\Roblox\1234\x.xml | 3 bytes", r"C:\Roblox\<numeric name>\x.xml | 3 bytes"),
+        (r"C:\Roblox\1234 | 3 bytes", r"C:\Roblox\<numeric name> | 3 bytes"),
+        ("  RobloxPlayerBeta.exe | 21 bytes | 2026-10-04 | product version 0, 741, 0, 7411058",
+         "  RobloxPlayerBeta.exe | 21 bytes | 2026-10-04 | product version 0, 741, 0, 7411058"),
+        ("OS: Windows 11 Home | version 10.0.26200 | build 26200 | 64-bit",
+         "OS: Windows 11 Home | version 10.0.26200 | build 26200 | 64-bit"),
+        ("Readable: 21 lines (contents not copied)", "Readable: 21 lines (contents not copied)"),
+        ("  folder | 12ab", "  folder | 12ab"),
+    ],
+)  # fmt: skip
+def test_names_made_only_of_digits_are_hidden(line: str, shown: str) -> None:
+    """The script's own pattern (the same in .NET and Python for this syntax)."""
+    assert numeric_pattern().sub("<numeric name>", line) == shown
