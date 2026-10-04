@@ -45,7 +45,7 @@ def test_sober_is_launched_with_the_proxy_variables_and_the_link_unchanged() -> 
     assert launcher.launch(client, link, 49443, environment, spawn) == 77
     [(arguments, options)] = calls
     assert arguments == [
-        "/usr/bin/flatpak",
+        str(client.executable),
         "run",
         "--env=HTTPS_PROXY=http://127.0.0.1:49443",
         "--env=HTTP_PROXY=http://127.0.0.1:49443",
