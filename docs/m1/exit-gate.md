@@ -54,17 +54,14 @@ moves it to a later milestone).
 3. **Cache file list (W-06)**: needed by cache clearing (S-12 test 4), which is first used by
    Apply now at M2. A listing doesn't settle which files are cache.
 
-## Proposed plan wording
+## Plan wording (approved)
 
-Plan 14's M1 exit gate says "Roblox runs through Verdra on Windows and Linux". With Linux
-deferred, that sentence can't be met, and plan 16.2 says a milestone is done only when its
-real-machine tests pass. Proposed text:
+The maintainer approved the new M1 exit gate on 2026-10-04, recorded in plan 16.2. Plan 14 now
+reads: Roblox runs through Verdra on a real Windows machine with verified TLS and byte-exact
+passthrough; Linux is covered by CI evidence, and its real-machine confirmation stays open until a
+Linux tester is available; Microsoft Store detection moves to M6; Roblox's cache file list moves
+to M2, where Apply now needs it; every negative test in 12.2 that applies passes; Reset
+everything leaves zero entries.
 
-> **Exit gate:** Roblox runs through Verdra on Windows (real machine) with verified TLS and
-> byte-exact passthrough, and on Linux with CI evidence; Linux real-machine confirmation stays
-> open until a Linux tester runs Stage 2 (M2 or later). Every negative test in 12.2 that applies
-> passes; Reset everything leaves zero entries. Microsoft Store detection moves to M6, with the
-> Hosts-file routing that M-LAUNCH-02 points to.
-
-The same pattern fits M2's exit gate ("visible in game on Windows and Linux") while Linux stays
-deferred.
+The same pattern may fit M2's exit gate ("visible in game on Windows and Linux") while Linux stays
+deferred; that needs its own approval.
