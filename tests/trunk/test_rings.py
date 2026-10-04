@@ -17,7 +17,7 @@ from verdra.bark import veil
 from verdra.trunk import rings
 from verdra.trunk.almanac.store import SettingsStore
 
-from ..bark.test_veil import SECRETS
+from ..bark.test_veil import SAMPLE_LINES, SAMPLE_SECRETS, SECRETS
 
 log = logging.getLogger("verdra.test")
 
@@ -228,6 +228,61 @@ def test_support_bundle_redacts_log_lines_written_by_others(
         text = bundle.read("verdra.log").decode("utf-8")
     assert "UNFILTERED1" not in text
     assert f"Cookie: {veil.REDACTED}" in text
+
+
+@pytest.mark.spec("S-03", 8)
+def test_signed_url_secrets_never_reach_the_file_the_ring_or_a_bundle(
+    logging_on: rings.Rings, tmp_path: Path
+) -> None:
+    for level in (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL):
+        for line in SAMPLE_LINES:
+            log.log(level, "%s", line.split(": ", 1)[1])
+    logging_on.stop()
+    bundle_path = rings.export_support_bundle(
+        tmp_path / "s.zip", logging_on, bundle_sources(tmp_path)
+    )
+    with zipfile.ZipFile(bundle_path) as bundle:
+        bundle_text = bundle.read("verdra.log").decode("utf-8")
+    file_text = logging_on.log_file.read_text(encoding="utf-8")
+    ring_text = "\n".join(record.message for record in logging_on.ring.snapshot())
+    for text in (file_text, ring_text, bundle_text):
+        assert "fts.rbxcdn.com" in text
+        for secret in SAMPLE_SECRETS:
+            assert secret not in text, secret
+
+
+@pytest.mark.spec("S-03", 9)
+def test_support_bundle_replaces_user_names_and_long_ids(
+    logging_on: rings.Rings, tmp_path: Path
+) -> None:
+    sources = bundle_sources(tmp_path)
+    sources.settings_file.parent.mkdir(parents=True)
+    sources.settings_file.write_text(
+        json.dumps({"library": {"folder": "C:\\Users\\Alex Example\\Verdra"}}),
+        encoding="utf-8",
+    )
+    sources.ledger_file.write_text(
+        json.dumps({"entries": [{"path": "/home/alex/.var/app/x/cacert.pem", "id": 2345678}]}),
+        encoding="utf-8",
+    )
+    log.info("Joined place 1234567890 as alex.e from C:\\Users\\Alex Example\\AppData")
+    log.info("GET apis.roblox.com /universes/v1/places/9876543210/universe")
+    logging_on.stop()
+    bundle_path = rings.export_support_bundle(
+        tmp_path / "u.zip", logging_on, sources, user_names=["Alex Example", "alex.e"]
+    )
+    with zipfile.ZipFile(bundle_path) as bundle:
+        text = "\n".join(bundle.read(name).decode("utf-8") for name in bundle.namelist())
+    for private in ("Alex Example", "alex.e", "alex/", "1234567890", "9876543210", "2345678"):
+        assert private not in text, private
+    assert "Joined place <id> as <user> from C:\\Users\\<user>\\AppData" in text
+    assert "/home/<user>/.var/app" in text
+    # The log file itself is the user's own and keeps everything but secrets.
+    assert "1234567890" in logging_on.log_file.read_text(encoding="utf-8")
+
+
+def test_the_default_user_names_are_this_accounts() -> None:
+    assert Path.home().name in rings.current_user_names()
 
 
 @pytest.mark.spec("S-03", 7)

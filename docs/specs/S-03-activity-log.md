@@ -35,9 +35,15 @@ One logging system for the app, readable in the Activity screen and safe to shar
 2. Redaction (plan 10.6): the values of the headers Cookie, Set-Cookie, Authorization,
    Proxy-Authorization, X-CSRF-TOKEN and rbx-authentication-ticket, and any value matching the
    Roblox login-token pattern anywhere in a message, its arguments or an exception, become
-   `•••• (redacted)`. Matching is case-insensitive for header names.
+   `•••• (redacted)`. Matching is case-insensitive for header names. So do the secret parts of
+   signed URLs (plan 16.2): the values of the query parameters `__token__`, `hdnts`, `hmac`,
+   `sig`, `signature`, `token`, `ticket`, `Policy`, `Key-Pair-Id`, the S3 signature parameters
+   and browser-tracker IDs, after `?`, `&`, `;` or `~`, also percent-encoded.
 3. Everything in the support bundle passes through the same filter, including settings and the
-   ledger.
+   ledger. The bundle also replaces the user's name (the folder after `Users` or `home` in any
+   path, and the account's login and home-folder names anywhere) with `<user>`, and numbers of
+   seven digits or more (place, universe and user IDs) with `<id>` (plan 16.2). The log files on
+   the user's own disk keep those.
 4. Logging never blocks the UI thread on disk: file writes happen off the Qt thread.
 
 ## Messages
@@ -64,6 +70,11 @@ One logging system for the app, readable in the Activity screen and safe to shar
 5. The support bundle contains exactly the items in plan 13.9; profiles only when ticked.
 6. Toasts, dialogs and notices appear in Activity.
 7. The ring buffer holds at most 5,000 records, oldest dropped first.
+8. Every signed-URL parameter, under every separator, spelling and percent-encoding, is redacted
+   at every level; lines in the shape of the Stage 2 capture, rewritten with invented values,
+   keep no secret in the file, the ring buffer or the bundle, and keep their host and path.
+9. A support bundle holds no user name (Windows path with spaces, JSON-escaped path, Linux path,
+   login name) and no long numeric ID; versions, ports and process IDs stay.
 
 ## Lives in
 
@@ -74,3 +85,5 @@ One logging system for the app, readable in the Activity screen and safe to shar
 - **Rotation size**: 5 files × 2 MB (plan S-03; the R1 line for `trunk/rings` now matches;
   decision record 0008).
 - Redaction also covers exception text and log arguments, not only the message.
+- Rule 2's signed-URL parameters and rule 3's user names and IDs, with tests 8 and 9, carry out
+  plan 16.2 ("Stage 2 on Windows"); the parameter names are those seen in the Stage 2 capture.

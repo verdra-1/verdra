@@ -10,6 +10,8 @@ UI thread.
 
 from __future__ import annotations
 
+import contextlib
+import getpass
 import io
 import json
 import logging
@@ -408,12 +410,19 @@ class BundleSources:
 
 
 def export_support_bundle(
-    target: Path, rings: Rings, sources: BundleSources, *, include_profiles: bool = False
+    target: Path,
+    rings: Rings,
+    sources: BundleSources,
+    *,
+    include_profiles: bool = False,
+    user_names: Iterable[str] | None = None,
 ) -> Path:
     """Write the support bundle ZIP to `target` and return its path.
 
-    Everything in it passes through the redaction filter. Nothing is uploaded.
+    Everything in it passes through the redaction filter, and the user's name and long numeric
+    IDs are replaced (plan 16.2; `user_names` defaults to this account's). Nothing is uploaded.
     """
+    names = tuple(current_user_names() if user_names is None else user_names)
     about = {
         "version": verdra.__version__,
         "build": build_id(),
@@ -426,28 +435,38 @@ def export_support_bundle(
     }
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        bundle.writestr("about.json", json.dumps(about, indent=2) + "\n")
-        log_text = "\n".join(veil.redact_text(line) for line in rings.tail()) + "\n"
+        about_text = json.dumps(veil.anonymize_data(about, names), indent=2)
+        bundle.writestr("about.json", about_text + "\n")
+        log_text = "\n".join(veil.anonymize_text(line, names) for line in rings.tail()) + "\n"
         bundle.writestr(terrain.LOG_FILE, log_text)
         for name, path in (
             (terrain.SETTINGS_FILE, sources.settings_file),
             (terrain.LEDGER_FILE, sources.ledger_file),
         ):
             if path.is_file():
-                bundle.writestr(name, _redacted_json(path))
+                bundle.writestr(name, _redacted_json(path, names))
         if include_profiles and sources.profiles_dir.is_dir():
             for profile in sorted(sources.profiles_dir.glob("*.json")):
-                bundle.writestr(f"profiles/{profile.name}", _redacted_json(profile))
+                bundle.writestr(f"profiles/{profile.name}", _redacted_json(profile, names))
     atomic.write_atomic(target, buffer.getvalue())
     return target
 
 
-def _redacted_json(path: Path) -> str:
+def _redacted_json(path: Path, names: tuple[str, ...]) -> str:
     text = path.read_text(encoding="utf-8", errors="replace")
     try:
-        return json.dumps(veil.redact_data(json.loads(text)), indent=2, ensure_ascii=False) + "\n"
+        data = veil.anonymize_data(json.loads(text), names)
     except ValueError:
-        return veil.redact_text(text)
+        return veil.anonymize_text(text, names)
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def current_user_names() -> tuple[str, ...]:
+    """Return the names this account goes by: its login name and its home folder's name."""
+    names = {Path.home().name}
+    with contextlib.suppress(Exception):
+        names.add(getpass.getuser())
+    return tuple(sorted(name for name in names if name))
 
 
 def build_id() -> str:
