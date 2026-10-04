@@ -8,6 +8,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Image conversion for replacements: KTX2 (plain, Zstandard-compressed and the common block
+  formats), PNG, JPEG and DDS read to pixels; KTX2 and PNG written; oversized images and
+  decompression bombs refused with a plain reason.
 - Replacement profiles: saved as `verdra.profile` files with a published JSON Schema, kept in
   your order, with undo and redo of the last 50 edits (the Replacements screen follows).
 - The Replacements screen: make profiles, switch them on and off, add Asset ID replacements,
