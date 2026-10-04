@@ -266,6 +266,127 @@ def test_unusable_replacements_are_left_out_with_their_reason(tmp_path: Path) ->
     }
 
 
+def test_content_targets_stay_out_of_the_snapshot_until_the_grafter_serves_them(
+    tmp_path: Path,
+) -> None:
+    # Routing must decrypt no more than it does for Asset ID swaps (S-24 deviation).
+    made = store(tmp_path)
+    profile = made.create("A")
+    left = [
+        made.add_replacement(profile.id, Original(asset_id=n), target)
+        for n, target in (
+            (1, Target(kind="file", value="./a.png")),
+            (2, Target(kind="url", value="https://cdn.example/a.png")),
+            (3, Target(kind="remove")),
+        )
+    ]
+    made.add_replacement(profile.id, *swap(4, 5))
+    compiled = made.compile()
+    assert compiled.snapshot.swaps() == {4: 5}
+    assert compiled.snapshot.hosts() == {rules.ASSET_BATCH_HOST}
+    soon = "This part of Verdra isn't built yet. It will arrive in a later version."
+    assert dict(compiled.left_out) == {r.id: soon for r in left}
+    everything = grafts.compile_snapshot(made.profiles, grafts.ALL_KINDS).snapshot
+    assert len(everything.grafts) == 4
+
+
+# --- Target files and links (spec S-22) -----------------------------------------------------------
+
+MP3_FRAME = b"\xff\xfb\x90\x64"  # MPEG-1 layer III, 128 kbit/s, 44.1 kHz
+
+
+@pytest.mark.spec("S-22", 1)
+@pytest.mark.parametrize(
+    ("head", "name", "kind"),
+    [
+        (b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR", "a.obj", "png"),  # content wins over the name
+        (b"\xabKTX 20\xbb\r\n\x1a\n", "a.ktx2", "ktx2"),
+        (b"\xff\xd8\xff\xe0\0\x10JFIF", "a.jpg", "jpeg"),
+        (b"DDS |\0\0\0", "a.dds", "dds"),
+        (b"OggS\0\x02", "a.ogg", "ogg"),
+        (b"ID3\x04\0\0", "a.mp3", "mp3"),
+        (MP3_FRAME + bytes(8), "a.mp3", "mp3"),
+        (b"version 2.00\n\x0c\0", "a.mesh", "mesh"),
+        (b"version 4.01\n", "a.bin", "mesh"),
+        (b"# exported\nv 0 0 0\n", "Model.OBJ", "obj"),
+        (b"v 0 0 0\nf 1 2 3\n", "a.txt", None),  # OBJ has no signature: it needs its suffix
+        (b"<html>", "a.obj", None),
+        (b"\xff\xff\xff\xff", "a.mp3", None),  # not a valid frame header
+        (b"\xff\xfb\xf0\x64", "a.mp3", None),  # bitrate index 15 is invalid
+        (b"version 9", "a.mesh", None),
+        (b"", "a.png", None),
+    ],
+)
+def test_formats_are_told_apart_by_content(head: bytes, name: str, kind: str | None) -> None:
+    assert grafts.sniff(head, name) == kind
+
+
+@pytest.mark.spec("S-22", 1)
+def test_a_local_file_must_exist_have_a_supported_format_and_fit_the_limit(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "gone.png"
+    assert grafts.file_family(missing) == (
+        None,
+        f"The file for this replacement is missing: {missing}.",
+    )
+    assert grafts.file_family(tmp_path)[0] is None  # a folder isn't a file
+    text = tmp_path / "notes.txt"
+    text.write_text("hello")
+    assert grafts.file_family(text) == (
+        None,
+        "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.",
+    )
+    sound = tmp_path / "a.ogg"
+    with sound.open("wb") as file:
+        file.write(b"OggS")
+        file.truncate(50 * 1024 * 1024)  # sparse: exactly the limit is allowed
+    assert grafts.file_family(sound) == ("Audio", None)
+    with sound.open("r+b") as file:
+        file.truncate(50 * 1024 * 1024 + 1)
+    assert grafts.file_family(sound) == (None, "This file is too big. The limit is 50 MB.")
+    picture = tmp_path / "a.png"
+    picture.write_bytes(b"\x89PNG\r\n\x1a\n")
+    assert grafts.file_family(picture) == ("Image", None)
+    assert grafts.target_problem("file", "", tmp_path) == "Choose a file to use instead."
+    assert grafts.target_problem("file", "./a.png", tmp_path) is None
+    assert grafts.target_problem("remove", "", tmp_path) is None
+
+
+@pytest.mark.spec("S-22", 1)
+@pytest.mark.parametrize(
+    ("link", "allowed"),
+    [
+        ("https://cdn.example/a.png", True),
+        ("HTTPS://cdn.example/a.png", True),
+        ("http://cdn.example/a.png", False),
+        ("https://", False),
+        ("https:///a.png", False),
+        ("ftp://cdn.example/a.png", False),
+        ("file:///C:/a.png", False),
+        ("cdn.example/a.png", False),
+    ],
+)
+def test_only_https_links_with_a_host_are_allowed(link: str, allowed: bool) -> None:  # noqa: FBT001
+    problem = grafts.target_problem("url", link, Path())
+    assert problem == (None if allowed else "Only HTTPS links are allowed.")
+
+
+@pytest.mark.spec("S-22", 2)
+def test_a_file_inside_the_profile_folder_is_stored_relative(tmp_path: Path) -> None:
+    folder = tmp_path / "profiles" / "Night"
+    inside = folder / "sky" / "top.png"
+    outside = tmp_path / "elsewhere" / "top.png"
+    assert grafts.stored_path(inside, folder) == "./sky/top.png"
+    assert grafts.resolve("./sky/top.png", folder) == inside
+    assert grafts.stored_path(outside, folder) == str(outside)
+    assert grafts.resolve(str(outside), folder) == outside
+    # A sibling whose name starts with the folder's name is outside it.
+    assert grafts.stored_path(tmp_path / "profiles" / "Night2" / "a.png", folder).startswith(
+        str(tmp_path)
+    )
+
+
 def test_renaming_moves_the_file_and_the_profiles_folder(tmp_path: Path) -> None:
     made = store(tmp_path)
     profile = made.create("Old")
@@ -289,7 +410,7 @@ def test_the_preview_is_the_snapshot_with_its_conflicts(tmp_path: Path) -> None:
         high.id, Original(asset_id=3, slot="normal"), Target(kind="file", value="./n.png"),
         asset_type="TexturePack",
     )  # fmt: skip
-    snapshot = made.compile().snapshot
+    snapshot = grafts.compile_snapshot(made.profiles, grafts.ALL_KINDS).snapshot
     shown = grafts.preview(snapshot)
     # Same winners as the snapshot the proxy uses, grouped by type.
     winners = {

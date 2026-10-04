@@ -185,7 +185,31 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Choose file…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Target asset ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target link</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Images, meshes and sounds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -342,6 +366,41 @@
     <name>M-EDIT-07</name>
     <message>
         <source>An asset can&apos;t replace itself. Enter a different asset ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-08</name>
+    <message>
+        <source>This file type isn&apos;t supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-09</name>
+    <message>
+        <source>This file is too big. The limit is {size} MB.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-10</name>
+    <message>
+        <source>Enter the asset ID to replace.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-11</name>
+    <message>
+        <source>Downloads from {host}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-12</name>
+    <message>
+        <source>Choose a file to use instead.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1180,6 +1239,10 @@
     </message>
     <message>
         <source>Kind</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

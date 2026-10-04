@@ -47,6 +47,12 @@ Add and edit a replacement without knowing file formats.
 - M-EDIT-05 (inline, new) "Roblox couldn't be reached to check this ID. You can save it anyway."
 - M-EDIT-06 (Save tooltip, new) "Enter the asset ID to replace and the asset ID to use instead."
 - M-EDIT-07 (Save tooltip, new) "An asset can't replace itself. Enter a different asset ID."
+- M-EDIT-08 (inline, new) "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG
+  or MP3."
+- M-EDIT-09 (inline, new) "This file is too big. The limit is <size> MB."
+- M-EDIT-10 (Save tooltip, new) "Enter the asset ID to replace."
+- M-EDIT-11 (under the URL field, new) "Downloads from <host>."
+- M-EDIT-12 (Save tooltip, new) "Choose a file to use instead."
 
 ## Acceptance tests
 
@@ -68,6 +74,16 @@ Add and edit a replacement without knowing file formats.
   a train shouldn't be blocked by a lookup.
 - Tests 4 and 5 are added for rules 2 and 3.
 - "Use as original" needs the Library (M3); until then the original is entered by ID.
+- Second step (2026-10-04): Local file, URL and Remove are enabled. A Local file is checked by
+  its first bytes (PNG, JPEG, KTX2, DDS, FileMesh, OGG, MP3; OBJ, which has no signature, by its
+  `.obj` suffix and first line) and by the plan 10.7 size limits (mesh 64 MB, audio 50 MB, and
+  64 MB for an image file, whose pixels strata/ochre limits). Until `bark/pollinator` tells the
+  original's type, the file's family (Image, Mesh, Audio) is saved as the asset type and an
+  unsupported file shows M-EDIT-08, which names no type; M-EDIT-04 and M-EDIT-02 replace it with
+  the lookup. Choose file… opens a file dialog. M-EDIT-09 to M-EDIT-12 cover the size limit, the
+  original's field, the link's host and an empty file field. These targets are saved but not
+  served yet: they stay out of the snapshot with M-SOON-01 shown in the table's Note column,
+  so routing decrypts no more than for Asset ID swaps until the grafter serves content (S-21).
 - Built in steps: the first build edits Asset ID targets and checks them locally (M-EDIT-06,
   M-EDIT-07); Local file, URL and Remove stay disabled with M-SOON-01 until the codecs land, and
   the Roblox lookup (M-EDIT-01, M-EDIT-02, M-EDIT-05) comes with `bark/pollinator`. The drawer

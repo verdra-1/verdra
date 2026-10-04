@@ -8,6 +8,10 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- The replacement editor takes a local file (dropped on it or chosen), an HTTPS link (its host
+  shown), or Remove. Files are checked by their content and size, and a file inside the
+  profile's folder is saved relative to it. These replacements are saved but not used in game
+  yet; the table says so.
 - Preview changes on the Replacements screen: every asset that will change, grouped by type, the
   replacement that wins, the profile it comes from, what it overrides, and the totals.
 - Mesh conversion for replacements: Roblox mesh files (versions 1.00 to 5.00) and OBJ read;

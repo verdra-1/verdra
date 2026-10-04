@@ -11,7 +11,7 @@ disabled with M-SOON-01.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
@@ -127,9 +127,9 @@ class ReplacementsScreen(QWidget):
             tools.addWidget(button)
         tools.addStretch(1)
         middle.addLayout(tools)
-        self.table = QTableWidget(0, 3, host)
+        self.table = QTableWidget(0, 4, host)
         self.table.setHorizontalHeaderLabels(
-            [self.tr("Original"), self.tr("Replace with"), self.tr("Kind")]
+            [self.tr("Original"), self.tr("Replace with"), self.tr("Kind"), self.tr("Note")]
         )
         self.table.setAccessibleName(self.tr("Replacements"))
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -181,6 +181,8 @@ class ReplacementsScreen(QWidget):
         if service is None or profile_id is None:
             return
         profile = service.store.get(profile_id)
+        # Why each replacement isn't used, as the next Apply now would publish it.
+        notes = dict(service.store.compile().left_out)
         kinds = {
             "asset_id": self.tr("Asset ID"),
             "file": self.tr("Local file"),
@@ -194,6 +196,7 @@ class ReplacementsScreen(QWidget):
             self.table.setItem(row, 0, original)
             self.table.setItem(row, 1, QTableWidgetItem(replacement.target.value))
             self.table.setItem(row, 2, QTableWidgetItem(kinds[replacement.target.kind]))
+            self.table.setItem(row, 3, QTableWidgetItem(notes.get(replacement.id, "")))
 
     # --- Editing ----------------------------------------------------------------------------
 
@@ -240,9 +243,14 @@ class ReplacementsScreen(QWidget):
     def _open_editor(self) -> None:
         if self.selected_id() is None and self.service is not None and self.service.profiles:
             self.profiles.setCurrentRow(0)
-        self.editor.start()
+        profile_id = self.selected_id()
+        if self.service is not None and profile_id is not None:
+            profile = self.service.store.get(profile_id)
+            self.editor.start(self.service.store.folder / profile.name)
+        else:
+            self.editor.start()
 
-    def _save(self, original: int, target: str) -> None:
+    def _save(self, original: int, kind: str, value: str, family: str) -> None:
         profile_id = self.selected_id()
         if profile_id is None:
             return
@@ -250,7 +258,8 @@ class ReplacementsScreen(QWidget):
             "add_replacement",
             profile_id,
             grafts.Original(asset_id=original),
-            grafts.Target(kind="asset_id", value=target),
+            grafts.Target(kind=cast("grafts.TargetKind", kind), value=value),
+            family,
         )
         self.editor.hide()
 

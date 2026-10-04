@@ -16,12 +16,12 @@ import copy
 import logging
 import re
 import uuid
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 from urllib.parse import urlsplit
 
 import msgspec
@@ -43,6 +43,8 @@ UNDO_LIMIT = 50
 MAX_NAME = 100
 
 AssetId = Annotated[int, Meta(ge=1)]
+#: For the interface, which can't import `roots`.
+TargetKind = rules.TargetKind
 UtcTimestamp = Annotated[datetime, Meta(tz=True)]
 
 
@@ -130,12 +132,145 @@ def replacement_problem(replacement: Replacement) -> str | None:
         return QCoreApplication.translate("M-EDIT-01", "No asset with ID {id} was found.").format(
             id=target.value
         )
-    if target.kind == "url" and urlsplit(target.value).scheme != "https":
-        return QCoreApplication.translate("M-EDIT-03", "Only HTTPS links are allowed.")
+    if target.kind == "url" and (problem := url_problem(target.value)) is not None:
+        return problem
     if target.kind == "file" and not target.value:
         return QCoreApplication.translate(
             "M-GRAFT-02", "The file for this replacement is missing: {path}."
         ).format(path="")
+    return None
+
+
+# --- Target files and links (spec S-22) ----------------------------------------------------------
+
+#: The formats a Local file target can have, and the asset family each one replaces.
+FAMILIES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "png": "Image",
+        "jpeg": "Image",
+        "ktx2": "Image",
+        "dds": "Image",
+        "mesh": "Mesh",
+        "obj": "Mesh",
+        "ogg": "Audio",
+        "mp3": "Audio",
+    }
+)
+#: Plan 10.7 limits by family, checked on the file size before anything reads it. Images are
+#: limited by pixels (strata/ochre); 64 MB bounds the file itself.
+SIZE_LIMITS: Final[Mapping[str, int]] = MappingProxyType(
+    {
+        "Image": 64 * 1024 * 1024,
+        "Mesh": 64 * 1024 * 1024,
+        "Audio": 50 * 1024 * 1024,
+    }
+)
+#: Every target kind, and the ones the grafter serves today: the others stay out of the
+#: snapshot (`compile_snapshot`) until it serves content (S-21 deviation, docs/m2/notes.md).
+ALL_KINDS: Final = frozenset({"asset_id", "file", "url", "remove"})
+SERVED: Final = frozenset({"asset_id"})
+_HEAD = 64
+_MAGIC: Final = (
+    (b"\x89PNG\r\n\x1a\n", "png"),
+    (b"\xabKTX 20\xbb\r\n\x1a\n", "ktx2"),
+    (b"\xff\xd8\xff", "jpeg"),
+    (b"DDS ", "dds"),
+    (b"OggS", "ogg"),
+    (b"ID3", "mp3"),
+)
+_MESH = re.compile(rb"version [1-9]\.\d\d")
+_OBJ_LINE = re.compile(rb"\s*(#|v |vt |vn |f |o |g |s |mtllib |usemtl |$)")
+
+
+def sniff(head: bytes, name: str = "") -> str | None:
+    """Return the format of a file from its first bytes (and, for OBJ, its name), or None.
+
+    Formats are told apart by content, never by name alone; OBJ has no signature, so it needs
+    both the `.obj` suffix and a first line that is OBJ.
+    """
+    for magic, kind in _MAGIC:
+        if head.startswith(magic):
+            return kind
+    if _MESH.match(head):
+        return "mesh"
+    if _is_mp3_frame(head):
+        return "mp3"
+    if name.lower().endswith(".obj") and b"\0" not in head:
+        first = head.split(b"\n", 1)[0]
+        if _OBJ_LINE.match(first):
+            return "obj"
+    return None
+
+
+def _is_mp3_frame(head: bytes) -> bool:
+    """Return whether `head` starts with an MPEG audio frame header (no ID3 tag)."""
+    if len(head) < 4 or head[0] != 0xFF or head[1] & 0xE0 != 0xE0:
+        return False
+    version, layer = (head[1] >> 3) & 3, (head[1] >> 1) & 3
+    bitrate, rate = head[2] >> 4, (head[2] >> 2) & 3
+    return version != 1 and layer != 0 and bitrate not in {0, 15} and rate != 3
+
+
+def resolve(value: str, folder: Path) -> Path:
+    """Return the file a Local file target names: `./` paths are inside the profile's folder."""
+    if value.startswith("./"):
+        return folder / value[2:]
+    return Path(value)
+
+
+def stored_path(path: Path, folder: Path) -> str:
+    """Return how a Local file is stored: `./…` inside the profile's folder, else absolute."""
+    path = path.absolute()
+    try:
+        inside = path.relative_to(folder.absolute())
+    except ValueError:
+        return str(path)
+    return f"./{inside.as_posix()}"
+
+
+def file_family(path: Path) -> tuple[str | None, str | None]:
+    """Check a Local file target: return (its family, None), or (None, the reason it can't be used).
+
+    Reads only the first bytes, so it is quick enough for live validation.
+    """
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as file:
+            head = file.read(_HEAD)
+    except OSError:
+        return None, QCoreApplication.translate(
+            "M-GRAFT-02", "The file for this replacement is missing: {path}."
+        ).format(path=path)
+    kind = sniff(head, path.name)
+    if kind is None:
+        return None, QCoreApplication.translate(
+            "M-EDIT-08",
+            "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.",
+        )
+    family = FAMILIES[kind]
+    if size > SIZE_LIMITS[family]:
+        return None, QCoreApplication.translate(
+            "M-EDIT-09", "This file is too big. The limit is {size} MB."
+        ).format(size=SIZE_LIMITS[family] // (1024 * 1024))
+    return family, None
+
+
+def url_problem(value: str) -> str | None:
+    """Return M-EDIT-03 unless `value` is an HTTPS link with a host, else None."""
+    parts = urlsplit(value)
+    if parts.scheme.lower() != "https" or not parts.hostname:
+        return QCoreApplication.translate("M-EDIT-03", "Only HTTPS links are allowed.")
+    return None
+
+
+def target_problem(kind: str, value: str, folder: Path) -> str | None:
+    """Return why a Local file, URL or Remove target can't be saved, or None (S-22 rule 1)."""
+    if kind == "file":
+        if not value:
+            return QCoreApplication.translate("M-EDIT-12", "Choose a file to use instead.")
+        return file_family(resolve(value, folder))[1]
+    if kind == "url":
+        return url_problem(value)
     return None
 
 
@@ -197,8 +332,11 @@ class Compiled:
     left_out: tuple[tuple[str, str], ...]
 
 
-def compile_snapshot(profiles: Sequence[Profile]) -> Compiled:
-    """Compile the enabled replacements of the enabled profiles, `profiles` highest first."""
+def compile_snapshot(profiles: Sequence[Profile], served: frozenset[str] = SERVED) -> Compiled:
+    """Compile the enabled replacements of the enabled profiles, `profiles` highest first.
+
+    Replacements whose target kind isn't in `served` are left out with M-SOON-01.
+    """
     grafts: dict[rules.Original, rules.Graft] = {}
     overridden: dict[rules.Original, list[rules.Graft]] = {}
     left_out: list[tuple[str, str]] = []
@@ -210,6 +348,13 @@ def compile_snapshot(profiles: Sequence[Profile]) -> Compiled:
             if not replacement.enabled:
                 continue
             problem = replacement_problem(replacement)
+            if problem is None and replacement.target.kind not in served:
+                # Until the grafter serves content, these stay out of the snapshot, so routing
+                # decrypts no more than it does for Asset ID swaps.
+                problem = QCoreApplication.translate(
+                    "M-SOON-01",
+                    "This part of Verdra isn't built yet. It will arrive in a later version.",
+                )
             if problem is not None:
                 left_out.append((replacement.id, problem))
                 continue
