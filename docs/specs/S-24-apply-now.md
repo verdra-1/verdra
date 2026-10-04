@@ -64,10 +64,14 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 ## Refinements from the plan
 
 - Tests 3 to 6 are added for the branches of the flow and rule 4.
+- **Deviation (2026-10-04): cache clearing (behavior step 5) is not implemented yet.** Apply
+  now deletes nothing in Roblox's folders (test 6). Reason, evidence and what's needed to build
+  it safely: `docs/m2/notes.md`. No deletion is written before the maintainer approves the
+  design.
 - Rule 4 and M-APPLY-03 cover the time before W-06 is recorded: the plan's step "clear Roblox's
   asset cache" can't be built before the cache files are known (plan 16.4). Replacements served
-  by Asset ID still apply at once, because the batch request is rewritten whether or not the
-  client cached the original's content location.
+  by Asset ID should still apply at once if the Player asks for the original each time; the
+  Stage 2 log points that way but doesn't prove it (`docs/m2/notes.md`).
 - Until W-06 is recorded, a restart ends with M-APPLY-03 rather than M-APPLY-01 (rule 4);
   M-APPLY-01 is used once the cache is cleared.
 - "The last join" is the place ID of the last `gamejoin.roblox.com` join Verdra saw. Reading it

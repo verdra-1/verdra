@@ -79,6 +79,10 @@ through Verdra and would prove nothing; the test is the Roblox Player in steps 7
    shows "Another launch of Verdra brought this window to the front."
 
 9. **Look at the wall.** You should see the **second** picture. Write down which one you see.
+   - **If you see the first picture, that may be Roblox's cache, not a Verdra failure. Send the
+     log anyway.** Roblox keeps pictures it has already downloaded, and Studio showed the first
+     picture before the Player did. Verdra doesn't clear that cache yet (see below), and the log
+     tells which of the two it was.
    - Optional check that it switches back: close the Roblox Player, then in Verdra untick the
      profile **My replacements**, click **Apply now**, and join again from the browser as in
      step 8. Write down which picture you see this time. (Roblox may keep pictures it already downloaded,
@@ -105,11 +109,10 @@ Nothing in Roblox's own folders. In this version, Apply now:
 
 It does **not** delete or change `rbx-storage.db`, `rbx-storage.db-shm`, `rbx-storage.db-wal`,
 the `rbx-storage` folder, `LocalStorage`, `logs`, `GlobalBasicSettings_13.xml`, `frm.cfg`,
-`Downloads`, or anything of Roblox Studio. Clearing Roblox's cache waits until we know exactly
-which files are cache (moved to M2); until then Apply now says so instead of deleting anything.
-An automated test checks this on every change: it puts those exact names in a test Roblox
-folder, runs Apply now's steps, and fails if a single byte or date changes or if a new system
-change is recorded.
+`Downloads`, or anything of Roblox Studio. Clearing Roblox's cache is **not built yet**, on
+purpose: which files are only cache isn't known, and a wrong deletion could lose your settings or
+local data and can't be undone. Until a design you approve exists, Apply now deletes nothing and says so ("Assets Roblox already saved may
+change only after it refreshes them"). Details: `docs/m2/notes.md`.
 
 ## What the log contains
 
