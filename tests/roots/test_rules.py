@@ -76,3 +76,35 @@ def test_anything_that_resolves_to_a_protected_path_is_protected(prefix: str) ->
     for separator in ("/", "%2F", "%252f"):
         target = "/" + segment + separator + "../validate-machine"
         assert rules.is_protected("apis.roblox.com", target), target
+
+
+def graft(
+    original: int, kind: str = "asset_id", value: str = "2", slot: str | None = None
+) -> rules.Graft:
+    return rules.Graft(original, slot, kind, value, "P", f"r{original}")  # type: ignore[arg-type]
+
+
+def test_a_snapshot_needs_only_the_hosts_its_replacements_use() -> None:
+    assert rules.GraftSnapshot().hosts() == frozenset()
+    ids = rules.GraftSnapshot({(1, None): graft(1), (2, None): graft(2, value="7")})
+    assert ids.hosts() == {"assetdelivery.roblox.com"}
+    assert ids.swaps() == {1: 2, 2: 7}
+    for content in (
+        graft(3, "file", "./a.png"),
+        graft(3, "url", "https://x/a"),
+        graft(3, "remove", ""),
+        graft(3, slot="normal"),
+    ):
+        snapshot = rules.GraftSnapshot({(1, None): graft(1), (3, content.slot): content})
+        assert snapshot.hosts() == {"assetdelivery.roblox.com", "fts.rbxcdn.com"}
+        assert snapshot.swaps() == {1: 2}
+    assert all(rules.is_roblox_host(host) for host in ids.hosts() | snapshot.hosts())
+
+
+def test_the_holder_swaps_whole_snapshots() -> None:
+    holder = rules.SnapshotHolder()
+    first = holder.current
+    assert first.grafts == {}
+    second = rules.GraftSnapshot({(1, None): graft(1)})
+    holder.publish(second)
+    assert holder.current is second and first.grafts == {}

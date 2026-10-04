@@ -8,6 +8,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Replacement profiles: saved as `verdra.profile` files with a published JSON Schema, kept in
+  your order, with undo and redo of the last 50 edits (the Replacements screen follows).
 - Repository foundations: license, notice, README, security policy, privacy statement,
   contribution guide and code of conduct, with the project's support contact.
 - Project tooling: `pyproject.toml` with dependency floors, `uv.lock`, Python 3.14 pin,

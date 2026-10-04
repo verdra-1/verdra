@@ -48,6 +48,12 @@ Organize replacements into named profiles that can be switched on and off.
 - M-PROF-01 (inline) "A profile named <name> already exists."
 - M-PROF-02 (Dialog) "Delete profile <name>?" Buttons "Delete", "Cancel".
 - M-PROF-03 (Notice) "<name> was changed outside Verdra." Buttons "Keep mine", "Use the file".
+- M-PROF-04 (inline, new) The reason a name can't be used: "Enter a name for the profile.",
+  "A profile name can't contain < > : " / \ | ? or *.", "This name can't be used for a file.",
+  "A profile name can be at most <n> characters."
+- M-PROF-05 (inline, new) "A profile can hold at most <n> replacements."
+- M-PROF-06 (Activity error, new) "The profile file <file> couldn't be read, so Verdra set it
+  aside as <moved>."
 
 ## Acceptance tests
 

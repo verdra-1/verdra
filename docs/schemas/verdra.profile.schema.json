@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/verdra-1/verdra/blob/main/docs/schemas/verdra.profile.schema.json",
+  "title": "Verdra replacement profile (verdra.profile v1)",
+  "description": "One replacement profile, as in Master plan 9.3 and spec S-20.",
+  "type": "object",
+  "required": ["format", "version", "id", "name", "created", "modified"],
+  "properties": {
+    "format": {"const": "verdra.profile"},
+    "version": {"const": 1},
+    "id": {"type": "string", "description": "A UUID."},
+    "name": {"type": "string", "minLength": 1, "maxLength": 100},
+    "enabled": {"type": "boolean", "default": true},
+    "created": {"type": "string", "format": "date-time"},
+    "modified": {"type": "string", "format": "date-time"},
+    "replacements": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {"$ref": "#/$defs/replacement"}
+    }
+  },
+  "$defs": {
+    "replacement": {
+      "type": "object",
+      "required": ["id", "original", "target"],
+      "properties": {
+        "id": {"type": "string"},
+        "enabled": {"type": "boolean", "default": true},
+        "original": {
+          "type": "object",
+          "required": ["asset_id"],
+          "properties": {
+            "asset_id": {"type": "integer", "minimum": 1},
+            "slot": {"enum": ["color", "normal", "metalness", "roughness", null]}
+          }
+        },
+        "target": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {"enum": ["asset_id", "file", "url", "remove"]},
+            "value": {
+              "type": "string",
+              "description": "The target asset ID in decimal, a file path (./ for the profile's folder), an HTTPS URL, or empty for remove."
+            }
+          }
+        },
+        "asset_type": {"type": "string"},
+        "note": {"type": "string"}
+      }
+    }
+  }
+}
