@@ -102,9 +102,11 @@ class StatusPopover(QFrame):
         #: The fixes something handles; the others are shown disabled with M-SOON-01.
         self.handled: Collection[str] = ()
         self.fix_key: str | None = None
+        self.view: StatusView | None = None
 
     def show_view(self, view: StatusView) -> None:
         """Fill the popover for a published routing status."""
+        self.view = view
         status = status_of(view)
         self.title.setText(status.label())
         reason = view.reason
@@ -129,6 +131,11 @@ class StatusPopover(QFrame):
         if self.fix_key is not None:
             self.hide()
             self.fix_requested.emit(self.fix_key)
+
+    def set_handled(self, keys: Collection[str]) -> None:
+        """Enable the fixes in `keys` (the others stay disabled with M-SOON-01)."""
+        self.handled = keys
+        self.show_view(self.view if self.view is not None else IDLE)
 
 
 class _Idle:

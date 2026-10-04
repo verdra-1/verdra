@@ -13,11 +13,13 @@ from the confirmed platform facts (plan 16.4), not from here.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import logging
 import os
 import stat
+import threading
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -31,6 +33,7 @@ from cryptography import x509
 from PySide6.QtCore import QCoreApplication, QFileSystemWatcher, QObject, QTimer, Signal
 
 from verdra.bark import husk, resin, scar
+from verdra.roots import mycelium
 from verdra.soil import atomic, terrain
 
 log = logging.getLogger(__name__)
@@ -464,3 +467,102 @@ def _log_change(old: RoutingStatus, new: RoutingStatus) -> None:
             "M-STATUS-06", "Routing status changed from {old} to {new}."
         ).format(old=old.state.label(), new=new.state.label())
     log.log(level, "%s", line)
+
+
+# --- Routing lifecycle (plan 8.3, 10.1) --------------------------------------------------------
+
+
+class Router(QObject):
+    """Runs the proxy (roots/mycelium) on its own thread and asyncio loop (plan 8.3).
+
+    `start` waits until the proxy listens and reports it to the routing status; each CONNECT the
+    proxy sees reaches the status on the Qt thread as Roblox traffic (S-14 Degraded (a)). If no
+    port can be used, the status shows Error with M-PROXY-01 and `start` raises.
+
+    Signals:
+        connected(str): The proxy saw a CONNECT to this host (on the Qt thread).
+    """
+
+    connected = Signal(str)
+
+    #: How long `start` and `stop` wait for the proxy's thread.
+    WAIT_SECONDS = 10.0
+
+    def __init__(self, status: RoutingStatusSource, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.status = status
+        self.port: int | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread: threading.Thread | None = None
+        self._proxy: mycelium.Mycelium | None = None
+        # A bound method of this object, which lives on the Qt thread: the signal, emitted on
+        # the proxy's thread, is queued to it.
+        self.connected.connect(self._traffic)
+
+    @property
+    def running(self) -> bool:
+        """Whether the proxy is listening."""
+        return self.port is not None
+
+    def start(
+        self,
+        port: int,
+        connect: mycelium.Connector,
+        interceptor: mycelium.Interceptor | None = None,
+    ) -> int:
+        """Start the proxy and return the port it listens on (routing.proxy_port or another).
+
+        Raises:
+            mycelium.ProxyStartError: no loopback port could be used (M-PROXY-01).
+        """
+        if self.port is not None:
+            return self.port
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=loop.run_forever, name="verdra-proxy", daemon=True)
+        thread.start()
+        proxy = mycelium.Mycelium(
+            port,
+            connect,
+            interceptor=interceptor,
+            on_connect=lambda host, _port: self.connected.emit(host),
+        )
+        try:
+            self.port = asyncio.run_coroutine_threadsafe(proxy.start(), loop).result(
+                self.WAIT_SECONDS
+            )
+        except mycelium.ProxyStartError as error:
+            _end_loop(loop, thread)
+            self.status.error(
+                Trigger.PROXY_FAILED,
+                QCoreApplication.translate(
+                    "M-PROXY-01",
+                    "Verdra couldn't start routing: port {port} is in use and no other port "
+                    "was free.",
+                ).format(port=error.port),
+            )
+            raise
+        self._loop, self._thread, self._proxy = loop, thread, proxy
+        self.status.error_cleared(Trigger.PROXY_FAILED)
+        self.status.started()
+        return self.port
+
+    def stop(self) -> None:
+        """Stop the proxy and its thread; routing is Idle afterwards."""
+        loop, thread, proxy = self._loop, self._thread, self._proxy
+        self._loop = self._thread = self._proxy = None
+        self.port = None
+        if loop is not None and thread is not None and proxy is not None:
+            with contextlib.suppress(Exception):
+                asyncio.run_coroutine_threadsafe(proxy.stop(), loop).result(self.WAIT_SECONDS)
+            _end_loop(loop, thread)
+        self.status.stopped()
+
+    def _traffic(self, _host: str) -> None:
+        self.status.traffic_seen()
+
+
+def _end_loop(loop: asyncio.AbstractEventLoop, thread: threading.Thread) -> None:
+    loop.call_soon_threadsafe(loop.stop)
+    thread.join(Router.WAIT_SECONDS)
+    if not thread.is_alive():
+        loop.close()

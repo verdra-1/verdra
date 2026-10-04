@@ -70,8 +70,11 @@ class Mycelium:
         max_connections: int = MAX_CONNECTIONS,
         idle_timeout: float = IDLE_TIMEOUT_SECONDS,
         interceptor: Interceptor | None = None,
+        on_connect: Callable[[str, int], None] | None = None,
     ) -> None:
         self.requested_port = port
+        #: Told about every CONNECT target, on the proxy's thread (S-14: Roblox traffic seen).
+        self.on_connect = on_connect
         self.connect = connect
         self.interceptor = interceptor
         self.max_connections = max_connections
@@ -150,6 +153,11 @@ class Mycelium:
             await writer.drain()
             return
         host, port = target
+        if self.on_connect is not None:
+            try:
+                self.on_connect(host, port)
+            except Exception as error:  # noqa: BLE001 - an observer never breaks a connection
+                log.debug("The connect observer failed: %s", type(error).__name__)
         if self.interceptor is not None and self.interceptor.wants(host, port):
             writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
             await writer.drain()

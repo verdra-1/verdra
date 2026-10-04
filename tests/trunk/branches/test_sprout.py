@@ -277,3 +277,150 @@ def test_only_the_processes_verdra_started_are_closed() -> None:
         for process in [other, *platform.processes]:
             process.kill()
             process.wait()
+
+
+# --- Routing and launching together (Sprout) --------------------------------------------------
+
+
+class FakeSettings:
+    def __init__(self, **values: Any) -> None:
+        self.values = {
+            "routing.proxy_port": 0,
+            "routing.handle_roblox_links": True,
+            "routing.close_roblox_on_quit": False,
+            "routing.upstream.kind": "direct",
+            "routing.upstream.host": "",
+            "routing.upstream.port": 0,
+            "routing.upstream.username": "",
+        } | {key.replace("__", "."): value for key, value in values.items()}
+
+    def value(self, key: str) -> Any:
+        return self.values[key]
+
+
+class RoutingPlatform(FakePlatform):
+    """Clients, trust files and launches for `Sprout`, without Roblox."""
+
+    def __init__(self, clients: list[humus.RobloxClient]) -> None:
+        super().__init__(FakeHandler())
+        self.clients = clients
+        self.launched: list[tuple[str | None, int]] = []
+
+    def roblox_clients(self) -> list[humus.RobloxClient]:
+        return self.clients
+
+    def trust_files_in(self, version_folder: Path) -> list[Path]:
+        return []
+
+    def launch_roblox(
+        self,
+        client: humus.RobloxClient,
+        link: str | None,
+        proxy_port: int,
+        environment: Mapping[str, str],
+        spawn: Any = None,
+    ) -> int:
+        self.launched.append((link, proxy_port))
+        return 999_999_999  # no such process
+
+
+@pytest.fixture
+def routed(
+    installed: tuple[humus.RobloxClient, Path, Path], tmp_path: Path, qapp: Any
+) -> Iterator[tuple[sprout.Sprout, RoutingPlatform, scar.Ledger]]:
+    from tests.roots.test_routing_status import FakeClock  # noqa: PLC0415
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    found, _old, _studio = installed
+    platform = RoutingPlatform([found])
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=platform,  # type: ignore[arg-type]
+        ledger=lambda: ledger,
+        vault=lambda: vault,
+        clock=lambda: NOW,
+    )
+    yield made, platform, ledger
+    made.stop_routing()
+    made.deleteLater()
+    status.deleteLater()
+
+
+def test_starting_routing_adds_the_certificate_starts_the_proxy_and_takes_links(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, platform, ledger = routed
+    assert made.start_routing() is None
+    assert made.routing and made.router.port
+    assert made.status.current.state.value == "routing"
+    assert sorted(e.kind for e in ledger.entries()) == ["ca_roblox_bundle"] * 2 + ["uri_handler"]
+    assert platform.handler.command is not None and "verdra" in platform.handler.command  # type: ignore[union-attr]
+    assert made.watch is not None
+    assert made.start_routing() is None  # already routing: nothing new
+    assert len(ledger.entries()) == 3
+
+
+@pytest.mark.spec("S-12", 5)
+def test_launching_starts_routing_first_and_opens_the_launch_window(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, platform, _ledger = routed
+    link = "roblox-player:1+launchmode:play+gameinfo:x"
+    assert made.launch(link) is None
+    assert platform.launched == [(link, made.router.port)]
+    assert made.status._launch is not None  # noqa: SLF001 - the S-14 launch window is open
+
+
+def test_a_refused_client_changes_nothing_and_says_why(tmp_path: Path, qapp: Any) -> None:
+    from tests.roots.test_routing_status import FakeClock  # noqa: PLC0415
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    platform = RoutingPlatform([client(scope="flatpak", found_by="package", unconfirmed=("L-02",))])
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(FakeSettings(), status, platform=platform, ledger=lambda: ledger)  # type: ignore[arg-type]
+    said: list[str] = []
+    made.refused.connect(said.append)
+    refused = made.launch("roblox-player:1")
+    assert refused == sprout.unconfirmed("L-02")
+    assert said == [refused.text]  # type: ignore[union-attr]
+    assert not made.routing
+    assert platform.launched == []
+    assert ledger.entries() == []
+    assert platform.handler.command == "roblox"  # type: ignore[union-attr]
+    made.deleteLater()
+    status.deleteLater()
+
+
+def test_quitting_closes_roblox_only_when_the_setting_says_so(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, _platform, _ledger = routed
+    closed: list[bool] = []
+    made.launches.close_all = lambda timeout=5.0: closed.append(True)  # type: ignore[method-assign]
+    made.start_routing()
+    made.quit()
+    assert closed == [] and not made.routing
+    made.settings.values["routing.close_roblox_on_quit"] = True  # type: ignore[attr-defined]
+    made.start_routing()
+    made.quit()
+    assert closed == [True] and not made.routing
+
+
+def test_diagnostic_routing_intercepts_the_10_2_hosts(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    from verdra.roots import litmus  # noqa: PLC0415
+
+    made, _platform, _ledger = routed
+    made.diagnose = True
+    assert made.start_routing() is None
+    interceptor = made.router._proxy.interceptor  # type: ignore[union-attr]  # noqa: SLF001
+    assert interceptor is not None
+    assert interceptor.wants("assetdelivery.roblox.com", 443)
+    assert not interceptor.wants("example.com", 443)
+    assert isinstance(interceptor.hosts(), litmus.DiagnosticHosts)  # type: ignore[attr-defined]

@@ -32,6 +32,7 @@ from verdra.soil import humus, terrain
 from verdra.trunk import rings, tendrils
 from verdra.trunk.almanac.store import SettingsStore, StateStore
 from verdra.trunk.branches import fallow
+from verdra.trunk.branches import sprout as sprout_
 from verdra.trunk.sapwood import cli, shutdown
 from verdra.trunk.sapwood.single import SingleInstance
 
@@ -75,6 +76,8 @@ class Services:
     erase_own_data: bool = False
     #: The one routing status (spec S-14); the interface renders what it publishes.
     routing: gardener.RoutingStatusSource | None = None
+    #: Starts routing and launches Roblox (spec S-12); the interface calls it.
+    sprout: sprout_.Sprout | None = None
 
     def elapsed_ms(self) -> int:
         """Return milliseconds since launch."""
@@ -177,6 +180,13 @@ def launched_at() -> float:
     return time.monotonic() - max(0.0, age)
 
 
+def should_route_on_start(settings: SettingsStore) -> bool:
+    """Return whether routing starts with Verdra: setup done and `general.route_on_launch` on."""
+    return bool(settings.value("general.onboarding_done")) and bool(
+        settings.value("general.route_on_launch")
+    )
+
+
 def reset_everything(argv: list[str], *, quiet: bool) -> int:
     """Run `--reset-everything` without the window (spec S-16, "Command line").
 
@@ -251,6 +261,10 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         routing=gardener.RoutingStatusSource(),
     )
     settings.save_in_background(services.tendrils.submit)
+    assert services.routing is not None  # noqa: S101 - set just above
+    services.sprout = sprout_.Sprout(
+        settings, services.routing, diagnose=arguments.diagnose_interception
+    )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
     log.info(
         "%s",
@@ -287,8 +301,12 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     interface.show_window(minimized=start_in_tray)
     services.step("window shown")
     single.activated.connect(interface.activate)
+    # Routing starts with Verdra when the user has finished setup and "Start routing when Verdra
+    # opens" is on (Reference R2); a link given on the command line starts it anyway.
     if arguments.link:
         interface.activate(arguments.link)
+    elif should_route_on_start(settings):
+        services.sprout.start_routing()
 
     app.aboutToQuit.connect(lambda: shutdown.run(services))
     return app.exec()
