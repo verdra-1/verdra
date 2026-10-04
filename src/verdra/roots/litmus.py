@@ -22,23 +22,15 @@ from typing import Final, Literal
 
 from PySide6.QtCore import QCoreApplication
 
-from verdra.roots import hyphae
+from verdra.roots import hyphae, rules
 
 log = logging.getLogger(__name__)
 
 #: Only this module carries this text; a built folder that contains it fails the build check.
 MARKER: Final = "verdra/litmus: diagnostic interception, source only"
-#: Plan 10.2. The CDN hosts are matched by suffix until capture confirms the list at M1.
-HOSTS: Final = frozenset(
-    {
-        "assetdelivery.roblox.com",
-        "clientsettings.roblox.com",
-        "clientsettingscdn.roblox.com",
-        "gamejoin.roblox.com",
-        "apis.roblox.com",
-    }
-)
-CDN_SUFFIX: Final = ".rbxcdn.com"
+#: Plan 10.2 (roots/rules). The CDN hosts are matched by suffix until capture confirms the list.
+HOSTS: Final = rules.ROBLOX_HOSTS
+CDN_SUFFIX: Final = rules.CDN_SUFFIX
 #: The leaf key S-10 issues (bark/resin), reported for the client side.
 LEAF_KEY: Final = "ECDSA P-256"
 
@@ -47,9 +39,7 @@ class DiagnosticHosts(Collection[str]):
     """The 10.2 hosts, plus any host under the asset CDN domain."""
 
     def __contains__(self, host: object) -> bool:
-        return isinstance(host, str) and (
-            host.lower() in HOSTS or host.lower().endswith(CDN_SUFFIX)
-        )
+        return isinstance(host, str) and rules.is_roblox_host(host)
 
     def __iter__(self) -> Iterator[str]:
         return iter(sorted(HOSTS))

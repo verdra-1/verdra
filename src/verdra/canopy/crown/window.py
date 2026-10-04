@@ -248,6 +248,7 @@ class Shell:
         self.window.launch_requested.connect(self.launch_roblox)
         if services.sprout is not None:
             services.sprout.refused.connect(self.show_launch_notice)
+            services.sprout.other_tool.connect(self.show_other_tool)
             popover = self.window.header.popover
             popover.set_handled({"start", "retry", "restart_roblox"})
             popover.fix_requested.connect(self.fix_routing)
@@ -370,8 +371,20 @@ class Shell:
             return
         if key == "restart_roblox":
             sprout.launch()
+        elif key == "retry":
+            sprout.retry()
         else:
             sprout.start_routing()
+
+    def show_other_tool(self, text: str) -> None:
+        """M-COEX-01: another tool routes Roblox; "Try again" runs the check again (S-15)."""
+        dialog = DestructiveConfirmation(
+            text, QCoreApplication.translate("M-COEX-01", "Try again"), parent=self.window
+        )
+        if dialog.exec() == DestructiveConfirmation.DialogCode.Accepted:
+            sprout = self.services.sprout
+            if sprout is not None:
+                sprout.retry()
 
     def show_launch_notice(self, text: str) -> None:
         """Show why routing or a launch didn't happen (M-LAUNCH-01, -04, -05, M-CA-01)."""

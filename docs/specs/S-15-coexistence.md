@@ -51,6 +51,11 @@ Never fight with another routing tool, and say so clearly.
 
 - M-COEX-01 (Dialog) "Another tool is already routing Roblox traffic. Close it, then try again."
   Buttons "Try again", "Cancel".
+- M-COEX-02 (Activity, new) "Another routing tool: <name> (process <pid>) uses the proxy <proxy>."
+  The proxy is shown as its address only, never with a user name or password.
+- M-COEX-03 (Activity, new) "Another routing tool: line <line> of the hosts file maps <host>."
+- M-COEX-04 (Activity, new) "Verdra couldn't check everything for other routing tools (<parts>),
+  so it went ahead."
 
 ## Acceptance tests
 
@@ -91,3 +96,18 @@ lookup), `canopy/leaves/dialogs.py` (the dialog).
   (facts W-10 and L-07 in `docs/platforms/`).
 - Reading another process's environment is OS-dependent; the protocol in `docs/platforms/`
   records whether it works (facts W-09 and L-06).
+- Built for per-app mode (2026-10-04):
+  - The check runs before routing starts and before each launch through Verdra, as a background
+    job (rule 3). Signs go to Activity one line each (M-COEX-02, M-COEX-03, rule 4); the
+    status is Error with M-COEX-01, and "Try again" repeats the request that was stopped.
+  - Windows: a running Player is a `RobloxPlayerBeta.exe` inside a version folder of the
+    discovered install, run by the same user (W-01). Its environment is read with psutil;
+    whether that works on a real machine is W-09 (stage 2). When it can't be read, the client
+    isn't a sign and M-COEX-04 records it (test 6).
+  - Linux: which process carries Sober's variables is L-06 (stage 2), so processes aren't listed
+    yet and M-COEX-04 records the check as incomplete. Linux routing is refused before the check
+    anyway until L-02 is confirmed (S-12, M-LAUNCH-04).
+  - The hosts file is read from `%SystemRoot%\System32\drivers\etc\hosts` (W-10) and
+    `/etc/hosts` (L-07), as text, never written.
+  - Plan 10.2's hosts live in `roots/rules` (the CDN hosts by the suffix `.rbxcdn.com` until
+    capture confirms the list).

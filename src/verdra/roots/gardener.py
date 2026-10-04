@@ -21,19 +21,20 @@ import os
 import stat
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Final, Protocol
+from urllib.parse import urlsplit
 
 import shiboken6
 from cryptography import x509
 from PySide6.QtCore import QCoreApplication, QFileSystemWatcher, QObject, QTimer, Signal
 
-from verdra.bark import husk, resin, scar
-from verdra.roots import mycelium
+from verdra.bark import husk, resin, scar, veil
+from verdra.roots import mycelium, rules
 from verdra.soil import atomic, terrain
 
 log = logging.getLogger(__name__)
@@ -566,3 +567,114 @@ def _end_loop(loop: asyncio.AbstractEventLoop, thread: threading.Thread) -> None
     thread.join(Router.WAIT_SECONDS)
     if not thread.is_alive():
         loop.close()
+
+
+# --- Coexistence check (spec S-15, per-app mode) ------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Coexistence:
+    """What the coexistence check found: signs of another routing tool, and what it couldn't see."""
+
+    #: One Activity line per sign (S-15 rule 4).
+    signs: tuple[str, ...] = ()
+    #: Why parts of the check couldn't be done (S-15 test 6); those parts aren't signs.
+    incomplete: tuple[str, ...] = ()
+
+    @property
+    def clear(self) -> bool:
+        """Whether routing may start."""
+        return not self.signs
+
+
+def points_at_verdra(value: str, ports: Collection[int]) -> bool:
+    """Return whether a proxy variable's value is Verdra's own listener (any of `ports`)."""
+    parts = urlsplit(value if "://" in value else f"http://{value}")
+    try:
+        port = parts.port
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower()
+    return host in {terrain.PROXY_HOST, "localhost", "::1"} and port in ports
+
+
+def shown_proxy(value: str) -> str:
+    """Return a proxy value for Activity: its address only, never a user name or password."""
+    parts = urlsplit(value if "://" in value else f"http://{value}")
+    try:
+        port = f":{parts.port}" if parts.port else ""
+    except ValueError:
+        port = ""
+    host = parts.hostname or ""
+    if not host:
+        return veil.redact_text(value)
+    return f"{parts.scheme}://{host}{port}"
+
+
+def hosts_signs(text: str) -> list[tuple[int, str]]:
+    """Return (line number, host) for each 10.2 host the hosts file maps without Verdra's marker.
+
+    Comment lines, lines for other hosts and lines carrying `# verdra:route` are not signs; any
+    address counts, not only loopback (S-15 test 3).
+    """
+    found: list[tuple[int, str]] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if terrain.HOSTS_MARKER in line:
+            continue
+        fields = line.split("#", 1)[0].split()
+        found.extend((number, host) for host in fields[1:] if rules.is_roblox_host(host))
+    return found
+
+
+def check_coexistence(
+    running: Iterable[RunningClientView] | None,
+    own_ports: Collection[int],
+    hosts_text: str | None,
+    *,
+    unreadable: str = "",
+) -> Coexistence:
+    """Look for signs of another routing tool before per-app routing starts (spec S-15).
+
+    `running` is this user's running Roblox clients (None when they can't be listed on this
+    system, with the reason in `unreadable`); `hosts_text` is the hosts file (None if it
+    couldn't be read). Nothing is changed anywhere: this only reads (S-15 rule 1).
+    """
+    signs: list[str] = []
+    incomplete: list[str] = []
+    if running is None:
+        incomplete.append(unreadable)
+    for client in running or ():
+        if client.proxies is None:
+            incomplete.append(f"{client.name} ({client.pid}): {client.error}")
+            continue
+        for value in dict.fromkeys(client.proxies.values()):
+            if value and not points_at_verdra(value, own_ports):
+                signs.append(
+                    QCoreApplication.translate(
+                        "M-COEX-02",
+                        "Another routing tool: {name} (process {pid}) uses the proxy {proxy}.",
+                    ).format(name=client.name, pid=client.pid, proxy=shown_proxy(value))
+                )
+    if hosts_text is None:
+        incomplete.append("hosts")
+    else:
+        signs.extend(
+            QCoreApplication.translate(
+                "M-COEX-03", "Another routing tool: line {line} of the hosts file maps {host}."
+            ).format(line=line, host=host)
+            for line, host in hosts_signs(hosts_text)
+        )
+    return Coexistence(tuple(signs), tuple(incomplete))
+
+
+class RunningClientView(Protocol):
+    """A running Roblox client as soil reports it (soil/humus.RunningClient)."""
+
+    @property
+    def pid(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def proxies(self) -> dict[str, str] | None: ...
+    @property
+    def error(self) -> str: ...

@@ -77,5 +77,15 @@ class Orchard:
         """Return why not: macOS is deferred."""
         return UNSUPPORTED
 
+    def hosts_file(self) -> Path:
+        """Refuse: macOS is deferred until after 1.0 (decision record 0014)."""
+        raise NotImplementedError(UNSUPPORTED)
+
+    def running_clients(
+        self, client: humus.RobloxClient
+    ) -> list[humus.RunningClient] | humus.Unsupported:
+        """Return why not: macOS is deferred."""
+        return UNSUPPORTED
+
 
 PLATFORM: Final = Orchard()

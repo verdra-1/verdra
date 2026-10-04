@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 import stat
 import subprocess
 import sys
+import threading
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -301,10 +303,22 @@ class FakeSettings:
 class RoutingPlatform(FakePlatform):
     """Clients, trust files and launches for `Sprout`, without Roblox."""
 
-    def __init__(self, clients: list[humus.RobloxClient]) -> None:
+    def __init__(self, clients: list[humus.RobloxClient], hosts: Path | None = None) -> None:
         super().__init__(FakeHandler())
         self.clients = clients
         self.launched: list[tuple[str | None, int]] = []
+        self.hosts = hosts or Path(os.devnull)
+        self.running: list[humus.RunningClient] | humus.Unsupported = []
+        self.checked_on: list[bool] = []
+
+    def hosts_file(self) -> Path:
+        return self.hosts
+
+    def running_clients(
+        self, client: humus.RobloxClient
+    ) -> list[humus.RunningClient] | humus.Unsupported:
+        self.checked_on.append(threading.current_thread() is threading.main_thread())
+        return self.running
 
     def roblox_clients(self) -> list[humus.RobloxClient]:
         return self.clients
@@ -370,7 +384,7 @@ def test_launching_starts_routing_first_and_opens_the_launch_window(
 ) -> None:
     made, platform, _ledger = routed
     link = "roblox-player:1+launchmode:play+gameinfo:x"
-    assert made.launch(link) is None
+    made.launch(link)
     assert platform.launched == [(link, made.router.port)]
     assert made.status._launch is not None  # noqa: SLF001 - the S-14 launch window is open
 
@@ -385,9 +399,8 @@ def test_a_refused_client_changes_nothing_and_says_why(tmp_path: Path, qapp: Any
     made = sprout.Sprout(FakeSettings(), status, platform=platform, ledger=lambda: ledger)  # type: ignore[arg-type]
     said: list[str] = []
     made.refused.connect(said.append)
-    refused = made.launch("roblox-player:1")
-    assert refused == sprout.unconfirmed("L-02")
-    assert said == [refused.text]  # type: ignore[union-attr]
+    made.launch("roblox-player:1")
+    assert said == [sprout.unconfirmed("L-02").text]
     assert not made.routing
     assert platform.launched == []
     assert ledger.entries() == []
@@ -424,3 +437,90 @@ def test_diagnostic_routing_intercepts_the_10_2_hosts(
     assert interceptor.wants("assetdelivery.roblox.com", 443)
     assert not interceptor.wants("example.com", 443)
     assert isinstance(interceptor.hosts(), litmus.DiagnosticHosts)  # type: ignore[attr-defined]
+
+
+# --- Coexistence before routing (spec S-15) ---------------------------------------------------
+
+
+@pytest.mark.spec("S-15", 1)
+def test_another_tool_blocks_routing_with_m_coex_01_and_try_again_routes(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    """S-15 tests 1 and 2: a Roblox using another proxy blocks start; after it exits, it routes."""
+    made, platform, ledger = routed
+    platform.running = [
+        humus.RunningClient(7, "RobloxPlayerBeta.exe", {"HTTPS_PROXY": "http://127.0.0.1:8888"})
+    ]
+    shown: list[str] = []
+    made.other_tool.connect(shown.append)
+    made.launch("roblox-player:1")
+    assert shown == ["Another tool is already routing Roblox traffic. Close it, then try again."]
+    assert made.status.current.state.value == "error"
+    assert made.status.current.trigger.value == "other_tool"  # type: ignore[union-attr]
+    assert not made.routing and platform.launched == [] and ledger.entries() == []
+    platform.running = []  # the other tool's Roblox has exited
+    made.retry()
+    assert made.routing
+    assert made.status.current.state.value == "routing"
+    assert platform.launched == [("roblox-player:1", made.router.port)]
+
+
+@pytest.mark.spec("S-15", 3)
+def test_a_foreign_hosts_line_blocks_routing_and_the_file_stays_byte_identical(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], tmp_path: Path
+) -> None:
+    made, platform, _ledger = routed
+    hosts = tmp_path / "hosts"
+    hosts.write_bytes(b"127.0.0.1 localhost\r\n10.0.0.9 assetdelivery.roblox.com\r\n")
+    before = hosts.read_bytes()
+    platform.hosts = hosts
+    made.start_routing()
+    assert not made.routing
+    assert hosts.read_bytes() == before
+
+
+@pytest.mark.spec("S-15", 6)
+def test_an_incomplete_check_still_routes_and_says_so(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    made, platform, _ledger = routed
+    platform.running = [humus.RunningClient(8, "RobloxPlayerBeta.exe", None, "AccessDenied")]
+    with caplog.at_level("INFO", logger="verdra"):
+        made.start_routing()
+    assert made.routing
+    assert any("RobloxPlayerBeta.exe (8): AccessDenied" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.spec("S-15", 4)
+def test_verdras_own_port_taken_is_no_sign(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import socket  # noqa: PLC0415
+
+    made, _platform, _ledger = routed
+    with socket.create_server(("127.0.0.1", 0)) as taken:
+        port = taken.getsockname()[1]
+        made.settings.values["routing.proxy_port"] = port  # type: ignore[attr-defined]
+        with caplog.at_level("INFO", logger="verdra"):
+            made.start_routing()
+        assert made.routing and made.router.port != port
+    assert any(f"Port {port} was in use" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.spec("S-15", 7)
+def test_the_check_runs_off_the_ui_thread(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], qtbot: Any
+) -> None:
+    from verdra.trunk import tendrils  # noqa: PLC0415
+
+    made, platform, _ledger = routed
+    pool = tendrils.Tendrils(workers=2)
+    made.pool = pool
+    try:
+        made.start_routing()
+        qtbot.waitUntil(lambda: made.routing, timeout=5000)
+        assert platform.checked_on == [False]
+    finally:
+        pool.shutdown(grace=1.0)

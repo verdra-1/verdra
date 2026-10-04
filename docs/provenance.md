@@ -66,12 +66,12 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/streams.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/roots/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/burrow.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/gardener.py` | Master plan 8.3, 9.4, 10.1, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2, 3, 4 and 7), S-14, S-12 (the routing lifecycle: the proxy on its own thread); Qt `QFileSystemWatcher`, `QTimer` and queued-signal documentation; Python `os.chmod`/`stat`, `hashlib`, `asyncio` (`run_coroutine_threadsafe`) and `threading` documentation | cryptography, PySide6 | 2026-10-04 |
+| `verdra/roots/gardener.py` | Master plan 8.3, 9.4, 10.1, 10.3, 16.4, spec S-10 (rules 2 to 4, tests 2, 3, 4 and 7), S-14, S-12 (the routing lifecycle: the proxy on its own thread), S-15 (the coexistence check: proxy variables, hosts-file lines); Qt `QFileSystemWatcher`, `QTimer` and queued-signal documentation; Python `os.chmod`/`stat`, `hashlib`, `asyncio` (`run_coroutine_threadsafe`) and `threading` documentation | cryptography, PySide6 | 2026-10-04 |
 | `verdra/roots/hyphae.py` | Master plan 8.3, 10.2, 10.3, 10.6, spec S-11 (rules 1, 3, 4 and 5, tests 3, 4 and 7); RFC 9110 (semantics, 100-continue), RFC 9112 (HTTP/1.1 framing, chunked coding); h11 documentation; Python `ssl`, `asyncio` streams (`start_tls`), `zlib` and `compression.zstd` documentation | h11, cryptography, PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/litmus.py` | Master plan 10.2, 16.2 (diagnostic interception at M1), spec S-11 (tests 9 and 10), decision record 0015; Python `ssl.SSLObject` documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/mycelium.py` | Master plan 8.3, 10.1, 10.2, spec S-11 (rules 1 and 2, tests 2, 6, 7; hand-off to interception); RFC 9110 9.3.6 (CONNECT); Python `asyncio` streams documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/rules.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/roots/rules.py` | Master plan 10.2 (intercepted hosts); specs S-11 (diagnostic hosts), S-15 (hosts-file sign) | — | 2026-10-04 |
 | `verdra/roots/symbionts/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/forager.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

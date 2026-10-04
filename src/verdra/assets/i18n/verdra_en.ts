@@ -179,6 +179,38 @@
     </message>
 </context>
 <context>
+    <name>M-COEX-01</name>
+    <message>
+        <source>Try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Another tool is already routing Roblox traffic. Close it, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-COEX-02</name>
+    <message>
+        <source>Another routing tool: {name} (process {pid}) uses the proxy {proxy}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-COEX-03</name>
+    <message>
+        <source>Another routing tool: line {line} of the hosts file maps {host}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-COEX-04</name>
+    <message>
+        <source>Verdra couldn&apos;t check everything for other routing tools ({parts}), so it went ahead.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-DIAG-01</name>
     <message>
         <source>Diagnostic interception is on. Verdra is reading Roblox&apos;s traffic to check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off.</source>
@@ -888,6 +920,13 @@
     <name>RiskBadge</name>
     <message>
         <source>Risk: {level}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Routing</name>
+    <message>
+        <source>Checking for other routing tools</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

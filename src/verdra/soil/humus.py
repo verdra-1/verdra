@@ -83,6 +83,18 @@ class RobloxClient:
     unconfirmed: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class RunningClient:
+    """A Roblox client of this user that is running (spec S-15, sign 1)."""
+
+    pid: int
+    name: str
+    #: Its `HTTPS_PROXY` and `HTTP_PROXY` values (names in upper case); None when its
+    #: environment couldn't be read (W-09, L-06), with the reason in `error`.
+    proxies: dict[str, str] | None
+    error: str = ""
+
+
 def proxy_environment(environment: Mapping[str, str], port: int) -> dict[str, str]:
     """Return a copy of `environment` with Verdra's proxy variables (spec S-12, test 5).
 
@@ -187,6 +199,14 @@ class Platform(Protocol):
 
     def link_handler(self) -> LinkHandler | Unsupported:
         """Return the `roblox-player:` handler, or why Verdra can't take it on this system."""
+        ...
+
+    def hosts_file(self) -> Path:
+        """Return the system hosts file, which Verdra only ever reads in per-app mode (S-15)."""
+        ...
+
+    def running_clients(self, client: RobloxClient) -> list[RunningClient] | Unsupported:
+        """Return this user's running processes of `client`, or why they can't be listed."""
         ...
 
 
