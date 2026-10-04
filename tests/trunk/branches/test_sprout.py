@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pytestqt.qtbot import QtBot
 
 from tests.support.isolation import MemoryKeyring
 from verdra.bark import husk, scar
@@ -437,6 +438,28 @@ def test_diagnostic_routing_intercepts_the_10_2_hosts(
     assert interceptor.wants("assetdelivery.roblox.com", 443)
     assert not interceptor.wants("example.com", 443)
     assert isinstance(interceptor.hosts(), litmus.DiagnosticHosts)  # type: ignore[attr-defined]
+
+
+@pytest.mark.spec("S-11", 3)
+def test_an_upstream_certificate_failure_turns_routing_degraded(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], qtbot: QtBot
+) -> None:
+    """Plan 12.2: the request fails (hyphae's test) and the status turns Degraded with M-PROXY-02,
+    reported from the proxy's own thread."""
+    made, _platform, _ledger = routed
+    made.diagnose = True
+    assert made.start_routing() is None
+    interceptor = made.router._proxy.interceptor  # type: ignore[union-attr]  # noqa: SLF001
+    report = interceptor.on_verification_failure  # type: ignore[attr-defined]
+    thread = threading.Thread(target=report, args=("fts.rbxcdn.com", "self-signed certificate"))
+    thread.start()
+    thread.join()
+    qtbot.waitUntil(lambda: made.status.current.state.value == "degraded")
+    assert made.status.current.trigger.value == "upstream_certificate"  # type: ignore[union-attr]
+    assert made.status.current.reason == (
+        "A Roblox server's certificate couldn't be verified (fts.rbxcdn.com). That request was "
+        "blocked."
+    )
 
 
 # --- Coexistence before routing (spec S-15) ---------------------------------------------------

@@ -482,9 +482,12 @@ class Router(QObject):
 
     Signals:
         connected(str): The proxy saw a CONNECT to this host (on the Qt thread).
+        certificate_failed(str): A server's certificate for this host couldn't be verified;
+            the status turns Degraded (b) on the Qt thread (S-11 test 3, plan 12.2).
     """
 
     connected = Signal(str)
+    certificate_failed = Signal(str)
 
     #: How long `start` and `stop` wait for the proxy's thread.
     WAIT_SECONDS = 10.0
@@ -499,11 +502,28 @@ class Router(QObject):
         # A bound method of this object, which lives on the Qt thread: the signal, emitted on
         # the proxy's thread, is queued to it.
         self.connected.connect(self._traffic)
+        self.certificate_failed.connect(self._certificate)
 
     @property
     def running(self) -> bool:
         """Whether the proxy is listening."""
         return self.port is not None
+
+    def report_certificate_failure(self, host: str, reason: str) -> None:  # noqa: ARG002
+        """Report a failed upstream verification; safe to call on the proxy's thread.
+
+        The reason is technical and already in the debug log; the status shows M-PROXY-02.
+        """
+        self.certificate_failed.emit(host)
+
+    def _certificate(self, host: str) -> None:
+        self.status.certificate_failed(
+            QCoreApplication.translate(
+                "M-PROXY-02",
+                "A Roblox server's certificate couldn't be verified ({host}). That request was "
+                "blocked.",
+            ).format(host=host)
+        )
 
     def start(
         self,

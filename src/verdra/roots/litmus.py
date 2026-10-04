@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import ssl
-from collections.abc import Collection, Iterator
+from collections.abc import Callable, Collection, Iterator
 from typing import Final, Literal
 
 from PySide6.QtCore import QCoreApplication
@@ -52,8 +52,12 @@ def interception(
     open_upstream: hyphae.Opener,
     *,
     idle_timeout: float = 30.0,
+    on_verification_failure: Callable[[str, str], None] | None = None,
 ) -> hyphae.Interception:
-    """Return the diagnostic interception: every 10.2 host, no symbionts, TLS details logged."""
+    """Return the diagnostic interception: every 10.2 host, no symbionts, TLS details logged.
+
+    `on_verification_failure` hears of every server certificate that fails (status Degraded).
+    """
     hosts = DiagnosticHosts()
     return hyphae.Interception(
         leaves,
@@ -61,6 +65,7 @@ def interception(
         open_upstream,
         hyphae.Pipeline,
         on_tls=log_tls,
+        on_verification_failure=on_verification_failure,
         idle_timeout=idle_timeout,
     )
 

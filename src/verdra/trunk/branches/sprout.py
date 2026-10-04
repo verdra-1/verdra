@@ -482,4 +482,8 @@ class Sprout(QObject):
                 self._transport(), host, port, proxy_port=self.router.port or 0
             )
 
-        return litmus.interception(hyphae.LeafContexts(authority), open_upstream)
+        return litmus.interception(
+            hyphae.LeafContexts(authority),
+            open_upstream,
+            on_verification_failure=self.router.report_certificate_failure,
+        )
