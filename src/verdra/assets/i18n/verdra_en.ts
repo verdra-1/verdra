@@ -261,6 +261,27 @@
     </message>
 </context>
 <context>
+    <name>M-LAUNCH-01</name>
+    <message>
+        <source>Roblox isn&apos;t installed, or Verdra couldn&apos;t find it. Install Roblox, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-04</name>
+    <message>
+        <source>Verdra can&apos;t route Sober yet: where Sober reads its certificates hasn&apos;t been confirmed. Nothing was changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-05</name>
+    <message>
+        <source>Verdra can&apos;t route a Roblox installed for all users: that needs administrator rights, which routing per app never uses. Install Roblox for your account only, then try again. Nothing was changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-LOG-01</name>
     <message>
         <source>Support bundle saved to {path}.</source>

@@ -1,3 +1,222 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Launching Roblox: environment, link handling, Apply now restart, multi-instance."""
+"""Launching Roblox: environment, link handling, Apply now restart, multi-instance.
+
+Spec S-12. This part:
+
+- **Choosing the client.** The platform finds the installed clients (soil, from the facts in
+  docs/platforms/). The first one whose facts are all confirmed is used. A client that still
+  needs an unconfirmed fact is refused with a plain message instead of a guess (plan 16.4):
+  Sober until L-02 is confirmed (M-LAUNCH-04), a Roblox installed for all users, whose trust
+  files need administrator rights (M-LAUNCH-05). No client at all is M-LAUNCH-01.
+- **The certificate.** Verdra's CA goes into the trust file of every Player version folder of
+  that client (S-10, `roots/gardener.ensure_ca`), each change a `ca_roblox_bundle` ledger entry
+  that keeps the file's mode, read-only flag included. Studio's folders are never in the list.
+- **Launching.** The client starts with the proxy variables; the PID is kept so that only what
+  Verdra started is ever closed (rule 4).
+- **Links.** With `routing.handle_roblox_links` on, Verdra's command becomes the `roblox-player:`
+  handler; the previous handler is stored in a `uri_handler` ledger entry first (rule 2) and
+  put back exactly when handling is turned off or on Reset everything.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime
+
+import psutil
+from PySide6.QtCore import QCoreApplication
+
+from verdra.bark import husk, resin, scar
+from verdra.roots import gardener
+from verdra.soil import humus, terrain
+
+log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class Refused:
+    """Why Verdra won't route or launch Roblox here, as the sentence the user sees."""
+
+    message_id: str
+    text: str
+
+
+def no_roblox() -> Refused:
+    """M-LAUNCH-01."""
+    return Refused(
+        "M-LAUNCH-01",
+        QCoreApplication.translate(
+            "M-LAUNCH-01",
+            "Roblox isn't installed, or Verdra couldn't find it. Install Roblox, then try again.",
+        ),
+    )
+
+
+def unconfirmed(fact: str) -> Refused:
+    """The plain message for a client that needs an unconfirmed platform fact.
+
+    Raises:
+        KeyError: no message names this fact yet (a test checks every fact soil can report).
+    """
+    messages: dict[str, Callable[[], Refused]] = {
+        "L-02": lambda: Refused(
+            "M-LAUNCH-04",
+            QCoreApplication.translate(
+                "M-LAUNCH-04",
+                "Verdra can't route Sober yet: where Sober reads its certificates hasn't been "
+                "confirmed. Nothing was changed.",
+            ),
+        ),
+        "W-02": lambda: Refused(
+            "M-LAUNCH-05",
+            QCoreApplication.translate(
+                "M-LAUNCH-05",
+                "Verdra can't route a Roblox installed for all users: that needs administrator "
+                "rights, which routing per app never uses. Install Roblox for your account "
+                "only, then try again. Nothing was changed.",
+            ),
+        ),
+    }
+    return messages[fact]()
+
+
+def choose(clients: list[humus.RobloxClient] | humus.Unsupported) -> humus.RobloxClient | Refused:
+    """Return the client to route and launch, or why there is none (S-12 discovery)."""
+    if isinstance(clients, humus.Unsupported) or not clients:
+        return no_roblox()
+    for client in clients:
+        if not client.unconfirmed:
+            return client
+    return unconfirmed(clients[0].unconfirmed[0])
+
+
+def add_certificate(
+    client: humus.RobloxClient, vault: husk.Husk, ledger: scar.Ledger, now: datetime
+) -> resin.Authority:
+    """Put Verdra's CA into every trust file of the client's Player folders (S-10)."""
+    if client.unconfirmed:
+        msg = f"{client.executable} needs unconfirmed facts {client.unconfirmed}"
+        raise ValueError(msg)
+    return gardener.ensure_ca(vault, ledger, client.trust_files, now)
+
+
+# --- Links (S-12 "Links from the browser") -------------------------------------------------------
+
+
+class LinkHandlingUnavailableError(RuntimeError):
+    """This system's `roblox-player:` handler can't be taken over (yet)."""
+
+
+def _handler(platform: humus.Platform) -> humus.LinkHandler:
+    handler = platform.link_handler()
+    if isinstance(handler, humus.Unsupported):
+        raise LinkHandlingUnavailableError(handler.reason)
+    return handler
+
+
+def _open_handler_entries(ledger: scar.Ledger) -> list[scar.Entry]:
+    return [entry for entry in ledger.open_entries() if entry.kind == "uri_handler"]
+
+
+def set_link_handling(
+    on: bool,  # noqa: FBT001 - mirrors the setting
+    ledger: scar.Ledger,
+    platform: humus.Platform | None = None,
+    command: Sequence[str] | None = None,
+) -> None:
+    """Make Verdra the `roblox-player:` handler, or put the previous one back (S-12).
+
+    Turning it on records the previous handler in a `uri_handler` entry before the change
+    (rule 2). If Roblox's updater has taken the handler back since, that entry is closed (the
+    handler is Roblox's again) and a new one is recorded. Turning it off restores every open
+    entry, newest first.
+
+    Raises:
+        LinkHandlingUnavailableError: the system's handler can't be taken over yet.
+        OSError: the handler couldn't be changed; the entry is marked failed.
+    """
+    platform = platform or humus.current()
+    command = list(command or humus.verdra_command())
+    handler = _handler(platform)
+    entries = _open_handler_entries(ledger)
+    if not on:
+        for entry in entries:
+            restore_handler(entry, ledger, platform)
+        return
+    if entries and handler.registered(command):
+        return
+    for entry in entries:
+        ledger.mark(entry.id, "removed", reclaimed_by_roblox=True)
+    entry = ledger.begin("uri_handler", terrain.URL_SCHEME, {"snapshot": handler.snapshot()})
+    try:
+        handler.register(command)
+    except OSError as error:
+        ledger.mark(entry.id, "failed", error=str(error))
+        raise
+    ledger.mark(entry.id, "done")
+
+
+def restore_handler(
+    entry: scar.Entry, ledger: scar.Ledger, platform: humus.Platform | None = None
+) -> None:
+    """Undo a `uri_handler` entry: put the recorded handler back exactly (S-12, S-16)."""
+    _handler(platform or humus.current()).restore(dict(entry.details["snapshot"]))
+    ledger.mark(entry.id, "removed")
+
+
+# --- Launching ------------------------------------------------------------------------------------
+
+
+@dataclass
+class Launches:
+    """The Roblox processes Verdra started, so only those are ever closed (S-12 rule 4)."""
+
+    platform: humus.Platform = field(default_factory=humus.current)
+    environment: Callable[[], Mapping[str, str]] = lambda: dict(os.environ)
+    spawn: humus.Spawn | None = None
+    #: PID → the process's creation time, so a reused PID is never mistaken for Roblox.
+    started: dict[int, float] = field(default_factory=dict)
+
+    def launch(self, client: humus.RobloxClient, link: str | None, proxy_port: int) -> int:
+        """Start `client` with the proxy variables and `link` (unchanged); return its PID."""
+        options = {} if self.spawn is None else {"spawn": self.spawn}
+        pid = self.platform.launch_roblox(client, link, proxy_port, self.environment(), **options)
+        try:
+            self.started[pid] = psutil.Process(pid).create_time()
+        except psutil.Error:
+            self.started[pid] = 0.0
+        return pid
+
+    def running(self) -> list[psutil.Process]:
+        """Return the processes Verdra started that are still running."""
+        alive: list[psutil.Process] = []
+        for pid, created in list(self.started.items()):
+            try:
+                process = psutil.Process(pid)
+                if process.is_running() and (not created or process.create_time() == created):
+                    alive.append(process)
+                    continue
+            except psutil.Error:
+                pass
+            del self.started[pid]
+        return alive
+
+    def close_all(self, timeout: float = 5.0) -> None:
+        """Close the processes Verdra started (S-12 "Closing on quit"), never any other."""
+        processes = self.running()
+        for process in processes:
+            try:
+                process.terminate()
+            except psutil.Error:
+                continue
+        _gone, left = psutil.wait_procs(processes, timeout=timeout)
+        for process in left:
+            try:
+                process.kill()
+            except psutil.Error:
+                continue
+        self.started.clear()

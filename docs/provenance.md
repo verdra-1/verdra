@@ -87,7 +87,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/seedbank/vault.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/atomic.py` | Master plan 9.7, decision record 0005, spec S-02; POSIX `rename`/`fsync` and Python `os.replace` documentation | Standard library | 2026-10-01 |
-| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS) and 16.2 (macOS deferred; the Platform interface); Reference R1; Python `typing.Protocol` documentation | Standard library (`subprocess`) | 2026-10-03 |
+| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS) and 16.2 (macOS deferred; the Platform interface); spec S-12 (Roblox clients, proxy environment, link handler); Reference R1; Python `typing.Protocol` documentation | Standard library (`subprocess`) | 2026-10-04 |
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/` | Reference R1; Master plan 6.6; Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION) documentation; Win32 named pipe documentation (CreateNamedPipeW, ConnectNamedPipe, GetNamedPipeClientProcessId, WriteFile, FlushFileBuffers, DisconnectNamedPipe) | Standard library (`ctypes`) | 2026-10-03 |
 | `verdra/soil/meadow/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -96,7 +96,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/meadow/instances.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/keeper.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/meadow/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/meadow/launcher.py` | Spec S-12; Master plan 11.1; docs/platforms/windows.md (W-01 to W-05, maintainer's PC 2026-10-04); Microsoft's documentation of the registry (winreg, URL protocol handlers) and CreateProcess | stdlib (winreg, subprocess) | 2026-10-04 |
 | `verdra/soil/meadow/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/orchard/` | Reference R1; Master plan 16.2 (macOS deferred until after 1.0); decision record 0014 | — | 2026-10-03 |
 | `verdra/soil/orchard/autostart.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
@@ -115,7 +115,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/tundra/instances.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/keeper.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/tundra/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/launcher.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/tundra/launcher.py` | Spec S-12; Master plan 11.3; docs/platforms/linux.md (L-01, L-02, CI runner 2026-10-03); Flatpak command-line documentation (`flatpak info`, `flatpak run --env`) | stdlib (subprocess, shutil) | 2026-10-04 |
 | `verdra/soil/tundra/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/amber/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -137,7 +137,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/branches/mimicry.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/pollen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/seedpods.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/trunk/branches/sprout.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/branches/sprout.py` | Spec S-12 (discovery, certificate, link handling, launching, rule 4); Master plan 9.4, 10.1, 16.4; psutil documentation (Process, wait_procs) | psutil | 2026-10-04 |
 | `verdra/trunk/branches/trails.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/transplant.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/budding.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

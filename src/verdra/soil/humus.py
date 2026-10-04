@@ -6,7 +6,8 @@ meadow (Windows), orchard (macOS) and tundra (Linux and Sober) each provide one 
 Nothing outside soil checks the operating system: it asks `current()` (Master plan 16.2). M0
 holds the parts the app shell needs: which system Verdra runs on, whether Verdra supports it,
 and whether the system asks for reduced motion (6.6). The routing, launching and keeper parts
-of the protocol arrive with their specs (M1 onward).
+of the protocol arrive with their specs (M1 onward): S-12 adds Roblox discovery, launching and
+link handling.
 
 macOS is deferred until after 1.0 (decision record 0014): orchard answers every job with
 `Unsupported`.
@@ -17,8 +18,12 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, Protocol
+
+from verdra.soil import terrain
 
 if TYPE_CHECKING:
     import ssl
@@ -29,8 +34,10 @@ _TIMEOUT_SECONDS = 1.0
 
 
 #: Why a job isn't available. "deferred": the whole system waits for a later release (macOS,
-#: decision record 0014). More reasons arrive with the specs that need them (S-51 instances).
-Reason = Literal["deferred"]
+#: decision record 0014). "unconfirmed": the job needs a platform fact that isn't confirmed in
+#: docs/platforms/ yet (plan 16.4), so Verdra doesn't guess. More reasons arrive with the specs
+#: that need them (S-51 instances).
+Reason = Literal["deferred", "unconfirmed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +50,83 @@ class Unsupported:
 
     system: System
     reason: Reason
+
+
+#: How an installed Roblox client was installed: for this user, for all users (Windows), or as
+#: the Sober Flatpak (Linux).
+Scope = Literal["user", "all_users", "flatpak"]
+#: How the version to launch was chosen (spec S-12): the link handler's `version` value, the
+#: newest Player version folder, or the package (Sober has no version folders).
+FoundBy = Literal["handler", "newest", "package"]
+
+#: Starts a process: `subprocess.Popen` in the app, a recorder in tests.
+Spawn = Callable[..., Any]
+
+#: The proxy variables a launched client gets (spec S-12, plan 10.1).
+PROXY_VARIABLES = ("HTTPS_PROXY", "HTTP_PROXY")
+
+
+@dataclass(frozen=True, slots=True)
+class RobloxClient:
+    """An installed Roblox client (spec S-12 discovery; facts in docs/platforms/<os>.md)."""
+
+    scope: Scope
+    #: The program `launch_roblox` starts.
+    executable: Path
+    found_by: FoundBy
+    #: Where Verdra's CA block goes (spec S-10): one trust file per Player version folder.
+    trust_files: tuple[Path, ...] = ()
+    #: Folders where new versions appear; roots/gardener watches them (S-10 test 3).
+    install_folders: tuple[Path, ...] = ()
+    #: IDs of the platform facts routing this client needs that aren't confirmed yet. Routing
+    #: refuses such a client with a plain message instead of guessing (plan 16.4).
+    unconfirmed: tuple[str, ...] = ()
+
+
+def proxy_environment(environment: Mapping[str, str], port: int) -> dict[str, str]:
+    """Return a copy of `environment` with Verdra's proxy variables (spec S-12, test 5).
+
+    Any spelling of the two names already present (`https_proxy`, say) is replaced, so the
+    client can't pick up another proxy; every other variable is kept as it is.
+    """
+    names = {name.upper() for name in PROXY_VARIABLES}
+    copy = {key: value for key, value in environment.items() if key.upper() not in names}
+    for name in PROXY_VARIABLES:
+        copy[name] = f"http://{terrain.PROXY_HOST}:{port}"
+    return copy
+
+
+class LinkHandler(Protocol):
+    """The system's handler for `roblox-player:` links (spec S-12, "Links from the browser")."""
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return what `restore` needs to put the current handler back exactly (JSON values)."""
+        ...
+
+    def register(self, command: Sequence[str]) -> None:
+        """Make `command` (the link appended) the handler."""
+        ...
+
+    def restore(self, snapshot: Mapping[str, Any]) -> None:
+        """Put back the handler `snapshot` recorded."""
+        ...
+
+    def registered(self, command: Sequence[str]) -> bool:
+        """Return whether `command` is the handler now (Roblox's updater may have taken it back)."""
+        ...
+
+
+def verdra_command() -> list[str]:
+    """Return the command that starts this Verdra; a link handler appends the link.
+
+    A built Verdra is its own executable; from source it is the Python running it, with
+    `pythonw.exe` preferred where it exists so no console window opens.
+    """
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    python = Path(sys.executable)
+    windowless = python.with_name("pythonw.exe")
+    return [str(windowless if windowless.is_file() else python), "-m", terrain.DISTRIBUTION]
 
 
 class Platform(Protocol):
@@ -80,6 +164,29 @@ class Platform(Protocol):
         Python's ssl module reads them only from paths, and leaf keys must never touch the disk
         (Master plan 10.3, spec S-10), so each system hands OpenSSL an in-memory file.
         """
+        ...
+
+    def roblox_clients(self) -> list[RobloxClient] | Unsupported:
+        """Return the installed Roblox clients, the one to launch first (spec S-12)."""
+        ...
+
+    def trust_files_in(self, version_folder: Path) -> list[Path]:
+        """Return the trust files of a new version folder, none if it isn't a Player's."""
+        ...
+
+    def launch_roblox(
+        self,
+        client: RobloxClient,
+        link: str | None,
+        proxy_port: int,
+        environment: Mapping[str, str],
+        spawn: Spawn = subprocess.Popen,
+    ) -> int:
+        """Start `client` with the proxy variables (and `link`, unchanged); return its PID."""
+        ...
+
+    def link_handler(self) -> LinkHandler | Unsupported:
+        """Return the `roblox-player:` handler, or why Verdra can't take it on this system."""
         ...
 
 

@@ -125,6 +125,11 @@ All notable changes to Verdra are recorded here. The format follows
   Activity once.
 - The header pill, its popover and the tray show that one status: the state, its reason, the
   other reasons, and the fix the state offers.
+- Finding and starting Roblox (S-12, first part). On Windows Verdra finds your Roblox Player,
+  never Roblox Studio, and starts it with Verdra's proxy; its certificate goes into every Player
+  version, never Studio's. Verdra can take over Roblox links from the browser and gives the
+  previous handler back exactly. Where a needed fact isn't confirmed yet (Sober's certificates, a
+  Roblox installed for all users), Verdra says so plainly and changes nothing.
 
 ### Changed
 

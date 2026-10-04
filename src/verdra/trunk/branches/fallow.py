@@ -30,6 +30,7 @@ from verdra.bark import husk, scar
 from verdra.roots import gardener
 from verdra.soil import terrain
 from verdra.trunk import tendrils
+from verdra.trunk.branches import sprout
 
 log = logging.getLogger(__name__)
 
@@ -118,12 +119,8 @@ def _reason(entry: scar.Entry) -> str | None:
 
 
 def undo_actions() -> dict[str, Undo]:
-    """Return the undo action of each kind this version can make (S-16 "Undo per kind").
-
-    `uri_handler` joins with the link handling it undoes (S-12); until then no such entry can
-    exist, and one that did would be reported as failed rather than skipped.
-    """
-    return {"ca_roblox_bundle": gardener.remove_ca}
+    """Return the undo action of each kind this version can make (S-16 "Undo per kind")."""
+    return {"ca_roblox_bundle": gardener.remove_ca, "uri_handler": sprout.restore_handler}
 
 
 @dataclass(frozen=True, slots=True)
