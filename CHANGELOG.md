@@ -10,6 +10,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 - Replacement profiles: saved as `verdra.profile` files with a published JSON Schema, kept in
   your order, with undo and redo of the last 50 edits (the Replacements screen follows).
+- The Replacements screen: make profiles, switch them on and off, add Asset ID replacements,
+  undo and redo; "Apply now" in the header publishes them and restarts the Roblox Verdra started.
 - Asset ID replacements: while one is on, Verdra asks Roblox for the replacement asset instead
   of the original, and decrypts only `assetdelivery.roblox.com` to do it (however the host is
   spelled: any letter case, with or without a trailing dot).

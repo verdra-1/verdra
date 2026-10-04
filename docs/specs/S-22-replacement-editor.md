@@ -45,6 +45,8 @@ Add and edit a replacement without knowing file formats.
 - M-EDIT-04 (inline) "This file type isn't supported for <type>. Use PNG, JPEG, KTX2, OBJ, MESH,
   OGG or MP3 as fits."
 - M-EDIT-05 (inline, new) "Roblox couldn't be reached to check this ID. You can save it anyway."
+- M-EDIT-06 (Save tooltip, new) "Enter the asset ID to replace and the asset ID to use instead."
+- M-EDIT-07 (Save tooltip, new) "An asset can't replace itself. Enter a different asset ID."
 
 ## Acceptance tests
 
@@ -66,3 +68,7 @@ Add and edit a replacement without knowing file formats.
   a train shouldn't be blocked by a lookup.
 - Tests 4 and 5 are added for rules 2 and 3.
 - "Use as original" needs the Library (M3); until then the original is entered by ID.
+- Built in steps: the first build edits Asset ID targets and checks them locally (M-EDIT-06,
+  M-EDIT-07); Local file, URL and Remove stay disabled with M-SOON-01 until the codecs land, and
+  the Roblox lookup (M-EDIT-01, M-EDIT-02, M-EDIT-05) comes with `bark/pollinator`. The drawer
+  sits beside the table on the Replacements screen.

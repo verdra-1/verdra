@@ -52,6 +52,8 @@ Organize replacements into named profiles that can be switched on and off.
   "A profile name can't contain < > : " / \ | ? or *.", "This name can't be used for a file.",
   "A profile name can be at most <n> characters."
 - M-PROF-05 (inline, new) "A profile can hold at most <n> replacements."
+- M-PROF-07 (name, new) "My replacements": the first profile, made by the empty state's "Add
+  replacement".
 - M-PROF-06 (Activity error, new) "The profile file <file> couldn't be read, so Verdra set it
   aside as <moved>."
 

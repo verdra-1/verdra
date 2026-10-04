@@ -114,6 +114,25 @@
     </message>
 </context>
 <context>
+    <name>ApplyText</name>
+    <message numerus="yes">
+        <source>Applied %n replacements. They&apos;ll appear next time Roblox starts.</source>
+        <comment>M-APPLY-02</comment>
+        <translation>
+            <numerusform>Applied %n replacement. They&apos;ll appear next time Roblox starts.</numerusform>
+            <numerusform>Applied %n replacements. They&apos;ll appear next time Roblox starts.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Applied %n replacements. Assets Roblox already saved may change only after it refreshes them.</source>
+        <comment>M-APPLY-03</comment>
+        <translation>
+            <numerusform>Applied %n replacement. Assets Roblox already saved may change only after it refreshes them.</numerusform>
+            <numerusform>Applied %n replacements. Assets Roblox already saved may change only after it refreshes them.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>Dew</name>
     <message>
         <source>Cancel</source>
@@ -136,6 +155,49 @@
     </message>
 </context>
 <context>
+    <name>Editor</name>
+    <message>
+        <source>Add replacement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Original asset ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace with</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Asset ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Local file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>URL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target asset ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Header</name>
     <message>
         <source>No profiles</source>
@@ -147,6 +209,10 @@
     </message>
     <message>
         <source>Apply now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use the replacements now</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -266,6 +332,20 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-06</name>
+    <message>
+        <source>Enter the asset ID to replace and the asset ID to use instead.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-07</name>
+    <message>
+        <source>An asset can&apos;t replace itself. Enter a different asset ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>
@@ -331,6 +411,17 @@
     <name>M-LAUNCH-01</name>
     <message>
         <source>Roblox isn&apos;t installed, or Verdra couldn&apos;t find it. Install Roblox, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-03</name>
+    <message>
+        <source>Restart Roblox now? Unsaved progress in your game may be lost.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Restart Roblox</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -513,6 +604,17 @@
     </message>
 </context>
 <context>
+    <name>M-PROF-02</name>
+    <message>
+        <source>Delete profile {name}?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-PROF-04</name>
     <message>
         <source>Enter a name for the profile.</source>
@@ -542,6 +644,13 @@
     <name>M-PROF-06</name>
     <message>
         <source>The profile file {file} couldn&apos;t be read, so Verdra set it aside as {moved}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-07</name>
+    <message>
+        <source>My replacements</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -962,6 +1071,69 @@
     </message>
     <message>
         <source>{n}%</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ReplacementsScreen</name>
+    <message>
+        <source>Profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add replacement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace with</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Kind</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replacements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Asset ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Local file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>URL</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -32,6 +32,7 @@ from verdra.soil import humus, terrain
 from verdra.trunk import rings, tendrils
 from verdra.trunk.almanac.store import SettingsStore, StateStore
 from verdra.trunk.branches import fallow
+from verdra.trunk.branches import grafts as grafts_
 from verdra.trunk.branches import sprout as sprout_
 from verdra.trunk.sapwood import cli, shutdown
 from verdra.trunk.sapwood.single import SingleInstance
@@ -78,6 +79,8 @@ class Services:
     routing: gardener.RoutingStatusSource | None = None
     #: Starts routing and launches Roblox (spec S-12); the interface calls it.
     sprout: sprout_.Sprout | None = None
+    #: Replacement profiles and the snapshot the proxy reads (specs S-20, S-21).
+    grafts: grafts_.Grafts | None = None
 
     def elapsed_ms(self) -> int:
         """Return milliseconds since launch."""
@@ -262,11 +265,14 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     )
     settings.save_in_background(services.tendrils.submit)
     assert services.routing is not None  # noqa: S101 - set just above
+    services.grafts = grafts_.Grafts(terrain.config_dir() / "profiles", settings)
+    services.grafts.publish()  # replacements saved last time apply from the first launch
     services.sprout = sprout_.Sprout(
         settings,
         services.routing,
         pool=services.tendrils,
         diagnose=arguments.diagnose_interception,
+        snapshots=services.grafts.holder,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
     log.info(

@@ -451,6 +451,11 @@ class Sprout(QObject):
             self.watch = None
         self.router.stop()
 
+    def restart_roblox(self) -> None:
+        """Close the Roblox Verdra launched and start it again through Verdra (S-24)."""
+        self.launches.close_all()
+        self.launch()
+
     def roblox_running(self) -> bool:
         """Whether a Roblox Verdra launched is still running (M-SHELL-02)."""
         return bool(self.launches.running())
