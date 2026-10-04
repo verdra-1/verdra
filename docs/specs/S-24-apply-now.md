@@ -64,6 +64,8 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   asset cache" can't be built before the cache files are known (plan 16.4). Replacements served
   by Asset ID still apply at once, because the batch request is rewritten whether or not the
   client cached the original's content location.
+- Until W-06 is recorded, a restart ends with M-APPLY-03 rather than M-APPLY-01 (rule 4);
+  M-APPLY-01 is used once the cache is cleared.
 - "The last join" is the place ID of the last `gamejoin.roblox.com` join Verdra saw. Reading it
   needs `gamejoin.roblox.com` in the interception set while Replacements are on (plan 10.2:
   "per-game detection"); only the place ID is kept, in memory.

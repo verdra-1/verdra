@@ -189,6 +189,11 @@ class Header(QFrame):
         self.apply_now.setToolTip(not_yet)
         layout.addWidget(self.apply_now)
 
+    def enable_apply(self) -> None:
+        """Replacements exist (M2): "Apply now" works (spec S-24)."""
+        self.apply_now.setEnabled(True)
+        self.apply_now.setToolTip(self.tr("Use the replacements now"))
+
     def set_title(self, title: str) -> None:
         """Show the current screen's title."""
         self.title.setText(title)

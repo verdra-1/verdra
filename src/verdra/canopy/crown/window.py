@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QByteArray, QCoreApplication, QSize, Signal
+from PySide6.QtCore import QByteArray, QCoreApplication, QObject, QSize, Signal
 from PySide6.QtGui import QCloseEvent, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
@@ -116,7 +116,9 @@ class MainWindow(QMainWindow):
 
         self.dew = Dew(self)
         self.screens: dict[str, QWidget] = {
-            "replacements": ReplacementsScreen(self.stack),
+            "replacements": ReplacementsScreen(
+                self.stack, services.grafts if services is not None else None
+            ),
             "library": LibraryScreen(
                 self.stack,
                 self.launch_requested.emit if services and services.sprout else None,
@@ -218,6 +220,23 @@ class MainWindow(QMainWindow):
         self.close_requested.emit()
 
 
+class ApplyText(QObject):
+    """Apply now's toasts, with their plural forms (spec S-24)."""
+
+    def next_time(self, count: int) -> str:
+        return self.tr(
+            "Applied %n replacements. They'll appear next time Roblox starts.", "M-APPLY-02", count
+        )
+
+    def restarted(self, count: int) -> str:
+        return self.tr(
+            "Applied %n replacements. Assets Roblox already saved may change only after it "
+            "refreshes them.",
+            "M-APPLY-03",
+            count,
+        )
+
+
 class Shell:
     """The whole interface: theme, splash, window, toasts, tray and shortcuts."""
 
@@ -252,6 +271,9 @@ class Shell:
             popover = self.window.header.popover
             popover.set_handled({"start", "retry", "restart_roblox", "repair_certificate"})
             popover.fix_requested.connect(self.fix_routing)
+        if services.grafts is not None:
+            self.window.header.enable_apply()
+            self.window.header.apply_now.clicked.connect(self.apply_now)
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
@@ -378,6 +400,29 @@ class Shell:
             sprout.repair_certificate()
         else:
             sprout.start_routing()
+
+    def apply_now(self) -> None:
+        """Apply now (spec S-24): publish the replacements, then restart Roblox if it runs."""
+        grafts, sprout = self.services.grafts, self.services.sprout
+        if grafts is None:
+            return
+        count = grafts.publish()
+        if sprout is not None and sprout.roblox_running():
+            dialog = DestructiveConfirmation(
+                QCoreApplication.translate(
+                    "M-LAUNCH-03", "Restart Roblox now? Unsaved progress in your game may be lost."
+                ),
+                QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
+                parent=self.window,
+            )
+            if dialog.exec() == DestructiveConfirmation.DialogCode.Accepted:
+                sprout.restart_roblox()
+                # Roblox's cache isn't cleared until its files are recorded (W-06, S-24 rule 4).
+                self.window.dew.show(ApplyText().restarted(count))
+                return
+        elif sprout is not None and not sprout.routing:
+            sprout.start_routing()  # S-24 rule 2
+        self.window.dew.show(ApplyText().next_time(count))
 
     def show_other_tool(self, text: str) -> None:
         """M-COEX-01: another tool routes Roblox; "Try again" runs the check again (S-15)."""

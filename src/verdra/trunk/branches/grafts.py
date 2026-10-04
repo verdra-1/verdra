@@ -21,12 +21,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 import msgspec
 from msgspec import Meta, Struct, field
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from verdra.roots import rules
 from verdra.soil import atomic, terrain
@@ -489,3 +489,55 @@ def _find(profiles: list[Profile], profile_id: str) -> Profile:
         if profile.id == profile_id:
             return profile
     raise KeyError(profile_id)
+
+
+# --- The service the interface talks to ----------------------------------------------------------
+
+
+class Grafts(QObject):
+    """Replacement profiles for the interface, and the snapshot the proxy reads (S-20, S-21).
+
+    Every edit is saved at once; `publish` compiles the profiles and swaps the snapshot in, which
+    the proxy uses from its next connection (Apply now, S-24).
+
+    Signals:
+        changed(): The profiles changed (an edit, undo or redo).
+    """
+
+    changed = Signal()
+
+    def __init__(
+        self,
+        folder: Path,
+        settings: Any,
+        holder: rules.SnapshotHolder | None = None,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.settings = settings
+        self.holder = holder or rules.SnapshotHolder()
+        self.store = ProfileStore(
+            folder,
+            settings.value("replacements.profile_order"),
+            on_order=lambda order: settings.set("replacements.profile_order", order),
+        )
+        #: Replacement ID -> why it was left out of the last published snapshot.
+        self.warnings: dict[str, str] = {}
+
+    @property
+    def profiles(self) -> list[Profile]:
+        """The profiles, highest first (read only: edit through the methods)."""
+        return self.store.profiles
+
+    def publish(self) -> int:
+        """Compile and publish the snapshot; return how many originals it replaces."""
+        compiled = self.store.compile()
+        self.holder.publish(compiled.snapshot)
+        self.warnings = dict(compiled.left_out)
+        return len(compiled.snapshot.grafts)
+
+    def edit(self, method: str, *args: Any) -> Any:
+        """Run one `ProfileStore` edit (`create`, `add_replacement`, `undo`…) and say so."""
+        result = getattr(self.store, method)(*args)
+        self.changed.emit()
+        return result
