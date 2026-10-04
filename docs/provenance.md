@@ -119,7 +119,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/tundra/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/amber/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/strata/clay/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/strata/clay/` | Public community descriptions of the Roblox FileMesh format, versions 1.00 to 5.00 (headers, vertex and face layouts, levels of detail, skinning, bones and subsets sizes); Wavefront OBJ format description; plan 10.7 (64 MB); spec S-33 | — | 2026-10-04 |
 | `verdra/strata/granite/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/ochre/` | Khronos KTX 2.0 specification (file layout, level index, supercompression) and Khronos Data Format specification 1.3 (the basic descriptor block); Vulkan's VkFormat numbers; plan 10.7 (limits); spec S-33 | Pillow, texture2ddecoder, zstandard | 2026-10-04 |
 | `verdra/strata/sway/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
