@@ -671,6 +671,8 @@ def test_routing_decrypts_only_what_the_replacements_need(
     made.snapshots.publish(rules.GraftSnapshot(MappingProxyType({(1111111, None): graft})))
     # Published while routing: the next connection already sees it.
     assert [interceptor.wants(h, 443) for h in hosts] == [True, False, False, False]
+    # A CONNECT may spell the host in capitals or with the root's trailing dot.
+    assert interceptor.wants("AssetDelivery.Roblox.com.", 443)
     assert [s.name for s in interceptor.pipeline().request] == ["grafter"]  # type: ignore[attr-defined]
     made.snapshots.publish(rules.GraftSnapshot())
     assert not interceptor.wants("assetdelivery.roblox.com", 443)
