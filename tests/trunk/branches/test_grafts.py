@@ -12,6 +12,7 @@ import msgspec
 import pytest
 from PySide6.QtWidgets import QApplication
 
+from verdra.roots import rules
 from verdra.trunk.almanac import schema
 from verdra.trunk.branches import grafts
 from verdra.trunk.branches.grafts import Original, Target
@@ -273,3 +274,32 @@ def test_renaming_moves_the_file_and_the_profiles_folder(tmp_path: Path) -> None
     made.rename(profile.id, "New")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["New", "New.json"]
     assert (tmp_path / "New" / "a.png").read_bytes() == b"png"
+
+
+@pytest.mark.spec("S-23", 1)
+def test_the_preview_is_the_snapshot_with_its_conflicts(tmp_path: Path) -> None:
+    made = store(tmp_path)
+    low = made.create("Low")
+    high = made.create("High")
+    made.add_replacement(low.id, *swap(1, 100), asset_type="Image")
+    made.add_replacement(low.id, Original(asset_id=2), Target(kind="remove"), asset_type="Mesh")
+    made.add_replacement(high.id, *swap(1, 111), asset_type="Image")
+    made.add_replacement(high.id, *swap(1, 112), asset_type="Image")  # later in High: wins
+    made.add_replacement(
+        high.id, Original(asset_id=3, slot="normal"), Target(kind="file", value="./n.png"),
+        asset_type="TexturePack",
+    )  # fmt: skip
+    snapshot = made.compile().snapshot
+    shown = grafts.preview(snapshot)
+    # Same winners as the snapshot the proxy uses, grouped by type.
+    winners = {
+        (r.winner.original, r.winner.slot): r.winner for g in shown.groups.values() for r in g
+    }
+    assert winners == dict(snapshot.grafts)
+    assert list(shown.groups) == ["Image", "Mesh", "TexturePack"]
+    [image] = shown.groups["Image"]
+    assert (image.winner.profile, image.winner.value) == ("High", "112")
+    assert [(g.profile, g.value) for g in image.overridden] == [("High", "111"), ("Low", "100")]
+    # Three originals change; one of them has a conflict (counted once, not twice).
+    assert (shown.changes, shown.conflicts) == (3, 1)
+    assert grafts.preview(rules.GraftSnapshot()) == grafts.Preview({}, 0, 0)

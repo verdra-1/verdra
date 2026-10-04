@@ -1064,6 +1064,64 @@
     </message>
 </context>
 <context>
+    <name>PreviewDialog</name>
+    <message>
+        <source>Preview changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace with</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>From profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Overridden</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PreviewText</name>
+    <message numerus="yes">
+        <source>%n assets will change;</source>
+        <comment>M-PREV-01</comment>
+        <translation>
+            <numerusform>%n asset will change;</numerusform>
+            <numerusform>%n assets will change;</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n conflicts.</source>
+        <comment>M-PREV-01</comment>
+        <translation>
+            <numerusform>%n conflict.</numerusform>
+            <numerusform>%n conflicts.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Removed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Asset {id}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ProgressBar</name>
     <message>
         <source>Progress</source>
@@ -1106,6 +1164,10 @@
     </message>
     <message>
         <source>Redo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview changes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

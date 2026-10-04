@@ -57,7 +57,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/grafts/editor.py` | Master plan 7.2 (editor drawer); spec S-22 (Asset ID targets, Save rules) | PySide6 | 2026-10-04 |
 | `verdra/canopy/screens/grafts/imports.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/grafts/presets.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/canopy/screens/grafts/preview.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/screens/grafts/preview.py` | Master plan 7.2 (Preview changes); spec S-23 | PySide6 | 2026-10-04 |
 | `verdra/canopy/screens/grafts/screen.py` | Master plan 7.2 (Replacements screen); specs S-20, S-22 (profiles list, table, empty state) | PySide6 | 2026-10-04 |
 | `verdra/canopy/screens/hive.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/rings.py` | Master plan 7.7, 13.9, spec S-03, message catalogue (M-LOG-01) | PySide6 | 2026-10-01 |

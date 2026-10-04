@@ -232,3 +232,38 @@ def test_startup_publishes_saved_replacements(home: Path, services: Services) ->
     assert again.holder.current.swaps() == {5: 6}
     first.deleteLater()
     again.deleteLater()
+
+
+@pytest.mark.spec("S-23", 1)
+def test_preview_changes_shows_totals_winners_and_what_they_override(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from verdra.canopy.screens.grafts.preview import PreviewDialog  # noqa: PLC0415
+
+    shell, _stub = made
+    service = shell.services.grafts
+    assert service is not None
+    low = service.edit("create", "Low")
+    high = service.edit("create", "High")
+    for profile, target in ((low, "100"), (high, "111")):
+        service.edit(
+            "add_replacement",
+            profile.id,
+            grafts.Original(asset_id=1111111),
+            grafts.Target(kind="asset_id", value=target),
+            "Image",
+        )
+    shown: list[PreviewDialog] = []
+    monkeypatch.setattr(PreviewDialog, "exec", lambda dialog: shown.append(dialog) or 0)
+    screen_of(shell).preview.click()
+    [dialog] = shown
+    assert dialog.totals.text() == "1 asset will change; 1 conflict."
+    group = dialog.tree.topLevelItem(0)
+    assert group is not None and group.text(0) == "Image"
+    winner = group.child(0)
+    assert winner is not None
+    assert [winner.text(i) for i in range(3)] == ["1111111", "Asset 111", "High"]
+    lost = winner.child(0)
+    assert lost is not None
+    assert [lost.text(i) for i in range(3)] == ["Overridden", "Asset 100", "Low"]
+    dialog.deleteLater()
