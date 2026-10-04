@@ -8,6 +8,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Shortcuts for Replacements: Ctrl+N adds a replacement, Ctrl+Z and Shift+Ctrl+Z undo and redo,
+  Ctrl+Enter runs Apply now.
 - The replacement editor takes a local file (dropped on it or chosen), an HTTPS link (its host
   shown), or Remove. Files are checked by their content and size, and a file inside the
   profile's folder is saved relative to it. These replacements are saved but not used in game

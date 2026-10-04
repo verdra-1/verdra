@@ -352,3 +352,36 @@ def test_preview_changes_shows_totals_winners_and_what_they_override(
     assert lost is not None
     assert [lost.text(i) for i in range(3)] == ["Overridden", "Asset 100", "Low"]
     dialog.deleteLater()
+
+
+@pytest.mark.spec("S-22", 3)
+def test_replacement_shortcuts_add_undo_redo_and_apply(
+    made: tuple[Shell, StubSprout], qtbot: QtBot
+) -> None:
+    shell, stub = made
+    service = shell.services.grafts
+    assert service is not None
+    keys = shell.shortcuts.shortcuts
+    assert {"Ctrl+N", "Ctrl+Z", "Shift+Ctrl+Z", "Ctrl+Return"} <= shell.shortcuts.working
+    shell.window.show_screen("settings")
+    keys["Ctrl+N"].activated.emit()  # from any screen: Replacements, first profile, editor
+    screen = screen_of(shell)
+    assert shell.window.stack.currentWidget() is screen
+    assert [p.name for p in service.profiles] == ["My replacements"]
+    assert not screen.editor.isHidden()
+    qtbot.keyClicks(screen.editor.original, "1111111")
+    qtbot.keyClicks(screen.editor.target, "2222222")
+    qtbot.keyClick(screen.editor.target, Qt.Key.Key_Return)
+    assert len(service.profiles[0].replacements) == 1
+
+    keys["Ctrl+Z"].activated.emit()
+    assert service.profiles[0].replacements == []
+    keys["Shift+Ctrl+Z"].activated.emit()
+    assert len(service.profiles[0].replacements) == 1
+    shell.window.show_screen("settings")  # undo belongs to the Replacements screen
+    keys["Ctrl+Z"].activated.emit()
+    assert len(service.profiles[0].replacements) == 1
+
+    keys["Ctrl+Return"].activated.emit()
+    assert service.holder.current.swaps() == {1111111: 2222222}
+    assert stub.calls == []  # Roblox isn't running: nothing to restart
