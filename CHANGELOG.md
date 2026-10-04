@@ -135,6 +135,10 @@ All notable changes to Verdra are recorded here. The format follows
   Roblox links from the browser start Roblox through Verdra. The proxy runs on its own thread.
   Quitting while a Roblox Verdra started is running asks first, unless Verdra is set to close
   Roblox on quit.
+- Verdra doesn't fight another routing tool (S-15, per-app part). Before routing starts and before
+  each launch it checks, in the background, for a running Roblox that uses another proxy and for
+  Roblox hosts in the hosts file without Verdra's marker. If it finds one, routing doesn't start
+  and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
 

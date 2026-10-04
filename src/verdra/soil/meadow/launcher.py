@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import os
 import subprocess
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol
+
+import psutil
 
 from verdra.soil import humus, terrain
 
@@ -244,6 +246,58 @@ def launch(
         close_fds=True,
     )
     return int(process.pid)
+
+
+def hosts_file(environment: Mapping[str, str]) -> Path:
+    """Return the hosts file (W-10: readable as a normal user)."""
+    root = next((v for k, v in environment.items() if k.upper() == "SYSTEMROOT"), r"C:\Windows")
+    return Path(root) / "System32" / "drivers" / "etc" / "hosts"
+
+
+def _me() -> str | None:
+    try:
+        return psutil.Process().username()
+    except psutil.Error:
+        return None
+
+
+def running_players(
+    client: humus.RobloxClient,
+    processes: Callable[..., Iterable[Any]] = psutil.process_iter,
+    me: Callable[[], str | None] = _me,
+) -> list[humus.RunningClient]:
+    """Return this user's running Players of `client` and their proxy variables (S-15).
+
+    A Player is a `RobloxPlayerBeta.exe` inside a version folder of the client's install
+    folders (W-01). Only the user's own processes are looked at, read-only (S-15 rule 2).
+    Whether another process's environment can be read is W-09, confirmed in stage 2; when it
+    can't, the process is listed with `proxies` None and the reason.
+    """
+    folders = {os.path.normcase(str(folder)) for folder in client.install_folders}
+    user = me()
+    found: list[humus.RunningClient] = []
+    for process in processes(["pid", "name", "exe", "username"]):
+        info = process.info
+        exe = info.get("exe")
+        if not exe or info.get("username") != user:
+            continue
+        path = Path(exe)
+        if path.name.lower() != PLAYER_EXECUTABLE.lower():
+            continue
+        if os.path.normcase(str(path.parent.parent)) not in folders:
+            continue
+        try:
+            environment = process.environ()
+        except (psutil.Error, OSError) as error:
+            found.append(humus.RunningClient(info["pid"], path.name, None, type(error).__name__))
+            continue
+        proxies = {
+            key.upper(): value
+            for key, value in environment.items()
+            if key.upper() in humus.PROXY_VARIABLES
+        }
+        found.append(humus.RunningClient(info["pid"], path.name, proxies))
+    return found
 
 
 def quote(argument: str) -> str:

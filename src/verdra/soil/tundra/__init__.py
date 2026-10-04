@@ -84,6 +84,16 @@ class Tundra:
         """Return why not yet: links would reach Sober unrouted until L-02 is confirmed."""
         return humus.Unsupported(system="linux", reason="unconfirmed")
 
+    def hosts_file(self) -> Path:
+        """Return `/etc/hosts` (L-07: the same file inside the Flatpak sandbox)."""
+        return Path("/etc/hosts")
+
+    def running_clients(
+        self, client: humus.RobloxClient
+    ) -> list[humus.RunningClient] | humus.Unsupported:
+        """Return why not yet: which process carries Sober's variables is L-06 (stage 2)."""
+        return humus.Unsupported(system="linux", reason="unconfirmed")
+
 
 def _memory_file(name: str, data: bytes) -> int:
     """Return a descriptor of an anonymous in-memory file holding `data` (never on disk)."""

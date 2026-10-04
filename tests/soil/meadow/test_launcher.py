@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from verdra.soil import humus, terrain
 from verdra.soil.meadow import launcher
@@ -283,3 +285,63 @@ def test_the_platform_answers_for_windows(tmp_path: Path) -> None:
     assert meadow.PLATFORM.trust_files_in(player) == [player / "ssl" / "cacert.pem"]
     assert meadow.PLATFORM.trust_files_in(studio) == []
     assert meadow.PLATFORM.trust_files_in(tmp_path / "version-new") == []
+
+
+class FakeProcess:
+    def __init__(self, pid: int, exe: str, username: str, environ: dict[str, str] | None) -> None:
+        self.info = {"pid": pid, "name": Path(exe).name, "exe": exe, "username": username}
+        self._environ = environ
+
+    def environ(self) -> dict[str, str]:
+        if self._environ is None:
+            import psutil  # noqa: PLC0415
+
+            raise psutil.AccessDenied(self.info["pid"])
+        return self._environ
+
+
+@pytest.mark.spec("S-15", 5)
+def test_only_this_users_players_of_the_client_are_listed(tmp_path: Path) -> None:
+    versions = tmp_path / "Roblox" / "Versions"
+    player = str(versions / "version-a" / launcher.PLAYER_EXECUTABLE)
+    client = humus.RobloxClient(
+        scope="user", executable=Path(player), found_by="handler", install_folders=(versions,)
+    )
+    processes = [
+        FakeProcess(1, player, "me", {"https_proxy": "http://127.0.0.1:8888", "PATH": "x"}),
+        FakeProcess(2, player, "someone else", {"HTTPS_PROXY": "http://elsewhere:1"}),
+        FakeProcess(
+            3, str(versions / "version-a" / launcher.STUDIO_EXECUTABLE), "me", {"HTTPS_PROXY": "x"}
+        ),
+        FakeProcess(
+            4, str(tmp_path / "Other" / "Versions" / "v" / launcher.PLAYER_EXECUTABLE), "me", {}
+        ),
+        FakeProcess(5, str(tmp_path / "proxy.exe"), "me", {"HTTPS_PROXY": "http://127.0.0.1:1"}),
+        FakeProcess(6, player, "me", None),
+    ]
+    found = launcher.running_players(client, lambda _attrs: processes, lambda: "me")
+    assert found == [
+        humus.RunningClient(
+            1, launcher.PLAYER_EXECUTABLE, {"HTTPS_PROXY": "http://127.0.0.1:8888"}
+        ),
+        humus.RunningClient(6, launcher.PLAYER_EXECUTABLE, None, "AccessDenied"),
+    ]
+
+
+def test_the_hosts_file_is_under_system_root() -> None:
+    assert (
+        launcher.hosts_file({"SystemRoot": r"D:\Win"})
+        == Path(r"D:\Win") / "System32" / "drivers" / "etc" / "hosts"
+    )
+
+
+@pytest.mark.spec("S-12", 6)
+@given(st.text(min_size=1).map(lambda rest: "roblox-player:" + rest))
+def test_a_link_reaches_roblox_byte_for_byte(link: str) -> None:
+    """S-12 rule 1: whatever the link holds, the Player receives exactly it."""
+    spawn = Recorder()
+    client = humus.RobloxClient(scope="user", executable=Path("R.exe"), found_by="handler")
+    launcher.launch(client, link, 49443, {}, spawn)
+    [(arguments, _options)] = spawn.calls
+    assert arguments[1] == link
+    assert arguments[1].encode("utf-8", "surrogatepass") == link.encode("utf-8", "surrogatepass")

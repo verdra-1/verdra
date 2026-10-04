@@ -34,6 +34,7 @@ from PySide6.QtCore import QCoreApplication, QObject, Signal
 from verdra.bark import husk, resin, scar
 from verdra.roots import gardener, hyphae, mycelium, taproot
 from verdra.soil import humus, terrain
+from verdra.trunk import tendrils
 
 log = logging.getLogger(__name__)
 
@@ -247,11 +248,17 @@ class Sprout(QObject):
     (roots/litmus, source runs only, decision record 0015); otherwise every connection is a
     blind tunnel, as no feature intercepts anything yet.
 
+    Before routing starts and before each launch, the coexistence check of S-15 runs as a
+    background job (`pool`; inline without one): if another routing tool shows, routing doesn't
+    start, the status is Error and `other_tool` carries M-COEX-01.
+
     Signals:
         refused(str): Why routing or a launch didn't happen, as the sentence to show.
+        other_tool(str): Another routing tool was found (M-COEX-01); `retry` tries again.
     """
 
     refused = Signal(str)
+    other_tool = Signal(str)
 
     def __init__(
         self,
@@ -264,6 +271,7 @@ class Sprout(QObject):
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         launches: Launches | None = None,
         connect: mycelium.Connector | None = None,
+        pool: tendrils.Tendrils | None = None,
         diagnose: bool = False,
         parent: QObject | None = None,
     ) -> None:
@@ -278,21 +286,101 @@ class Sprout(QObject):
         self.connector = connect or self._open_tunnel
         self.diagnose = diagnose
         self.router = gardener.Router(status, self)
+        self.pool = pool
         self.client: humus.RobloxClient | None = None
         self.watch: gardener.VersionWatch | None = None
+        self._checking = False
+        self._last: tuple[str | None, bool] = (None, False)
 
     @property
     def routing(self) -> bool:
         """Whether the proxy is running."""
         return self.router.running
 
-    def start_routing(self) -> Refused | None:
-        """Start routing; return why not, after reporting it through `refused`."""
-        if self.router.running:
-            return None
+    def start_routing(self) -> None:
+        """Start routing (S-12); a refusal goes to `refused`, another tool to `other_tool`."""
+        self._request(None, launch=False)
+
+    def launch(self, link: str | None = None) -> None:
+        """Start routing if needed, then Roblox with `link` (unchanged)."""
+        self._request(link, launch=True)
+
+    def retry(self) -> None:
+        """Run the last request again ("Try again" in M-COEX-01)."""
+        link, launch = self._last
+        self._request(link, launch=launch)
+
+    # --- The order of a request: choose, check, start, launch ------------------------------
+
+    def _request(self, link: str | None, *, launch: bool) -> None:
+        self._last = (link, launch)
         choice = choose(self.platform.roblox_clients())
         if isinstance(choice, Refused):
-            return self._refuse(choice)
+            self._refuse(choice)
+            return
+        if self._checking:
+            return  # the check under way carries on with this request (`_last`)
+        self._checking = True
+        if self.pool is None:
+            self._checked(choice, self._check(choice))
+            return
+        job = self.pool.submit(
+            QCoreApplication.translate("Routing", "Checking for other routing tools"),
+            lambda _handle: self._check(choice),
+        )
+        job.succeeded.connect(lambda result: self._checked(choice, result))
+        job.failed.connect(
+            lambda reason: self._checked(choice, gardener.Coexistence(incomplete=(reason,)))
+        )
+
+    def _check(self, client: humus.RobloxClient) -> gardener.Coexistence:
+        """The coexistence check of S-15, read-only; runs as a background job (rule 3)."""
+        running = self.platform.running_clients(client)
+        unreadable = ""
+        if isinstance(running, humus.Unsupported):
+            unreadable = f"processes: {running.reason}"
+            running = None
+        try:
+            hosts = self.platform.hosts_file().read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            hosts = None
+        ports = {int(self.settings.value("routing.proxy_port"))}
+        if self.router.port is not None:
+            ports.add(self.router.port)
+        return gardener.check_coexistence(running, ports, hosts, unreadable=unreadable)
+
+    def _checked(self, client: humus.RobloxClient, result: gardener.Coexistence) -> None:
+        self._checking = False
+        for line in result.signs:
+            log.warning("%s", line)
+        if result.incomplete:
+            log.info(
+                "%s",
+                QCoreApplication.translate(
+                    "M-COEX-04",
+                    "Verdra couldn't check everything for other routing tools ({parts}), so it "
+                    "went ahead.",
+                ).format(parts="; ".join(result.incomplete)),
+            )
+        if not result.clear:
+            text = QCoreApplication.translate(
+                "M-COEX-01",
+                "Another tool is already routing Roblox traffic. Close it, then try again.",
+            )
+            self.status.error(gardener.Trigger.OTHER_TOOL, text)
+            self.other_tool.emit(text)
+            return
+        self.status.error_cleared(gardener.Trigger.OTHER_TOOL)
+        if not self.router.running and self._start(client) is not None:
+            return
+        link, launch = self._last
+        if launch:
+            assert self.client is not None and self.router.port is not None  # noqa: S101 - running
+            self.launches.launch(self.client, link, self.router.port)
+            self.status.launched()
+
+    def _start(self, choice: humus.RobloxClient) -> Refused | None:
+        """Add the CA, start the proxy, take over links and watch for new versions."""
         ledger = self.ledger()
         try:
             authority = add_certificate(choice, self.vault(), ledger, self.clock())
@@ -331,16 +419,6 @@ class Sprout(QObject):
             self.watch.deleteLater()
             self.watch = None
         self.router.stop()
-
-    def launch(self, link: str | None = None) -> Refused | None:
-        """Start routing if needed, then Roblox with `link` (unchanged); return why not."""
-        refused = self.start_routing()
-        if refused is not None:
-            return refused
-        assert self.client is not None and self.router.port is not None  # noqa: S101 - just started
-        self.launches.launch(self.client, link, self.router.port)
-        self.status.launched()
-        return None
 
     def roblox_running(self) -> bool:
         """Whether a Roblox Verdra launched is still running (M-SHELL-02)."""

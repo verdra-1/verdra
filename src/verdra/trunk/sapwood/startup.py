@@ -263,7 +263,10 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     settings.save_in_background(services.tendrils.submit)
     assert services.routing is not None  # noqa: S101 - set just above
     services.sprout = sprout_.Sprout(
-        settings, services.routing, diagnose=arguments.diagnose_interception
+        settings,
+        services.routing,
+        pool=services.tendrils,
+        diagnose=arguments.diagnose_interception,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
     log.info(

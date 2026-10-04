@@ -104,6 +104,16 @@ class Meadow:
         """Return the per-user `roblox-player:` handler in HKCU (W-03)."""
         return launcher.WindowsLinkHandler(launcher.WindowsRegistry())
 
+    def hosts_file(self) -> Path:
+        """Return `%SystemRoot%\\System32\\drivers\\etc\\hosts` (W-10)."""
+        return launcher.hosts_file(os.environ)
+
+    def running_clients(
+        self, client: humus.RobloxClient
+    ) -> list[humus.RunningClient] | humus.Unsupported:
+        """Return this user's running Players of `client` (S-15)."""
+        return launcher.running_players(client)
+
 
 # Win32 constants (CreateNamedPipeW, winbase.h).
 _PIPE_ACCESS_OUTBOUND: Final = 0x00000002

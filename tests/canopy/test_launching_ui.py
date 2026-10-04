@@ -21,6 +21,7 @@ class StubSprout(QObject):
     """Records what the interface asks of trunk's Sprout."""
 
     refused = Signal(str)
+    other_tool = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -32,6 +33,9 @@ class StubSprout(QObject):
 
     def start_routing(self) -> None:
         self.calls.append(("start", None))
+
+    def retry(self) -> None:
+        self.calls.append(("retry", None))
 
     def roblox_running(self) -> bool:
         return self.running
@@ -95,7 +99,7 @@ def test_the_status_fixes_start_routing_or_relaunch(launching: Shell, stub: Stub
     assert popover.fix.isEnabled()  # Idle: "Start routing"
     for key in ("start", "retry", "restart_roblox"):
         popover.fix_requested.emit(key)
-    assert stub.calls == [("start", None), ("start", None), ("launch", None)]
+    assert stub.calls == [("start", None), ("retry", None), ("launch", None)]
 
 
 def test_quitting_while_roblox_runs_asks_first(
@@ -116,3 +120,22 @@ def test_quitting_while_roblox_runs_asks_first(
     stub.running = False
     launching.quit()
     assert len(asked) == 1 and quits == [True]  # nothing running: no question
+
+
+@pytest.mark.spec("S-15", 2)
+def test_another_tool_asks_and_try_again_checks_again(
+    launching: Shell, stub: StubSprout, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answers = [QDialog.DialogCode.Accepted, QDialog.DialogCode.Rejected]
+    shown: list[str] = []
+
+    def answer(self: DestructiveConfirmation) -> int:
+        shown.append(self.findChildren(QPushButton)[-1].text())
+        return answers.pop(0)
+
+    monkeypatch.setattr(DestructiveConfirmation, "exec", answer)
+    text = "Another tool is already routing Roblox traffic. Close it, then try again."
+    stub.other_tool.emit(text)  # "Try again"
+    stub.other_tool.emit(text)  # "Cancel"
+    assert shown == ["Try again", "Try again"]
+    assert stub.calls == [("retry", None)]
