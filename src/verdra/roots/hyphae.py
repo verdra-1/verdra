@@ -39,7 +39,7 @@ from cryptography.hazmat.primitives import serialization
 from PySide6.QtCore import QCoreApplication
 
 from verdra.bark import resin, veil
-from verdra.roots import taproot
+from verdra.roots import rules, taproot
 from verdra.soil import humus
 
 log = logging.getLogger(__name__)
@@ -328,6 +328,10 @@ class Hyphae:
 
     async def _exchange(self, client: _Side, head: h11.Request) -> None:
         pipeline = self.interception.pipeline()
+        if rules.is_protected(self.host, head.target):
+            # Plan 16.2: Roblox's integrity and safety traffic is never touched.
+            log.debug("Protected endpoint on %s passed through unchanged", self.host)
+            pipeline = Pipeline()
         request = Request(self.host, head.method, head.target, tuple(head.headers.raw_items()))
         log.debug("%s %s %s", request.method.decode("latin-1"), self.host, _target_for_log(request))
         body = Body(client)

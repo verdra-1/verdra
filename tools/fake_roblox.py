@@ -43,11 +43,10 @@ from verdra.bark import resin
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES: Final = ROOT / "tests" / "fixtures" / "roblox"
-#: Plan 10.2, with invented CDN host names (the real list is confirmed by capture at M1).
+#: Plan 10.2: the hosts it stands in for (the asset CDN host stands in for the other CDN hosts).
 HOSTS: Final = (
     "assetdelivery.roblox.com",
-    "c0.rbxcdn.com",
-    "c1.rbxcdn.com",
+    "fts.rbxcdn.com",
     "clientsettings.roblox.com",
     "clientsettingscdn.roblox.com",
     "gamejoin.roblox.com",

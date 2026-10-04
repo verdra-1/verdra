@@ -54,14 +54,14 @@ def test_roblox_hosts_in_the_hosts_file_without_verdras_marker_are_signs() -> No
             "127.0.0.1 assetdelivery.roblox.com",  # line 3
             "10.1.2.3   gamejoin.roblox.com  # someone else's",  # line 4, any address
             "127.0.0.1 assetdelivery.roblox.com # verdra:route",  # Verdra's own
-            "127.0.0.1 c0.rbxcdn.com",  # line 6, a CDN host
+            "127.0.0.1 fts.rbxcdn.com",  # line 6, a CDN host
             "127.0.0.1 roblox.com.example.org",
         ]
     )
     assert gardener.hosts_signs(text) == [
         (3, "assetdelivery.roblox.com"),
         (4, "gamejoin.roblox.com"),
-        (6, "c0.rbxcdn.com"),
+        (6, "fts.rbxcdn.com"),
     ]
     found = gardener.check_coexistence([], OWN, text)
     assert found.signs[0] == (

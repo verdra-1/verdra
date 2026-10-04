@@ -63,6 +63,23 @@ def literals(path: Path) -> list[tuple[int, str]]:
     ]
 
 
+def spells(value: str, identifier: str) -> bool:
+    """Return whether a literal spells `identifier`.
+
+    A prefix such as "account-" is only spelled where a literal starts with it: inside other
+    text ("/account-security-service", a Roblox path) it is a different word.
+    """
+    if identifier[-1] in "-/:" and not re.search(r"[.\-/:#\\{]", identifier[:-1]):
+        return value.startswith(identifier)
+    return identifier in value
+
+
+def test_a_bare_prefix_is_spelled_only_at_the_start() -> None:
+    assert spells(f"{terrain.SECRET_ITEM_ACCOUNT_PREFIX}name", terrain.SECRET_ITEM_ACCOUNT_PREFIX)
+    assert not spells("/account-security-service", terrain.SECRET_ITEM_ACCOUNT_PREFIX)
+    assert spells(f"x {terrain.HOSTS_MARKER} y", terrain.HOSTS_MARKER)
+
+
 def test_identifiers_are_spelled_only_in_terrain() -> None:
     identifiers = distinctive()
     problems = []
@@ -74,7 +91,7 @@ def test_identifiers_are_spelled_only_in_terrain() -> None:
                 continue
             for line, value in literals(path):
                 for name, identifier in identifiers.items():
-                    if identifier in value:
+                    if spells(value, identifier):
                         problems.append(f"{path.relative_to(ROOT)}:{line} spells terrain.{name}")
     assert problems == []
 

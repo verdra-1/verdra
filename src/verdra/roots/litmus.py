@@ -28,15 +28,14 @@ log = logging.getLogger(__name__)
 
 #: Only this module carries this text; a built folder that contains it fails the build check.
 MARKER: Final = "verdra/litmus: diagnostic interception, source only"
-#: Plan 10.2 (roots/rules). The CDN hosts are matched by suffix until capture confirms the list.
+#: Plan 10.2 (roots/rules), the exact list confirmed by capture at M1.
 HOSTS: Final = rules.ROBLOX_HOSTS
-CDN_SUFFIX: Final = rules.CDN_SUFFIX
 #: The leaf key S-10 issues (bark/resin), reported for the client side.
 LEAF_KEY: Final = "ECDSA P-256"
 
 
 class DiagnosticHosts(Collection[str]):
-    """The 10.2 hosts, plus any host under the asset CDN domain."""
+    """The 10.2 hosts, in any letter case and with or without a trailing dot."""
 
     def __contains__(self, host: object) -> bool:
         return isinstance(host, str) and rules.is_roblox_host(host)

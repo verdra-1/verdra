@@ -61,6 +61,12 @@ untouched.
 5. The proxy decrypts only hosts in the active interception set; with no feature on, nothing is
    decrypted. The one exception is `--diagnose-interception` when running from source, which
    changes nothing it passes on.
+6. Roblox's integrity and safety endpoints (`PROTECTED_PATHS` in `roots/rules`, from the Stage 2
+   capture: `/validate-machine`, `/rm3-evidence-filter`, `/realtime-replay-api`,
+   `/account-security-service`, `/browser-tracker-api` on `apis.roblox.com`, and everything
+   below them) pass through byte-for-byte: no symbiont is called for them, whatever the path's
+   spelling (case, percent-escapes, repeated slashes, dot segments, path parameters). Every rule
+   a feature makes goes through `rules.refuse_protected`, which refuses these paths (plan 16.2).
 
 ## Messages
 
@@ -107,6 +113,11 @@ untouched.
 10. The frozen build rejects `--diagnose-interception` (it exits with an error and routing never
     starts), and `tools/check_build.py` fails if the built folder contains the diagnostic code
     path (a marker that only the source-only module carries).
+11. A symbiont that changes every request and response, and one that answers every request
+    itself, leave a protected endpoint untouched: the server receives the client's bytes and the
+    client receives the server's, under every spelling of the path; neither symbiont is called.
+12. A rule for any protected path, under any spelling, is refused with `ProtectedEndpointError`;
+    a rule for a neighboring path (`/validate-machines`, `/v1/validate-machine`) is allowed.
 
 ## Lives in
 
@@ -115,6 +126,8 @@ untouched.
 
 ## Refinements from the plan
 
+- Rule 6 and tests 11 and 12 carry out plan 16.2 ("Security endpoints are never touched"); the
+  paths are the security-related ones seen in the Stage 2 capture on Windows (2026-10-04).
 - Tests 6, 7 and 8 are added for behaviour the plan states (10.1 listener, S-11 limits, 10.4
   transports) but S-11 doesn't test; tests 9 and 10 cover the diagnostic interception settled in
   16.2.

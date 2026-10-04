@@ -7,4 +7,4 @@ HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 Cache-Control: no-cache
 
-[{"requestId":"req-{{n}}-0","location":"https://c0.rbxcdn.com/{{hex}}","assetTypeId":4,"assetId":{{n}}10},{"requestId":"req-{{n}}-1","location":"https://c1.rbxcdn.com/{{hex}}1","assetTypeId":1,"assetId":{{n}}11},{"requestId":"req-{{n}}-2","errors":[{"code":404,"message":"Asset not found"}]}]
+[{"requestId":"req-{{n}}-0","location":"https://fts.rbxcdn.com/sc0/{{hex}}","assetTypeId":4,"assetId":{{n}}10},{"requestId":"req-{{n}}-1","location":"https://fts.rbxcdn.com/sc1/{{hex}}1","assetTypeId":1,"assetId":{{n}}11},{"requestId":"req-{{n}}-2","errors":[{"code":404,"message":"Asset not found"}]}]
