@@ -30,6 +30,7 @@ Filled in from [protocol.md](protocol.md). Until a row is `Confirmed`, no code m
 | W-09 | A running Roblox's proxy variables can be read (S-15) | Readable as the same user, without administrator rights: the coexistence check read `HTTPS_PROXY` and `HTTP_PROXY` = `http://127.0.0.1:49443` from three running Players | Confirmed, PC | 2026-10-04 | Stage 2 |
 | W-10 | The hosts file is readable without administrator rights (S-15) | Readable as a normal user (20 lines) | Confirmed, PC | 2026-10-04 | Stage 1 |
 | V0 | Client honors `HTTPS_PROXY` / `HTTP_PROXY` | The Player launched with the variables sent all its HTTPS traffic through Verdra: 133 connections to 13 hosts, two game joins | Confirmed, PC | 2026-10-04 | Stage 2 |
+| V1 | Asset batch requests (`POST assetdelivery.roblox.com/v1/assets/batch`) are JSON arrays of items with an asset ID and a request ID; the response names each item's content location, served from `fts.rbxcdn.com` (S-21) | Seen in the Stage 2 capture: 204 batch requests and the `fts.rbxcdn.com` downloads that follow them (paths only; bodies weren't logged) | Unconfirmed: the body shape is confirmed by the M2 real-machine test | 2026-10-04 | `evidence/windows/stage2-2026-10-04.txt` |
 
 ## Maintainer's PC compared with the CI runner
 

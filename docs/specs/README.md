@@ -24,6 +24,11 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 | [S-14](S-14-routing-status.md) | Routing status | M1 | Built |
 | [S-15](S-15-coexistence.md) | Coexistence (per-app part; Hosts-file part M6) | M1 | Built |
 | [S-16](S-16-reset-everything.md) | Reset everything | M1 | Built |
+| [S-20](S-20-replacement-profiles.md) | Replacement profiles | M2 | Agreed |
+| [S-21](S-21-replacement-engine.md) | Replacement engine | M2 | Agreed |
+| [S-22](S-22-replacement-editor.md) | Replacement editor | M2 | Agreed |
+| [S-23](S-23-preview-changes.md) | Preview changes | M2 | Agreed |
+| [S-24](S-24-apply-now.md) | Apply now | M2 | Agreed |
 
 macOS is deferred until after 1.0 (decision record 0014): the macOS parts of the specs stay as
 reference only, and nothing macOS-specific is built or tested.
