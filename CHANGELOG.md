@@ -156,6 +156,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- When a Roblox server's certificate can't be verified while Verdra reads traffic, the routing
+  status now turns Degraded with the reason, as well as blocking the request.
 - UI tests that failed only sometimes on Linux (main after the diagnostic-interception change,
   and #33 before it): a window outlived its test and was deleted during a later one, and a
   Python wrapper of a freed layout item was handed back for a new object at the same address.

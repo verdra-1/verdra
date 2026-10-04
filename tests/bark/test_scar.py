@@ -3,6 +3,10 @@
 """The system change ledger (Master plan 9.4)."""
 
 import json
+import random
+import subprocess
+import sys
+import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -69,3 +73,37 @@ def test_no_file_means_no_entries(tmp_path: Path) -> None:
     assert ledger(tmp_path / "changes.json").entries() == []
     with pytest.raises(KeyError):
         ledger(tmp_path / "changes.json").mark("missing", "done")
+
+
+def test_kill_during_a_ledger_write_leaves_a_readable_ledger(tmp_path: Path) -> None:
+    """Plan 12.2: a process killed while writing the ledger leaves it intact or restorable."""
+    path = tmp_path / "changes.json"
+    book = ledger(path)
+    for n in range(1500):  # a large ledger makes each write long enough to be interrupted
+        book.begin("file_tweak", f"/x/{n}/" + "p" * 100, {"n": n})
+    script = textwrap.dedent(
+        f"""
+        from pathlib import Path
+        from verdra.bark import scar
+        book = scar.Ledger(Path({str(path)!r}))
+        entry = book.entries()[0]
+        while True:
+            book.mark(entry.id, "done")
+            print("w", flush=True)
+            book.mark(entry.id, "pending")
+            print("w", flush=True)
+        """
+    )
+    for _ in range(8):
+        process = subprocess.Popen(  # noqa: S603
+            [sys.executable, "-c", script], stdout=subprocess.PIPE, text=True
+        )
+        assert process.stdout is not None
+        assert process.stdout.readline() == "w\n"  # killed while really writing
+        with pytest.raises(subprocess.TimeoutExpired):
+            process.wait(timeout=random.uniform(0.05, 0.5))  # noqa: S311
+        process.kill()
+        process.communicate()
+        entries = ledger(path).entries()
+        assert len(entries) == 1500
+        assert entries[0].state in {"done", "pending"}
