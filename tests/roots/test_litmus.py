@@ -37,10 +37,11 @@ def test_every_host_is_intercepted_unchanged_with_tls_details_in_activity(
         assert all("the server's certificate verified." in line for line in upstream)
 
 
-def test_the_diagnostic_set_is_the_10_2_hosts_and_the_cdn() -> None:
+def test_the_diagnostic_set_is_exactly_the_10_2_hosts() -> None:
     hosts = litmus.DiagnosticHosts()
     assert all(host in hosts for host in fake_roblox.HOSTS)
-    assert "T7.RBXCDN.COM" in hosts
+    assert "FTS.RBXCDN.COM." in hosts
+    assert "t7.rbxcdn.com" not in hosts  # an asset host no capture saw stays a tunnel
     assert "www.roblox.com" not in hosts
     assert "rbxcdn.com.example" not in hosts
     assert 42 not in hosts

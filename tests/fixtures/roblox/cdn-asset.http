@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
 # origin: hand-written for M1 from public descriptions of the response shape; invented IDs and names, no real user data
-# host: c0.rbxcdn.com
-# request: GET /{{hex}}
+# host: fts.rbxcdn.com
+# request: GET /sc0/{{hex}}
 # body: random 6000
 HTTP/1.1 200 OK
 Content-Type: application/octet-stream

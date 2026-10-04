@@ -21,7 +21,7 @@ HOSTS = (
     "clientsettingscdn.roblox.com",
     "gamejoin.roblox.com",
     "apis.roblox.com",
-    "c0.rbxcdn.com",
+    "fts.rbxcdn.com",
 )
 
 

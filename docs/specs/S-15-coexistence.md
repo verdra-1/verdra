@@ -109,5 +109,5 @@ lookup), `canopy/leaves/dialogs.py` (the dialog).
     anyway until L-02 is confirmed (S-12, M-LAUNCH-04).
   - The hosts file is read from `%SystemRoot%\System32\drivers\etc\hosts` (W-10) and
     `/etc/hosts` (L-07), as text, never written.
-  - Plan 10.2's hosts live in `roots/rules` (the CDN hosts by the suffix `.rbxcdn.com` until
-    capture confirms the list).
+  - Plan 10.2's hosts live in `roots/rules`: the exact list confirmed by capture on Windows at
+    M1 (plan 16.2).

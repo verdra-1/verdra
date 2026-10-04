@@ -115,7 +115,7 @@ class Recorder:
 
 
 class Proxy:
-    """Mycelium with interception for HOST, upstream to a FakeServer on 127.0.0.1."""
+    """Mycelium intercepting the FakeServer's host, upstream to it on 127.0.0.1."""
 
     def __init__(
         self,
@@ -143,7 +143,7 @@ class Proxy:
 
         interception = hyphae.Interception(
             hyphae.LeafContexts(self.authority),
-            lambda: {HOST},
+            lambda: {self.server.host},
             open_upstream,
             lambda: self.pipeline,
             on_verification_failure=lambda host, reason: self.failures.append((host, reason)),
@@ -162,13 +162,14 @@ class Proxy:
 
     async def connect(self) -> Client:
         reader, writer = await asyncio.open_connection("127.0.0.1", self.port)
-        writer.write(f"CONNECT {HOST}:443 HTTP/1.1\r\nHost: {HOST}:443\r\n\r\n".encode())
+        host = self.server.host
+        writer.write(f"CONNECT {host}:443 HTTP/1.1\r\nHost: {host}:443\r\n\r\n".encode())
         await writer.drain()
         assert await reader.readuntil(b"\r\n\r\n") == b"HTTP/1.1 200 Connection established\r\n\r\n"
         context = ssl.create_default_context(
             cadata=resin.certificate_pem(self.authority.certificate).decode()
         )
-        await writer.start_tls(context, server_hostname=HOST)
+        await writer.start_tls(context, server_hostname=host)
         return Client(reader, writer)
 
 
@@ -522,3 +523,50 @@ def test_a_client_that_leaves_mid_response_is_not_logged_as_an_upstream_failure(
     assert not [m for m in messages if m.startswith("Upstream")], messages
     assert any(m.startswith(f"The client left {HOST} mid-response") for m in messages), messages
     assert closed() == [f"Closed a connection to {HOST}: the client left"]
+
+
+#: The protected path under every spelling a client or a rule could use (plan 16.2).
+PROTECTED_SPELLINGS = (
+    b"/validate-machine",
+    b"/VALIDATE-MACHINE",
+    b"//validate-machine",
+    b"/%76alidate-machine",
+    b"/%2576alidate-machine",
+    b"/x/../validate-machine",
+    b"/./validate-machine/",
+    b"/validate-machine;v=1",
+    b"/validate-machine?a=1",
+    b"/rm3-evidence-filter/v1/upload-screenshot",
+)
+
+
+@pytest.mark.spec("S-11", 11)
+def test_protected_endpoints_are_never_touched(tmp_path: Path) -> None:
+    def changing(request: hyphae.Request) -> object:
+        return replace(request, body=b"changed")
+
+    def answering(request: hyphae.Request) -> object:
+        return hyphae.Response(200, ((b"Content-Length", b"6"),), b"OK", b"forged")
+
+    changer = Recorder(
+        wants_body=True,
+        on_request=changing,
+        on_response=lambda response: replace(response, body=b"changed"),
+    )
+    answerer = Recorder(on_request=answering)
+    server = FakeServer(tmp_path, dict.fromkeys(PROTECTED_SPELLINGS, PLAIN), host="apis.roblox.com")
+    pipeline = hyphae.Pipeline(request=[changer, answerer], response=[changer])
+    sent = b"POST {target} HTTP/1.1\r\nHost: apis.roblox.com\r\nContent-Length: 4\r\n\r\n"
+
+    async def body() -> None:
+        async with Proxy(server, pipeline) as proxy:
+            client = await proxy.connect()
+            for target in PROTECTED_SPELLINGS:
+                raw, _ = await client.send(sent.replace(b"{target}", target) + b"data")
+                assert raw == PLAIN, target
+
+    run(body)
+    assert [(r.target, r.body) for r in server.received] == [
+        (target, b"data") for target in PROTECTED_SPELLINGS
+    ]
+    assert (changer.requests, changer.responses, answerer.requests) == ([], [], [])

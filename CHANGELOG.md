@@ -142,6 +142,10 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Changed
 
+- Verdra decrypts only the exact Roblox hosts confirmed on a real PC (plan 10.2); any other
+  Roblox host is passed through untouched.
+- Roblox's own security and safety traffic (machine checks, screenshot evidence, replays) is
+  always passed through unchanged; no feature can ever change it.
 - The US-spelling check also reads this changelog, which becomes the release notes.
 - PyYAML is a declared development dependency instead of arriving through pre-commit.
 - The Qt lifetime guard checks every test once Qt is running, not only tests that ask for the Qt
