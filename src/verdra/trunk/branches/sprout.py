@@ -340,6 +340,17 @@ class Sprout(QObject):
         if isinstance(running, humus.Unsupported):
             unreadable = f"processes: {running.reason}"
             running = None
+        for found in running or ():
+            # Detailed logging only: the evidence for W-09 in stage 2 (whether another
+            # process's proxy variables can be read on Windows).
+            log.debug(
+                "Coexistence check: %s (%d) %s",
+                found.name,
+                found.pid,
+                {k: gardener.shown_proxy(v) for k, v in found.proxies.items()}
+                if found.proxies is not None
+                else f"environment not readable: {found.error}",
+            )
         try:
             hosts = self.platform.hosts_file().read_text(encoding="utf-8", errors="replace")
         except OSError:
