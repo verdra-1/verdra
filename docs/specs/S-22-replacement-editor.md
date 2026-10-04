@@ -84,6 +84,10 @@ Add and edit a replacement without knowing file formats.
   original's field, the link's host and an empty file field. These targets are saved but not
   served yet: they stay out of the snapshot with M-SOON-01 shown in the table's Note column,
   so routing decrypts no more than for Asset ID swaps until the grafter serves content (S-21).
+- Keyboard (test 3): Ctrl/Cmd+N opens the drawer from any screen (making a first profile if
+  there is none); Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z undo and redo replacement edits while the
+  Replacements screen shows (a focused text field keeps its own undo); Ctrl/Cmd+Enter runs
+  Apply now (S-01's shortcuts, wired once Replacements exist).
 - Built in steps: the first build edits Asset ID targets and checks them locally (M-EDIT-06,
   M-EDIT-07); Local file, URL and Remove stay disabled with M-SOON-01 until the codecs land, and
   the Roblox lookup (M-EDIT-01, M-EDIT-02, M-EDIT-05) comes with `bark/pollinator`. The drawer

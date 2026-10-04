@@ -204,6 +204,13 @@ class ReplacementsScreen(QWidget):
         assert self.service is not None  # noqa: S101 - only reachable with a service
         return self.service.edit(method, *args)
 
+    def add_replacement(self) -> None:
+        """Ctrl+N: open the editor, making a first profile if there is none."""
+        if self.service is not None and not self.service.profiles:
+            self._first()
+        elif self.service is not None:
+            self._open_editor()
+
     def _first(self) -> None:
         """The empty state's "Add replacement": make a first profile, then open the editor."""
         if self.service is None:

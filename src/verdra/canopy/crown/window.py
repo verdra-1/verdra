@@ -44,6 +44,8 @@ from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from verdra.trunk.almanac.store import Notice as SettingsNotice
     from verdra.trunk.sapwood.startup import Services
     from verdra.trunk.tendrils import Job
@@ -281,18 +283,23 @@ class Shell:
             self.tray.reset_requested.connect(self.reset_everything)
             self.tray.show()
         app.setQuitOnLastWindowClosed(self.tray is None)
-        self.shortcuts = Shortcuts(
-            self.window,
-            {
-                "Ctrl+1": lambda: self.window.show_main_screen(1),
-                "Ctrl+2": lambda: self.window.show_main_screen(2),
-                "Ctrl+3": lambda: self.window.show_main_screen(3),
-                "Ctrl+4": lambda: self.window.show_main_screen(4),
-                "Ctrl+5": lambda: self.window.show_main_screen(5),
-                "Ctrl+,": lambda: self.window.show_screen("settings"),
-                "F1": self.show_shortcuts,
-            },
-        )
+        actions: dict[str, Callable[[], None]] = {
+            "Ctrl+1": lambda: self.window.show_main_screen(1),
+            "Ctrl+2": lambda: self.window.show_main_screen(2),
+            "Ctrl+3": lambda: self.window.show_main_screen(3),
+            "Ctrl+4": lambda: self.window.show_main_screen(4),
+            "Ctrl+5": lambda: self.window.show_main_screen(5),
+            "Ctrl+,": lambda: self.window.show_screen("settings"),
+            "F1": self.show_shortcuts,
+        }
+        if services.grafts is not None:
+            actions |= {
+                "Ctrl+N": self.add_replacement,
+                "Ctrl+Z": lambda: self._replacements_button("undo"),
+                "Shift+Ctrl+Z": lambda: self._replacements_button("redo"),
+                "Ctrl+Return": self.apply_now,
+            }
+        self.shortcuts = Shortcuts(self.window, actions)
         services.tendrils.slow.connect(self.window.dew.show_job)
         services.tendrils.submitted.connect(self._report_job_end)
         if services.routing is not None:
@@ -400,6 +407,22 @@ class Shell:
             sprout.repair_certificate()
         else:
             sprout.start_routing()
+
+    def add_replacement(self) -> None:
+        """Ctrl+N: show Replacements and open the editor drawer."""
+        self.window.show_screen("replacements")
+        screen = self.window.screens["replacements"]
+        if isinstance(screen, ReplacementsScreen):
+            screen.add_replacement()
+
+    def _replacements_button(self, name: str) -> None:
+        """Ctrl+Z and Shift+Ctrl+Z: undo or redo replacement edits, on the Replacements screen.
+
+        A focused text field keeps its own undo (Qt gives it the key first).
+        """
+        screen = self.window.screens["replacements"]
+        if isinstance(screen, ReplacementsScreen) and self.window.stack.currentWidget() is screen:
+            getattr(screen, name).click()  # a disabled button ignores the click
 
     def apply_now(self) -> None:
         """Apply now (spec S-24): publish the replacements, then restart Roblox if it runs."""
