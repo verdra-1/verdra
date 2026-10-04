@@ -174,7 +174,7 @@ class Interception:
 
     def wants(self, host: str, port: int) -> bool:  # noqa: ARG002 - the set holds hosts only
         """Return whether a CONNECT to host:port is intercepted (S-11 rule 5)."""
-        return host.lower() in self.hosts()
+        return rules.host_name(host) in self.hosts()  # any case, with or without the root dot
 
     async def serve(
         self, host: str, port: int, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
