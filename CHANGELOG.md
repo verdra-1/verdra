@@ -10,6 +10,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 - Preview changes on the Replacements screen: every asset that will change, grouped by type, the
   replacement that wins, the profile it comes from, what it overrides, and the totals.
+- Mesh conversion for replacements: Roblox mesh files (versions 1.00 to 5.00) and OBJ read;
+  version 2.00 meshes and OBJ written; damaged or oversized meshes refused with a plain reason.
 - Image conversion for replacements: KTX2 (plain, Zstandard-compressed and the common block
   formats), PNG, JPEG and DDS read to pixels; KTX2 and PNG written; oversized images and
   decompression bombs refused with a plain reason.
