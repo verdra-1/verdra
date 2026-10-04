@@ -493,3 +493,32 @@ def test_expect_100_continue_is_answered_before_the_body(tmp_path: Path) -> None
         assert server.received[0].body == b"data"
 
     run(body)
+
+
+def test_a_client_that_leaves_mid_response_is_not_logged_as_an_upstream_failure(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Roblox drops a video segment it no longer needs (seen on sc5.rbxcdn.com, Stage 2).
+    size = 32 * 1024 * 1024
+    large = b"HTTP/1.1 200 OK\r\nContent-Length: " + str(size).encode() + b"\r\n\r\n" + b"v" * size
+    server = FakeServer(tmp_path, {b"/segment": large})
+
+    def closed() -> list[str]:
+        return [r.getMessage() for r in caplog.records if "Closed a connection" in r.getMessage()]
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect()
+            client.writer.write(get(b"/segment"))
+            await client.writer.drain()
+            await client.reader.readuntil(b"\r\n\r\n")
+            client.writer.transport.abort()
+            while not closed():
+                await asyncio.sleep(0.01)
+
+    with caplog.at_level(logging.DEBUG, logger="verdra.roots.hyphae"):
+        run(body)
+    messages = [r.getMessage() for r in caplog.records]
+    assert not [m for m in messages if m.startswith("Upstream")], messages
+    assert any(m.startswith(f"The client left {HOST} mid-response") for m in messages), messages
+    assert closed() == [f"Closed a connection to {HOST}: the client left"]

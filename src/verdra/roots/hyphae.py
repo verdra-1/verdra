@@ -202,6 +202,10 @@ class Interception:
             log.debug("The TLS observer failed on %s: %s", host, type(error).__name__)
 
 
+class ClientLeftError(ConnectionError):
+    """The client closed its connection while Verdra was still writing to it."""
+
+
 @dataclass(slots=True)
 class _Side:
     """One h11 connection and the stream under it."""
@@ -210,6 +214,7 @@ class _Side:
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     timeout: float
+    client: bool = False
 
     async def next_event(self) -> object:
         while True:
@@ -228,7 +233,12 @@ class _Side:
             data = self.conn.send(event)
             if data:
                 self.writer.write(data)
-        await self.writer.drain()
+        try:
+            await self.writer.drain()
+        except OSError as error:
+            if self.client:
+                raise ClientLeftError from error
+            raise
 
 
 class Body:
@@ -297,6 +307,7 @@ class Hyphae:
             reader,
             writer,
             self.timeout,
+            client=True,
         )
         try:
             while True:
@@ -357,6 +368,12 @@ class Hyphae:
             if callback is not None:
                 callback(error.host, error.reason)
             await self._fail(client, error)
+        except ClientLeftError as error:
+            # Not an upstream failure: Roblox stopped reading (it drops video segments it no
+            # longer needs, for example). Nothing can be answered on a closed connection.
+            log.debug("The client left %s mid-response: %s", self.host, error.__cause__)
+            await self._close_upstream()
+            raise h11.RemoteProtocolError("the client left") from error
         except (OSError, TimeoutError, h11.ProtocolError) as error:
             log.debug("Upstream %s failed: %s", self.host, veil.redact_text(str(error)))
             await self._fail(client, error)
