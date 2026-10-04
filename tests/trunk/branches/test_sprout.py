@@ -111,19 +111,22 @@ def test_the_certificate_goes_into_every_player_folder_and_never_studio(
     found, old, studio = installed
     vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
     ledger = scar.Ledger(tmp_path / "changes.json")
+    # Windows reports a read-only file as 0o444, POSIX as 0o400: compare with what it was.
+    read_only = stat.S_IMODE(old.stat().st_mode)
+    assert not read_only & stat.S_IWUSR
     sprout.add_certificate(found, vault, ledger, NOW)
     assert len(found.trust_files) == 2
     for path in found.trust_files:
         assert terrain.CA_BEGIN_MARKER.encode() in path.read_bytes()
     assert studio.read_bytes() == PEM
-    assert stat.S_IMODE(old.stat().st_mode) == stat.S_IMODE(stat.S_IREAD)
+    assert stat.S_IMODE(old.stat().st_mode) == read_only
     assert [e.kind for e in ledger.entries()] == ["ca_roblox_bundle"] * 2
     # Reset gives every trust file back byte for byte, read-only flag included.
     summary = fallow.reset(ledger.path, vault=vault, cert_file=tmp_path / "ca.crt")
     assert summary.failed == []
     for path in found.trust_files:
         assert path.read_bytes() == PEM
-    assert stat.S_IMODE(old.stat().st_mode) == stat.S_IMODE(stat.S_IREAD)
+    assert stat.S_IMODE(old.stat().st_mode) == read_only
 
 
 def test_a_client_with_an_unconfirmed_fact_never_gets_the_certificate(tmp_path: Path) -> None:
