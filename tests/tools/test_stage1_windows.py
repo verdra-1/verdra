@@ -81,11 +81,13 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     report.parent.mkdir()
     before = {p: p.stat().st_mtime_ns for p in tmp_path.rglob("*")}
     files = {p: p.read_bytes() for p in before if p.is_file()}
+    # Upper case: on Windows `os.environ` keeps names in upper case, and a second spelling of
+    # the same name would reach the script as a duplicate that loses (CI run 37163543239).
     environment = os.environ | {
         "LOCALAPPDATA": str(local),
         "USERPROFILE": str(tmp_path),
-        "ProgramFiles": str(programs),
-        "ProgramFiles(x86)": str(tmp_path / "Program Files (x86)"),
+        "PROGRAMFILES": str(programs),
+        "PROGRAMFILES(X86)": str(tmp_path / "Program Files (x86)"),
     }
     powershell = shutil.which("powershell.exe")
     assert powershell is not None
