@@ -221,6 +221,7 @@ def compile_snapshot(profiles: Sequence[Profile]) -> Compiled:
                 value=replacement.target.value,
                 profile=profile.name,
                 replacement=replacement.id,
+                asset_type=replacement.asset_type,
             )
             if key in grafts:
                 overridden.setdefault(key, []).insert(0, grafts[key])
@@ -230,6 +231,44 @@ def compile_snapshot(profiles: Sequence[Profile]) -> Compiled:
         MappingProxyType({key: tuple(value) for key, value in overridden.items()}),
     )
     return Compiled(snapshot, tuple(left_out))
+
+
+# --- Preview changes (spec S-23) -------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewRow:
+    """One original that will change: the winner, and what it overrides."""
+
+    winner: rules.Graft
+    overridden: tuple[rules.Graft, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Preview:
+    """What Apply now would change, grouped by asset type (S-23)."""
+
+    groups: dict[str, tuple[PreviewRow, ...]]
+    changes: int
+    conflicts: int
+
+
+def preview(snapshot: rules.GraftSnapshot) -> Preview:
+    """Describe a snapshot for Preview changes: the same snapshot the proxy uses (rule 1).
+
+    A conflict is an original (asset ID and slot) named by more than one enabled replacement;
+    the count is of such originals, not of the replacements they override (rule 2).
+    """
+    groups: dict[str, list[PreviewRow]] = {}
+    for key in sorted(snapshot.grafts, key=lambda k: (k[0], k[1] or "")):
+        winner = snapshot.grafts[key]
+        row = PreviewRow(winner, tuple(snapshot.overridden.get(key, ())))
+        groups.setdefault(winner.asset_type or "", []).append(row)
+    return Preview(
+        {kind: tuple(rows) for kind, rows in sorted(groups.items())},
+        changes=len(snapshot.grafts),
+        conflicts=sum(1 for key in snapshot.grafts if snapshot.overridden.get(key)),
+    )
 
 
 # --- The store (S-20) ---------------------------------------------------------------------------
@@ -528,6 +567,10 @@ class Grafts(QObject):
     def profiles(self) -> list[Profile]:
         """The profiles, highest first (read only: edit through the methods)."""
         return self.store.profiles
+
+    def preview(self) -> Preview:
+        """Preview changes (S-23): what the next Apply now publishes."""
+        return preview(self.store.compile().snapshot)
 
     def publish(self) -> int:
         """Compile and publish the snapshot; return how many originals it replaces."""

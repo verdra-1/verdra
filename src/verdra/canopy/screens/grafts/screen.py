@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.leaves.empty import EmptyState, soon
 from verdra.canopy.screens.grafts.editor import Editor
+from verdra.canopy.screens.grafts.preview import PreviewDialog
 from verdra.trunk.branches import grafts
 
 
@@ -120,7 +121,9 @@ class ReplacementsScreen(QWidget):
         self.undo.clicked.connect(lambda: self._edit("undo"))
         self.redo = QPushButton(self.tr("Redo"), host)
         self.redo.clicked.connect(lambda: self._edit("redo"))
-        for button in (self.add, self.remove, self.undo, self.redo):
+        self.preview = QPushButton(self.tr("Preview changes"), host)
+        self.preview.clicked.connect(self.show_preview)
+        for button in (self.add, self.remove, self.undo, self.redo, self.preview):
             tools.addWidget(button)
         tools.addStretch(1)
         middle.addLayout(tools)
@@ -161,6 +164,11 @@ class ReplacementsScreen(QWidget):
         self._show_replacements()
         self.undo.setEnabled(service.store.can_undo)
         self.redo.setEnabled(service.store.can_redo)
+
+    def show_preview(self) -> None:
+        """Preview changes (spec S-23)."""
+        if self.service is not None:
+            PreviewDialog(self.service.preview(), self).exec()
 
     def selected_id(self) -> str | None:
         """Return the selected profile's ID."""

@@ -40,3 +40,7 @@ Show exactly what will change before it changes.
 ## Refinements from the plan
 
 - Rule 2 defines what a conflict counts, which the plan's example leaves open.
+- M-PREV-01 has two counts, so it is two plural entries in the catalogue ("<n> assets will change;"
+  and "<n> conflicts.", each with its own count) joined by a space; each gets its own singular and plural form.
+- Each replacement carries its original's asset type into the snapshot, so the preview groups
+  by the same snapshot the proxy uses.

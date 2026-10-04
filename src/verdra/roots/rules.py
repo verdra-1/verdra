@@ -153,6 +153,8 @@ class Graft:
     #: Where it comes from, for Preview changes and warnings.
     profile: str
     replacement: str
+    #: The original's asset type as the profile names it ("Image", "Mesh"…), for Preview changes.
+    asset_type: str = ""
 
 
 @dataclass(frozen=True, slots=True)
