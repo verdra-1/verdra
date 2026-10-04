@@ -252,6 +252,20 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-01</name>
+    <message>
+        <source>No asset with ID {id} was found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-03</name>
+    <message>
+        <source>Only HTTPS links are allowed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>
@@ -282,6 +296,13 @@
     </message>
     <message>
         <source>Launch Roblox</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-02</name>
+    <message>
+        <source>The file for this replacement is missing: {path}.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -481,6 +502,46 @@
     <name>M-ONB-10</name>
     <message>
         <source>Open games from the Roblox website through Verdra (link handler)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-01</name>
+    <message>
+        <source>A profile named {name} already exists.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-04</name>
+    <message>
+        <source>Enter a name for the profile.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A profile name can&apos;t contain &lt; &gt; : &quot; / \ | ? or *.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This name can&apos;t be used for a file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A profile name can be at most {n} characters.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-05</name>
+    <message>
+        <source>A profile can hold at most {n} replacements.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-06</name>
+    <message>
+        <source>The profile file {file} couldn&apos;t be read, so Verdra set it aside as {moved}.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

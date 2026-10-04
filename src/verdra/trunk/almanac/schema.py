@@ -150,6 +150,13 @@ class TrafficRule(Struct, kw_only=True):
     enabled: bool = True
 
 
+class Replacements(Struct, kw_only=True):
+    """Replacements screen state that decides behavior (spec S-20)."""
+
+    #: Profile IDs, highest first: the higher profile wins for the same original (S-20 rule 1).
+    profile_order: list[str] = field(default_factory=list)
+
+
 class Traffic(Struct, kw_only=True):
     """Feature state edited on the Traffic screen."""
 
@@ -168,6 +175,7 @@ class Settings(Struct, kw_only=True):
     advanced: Advanced = field(default_factory=Advanced)
     tweaks: Tweaks = field(default_factory=Tweaks)
     accounts: Accounts = field(default_factory=Accounts)
+    replacements: Replacements = field(default_factory=Replacements)
     traffic: Traffic = field(default_factory=Traffic)
 
 

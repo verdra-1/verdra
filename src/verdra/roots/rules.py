@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Immutable rule snapshot types shared by trunk and the proxy.
 
-So far: the hosts of plan 10.2, which the diagnostic interception (S-11) and the coexistence
-check (S-15) both use, and the protected endpoints (plan 16.2) that no feature may touch.
+The hosts of plan 10.2, which the interception (S-11, S-21) and the coexistence check (S-15)
+use; the protected endpoints (plan 16.2) that no feature may touch; and the replacement snapshot
+(S-21) that trunk compiles and the proxy reads.
 """
 
 from __future__ import annotations
@@ -11,7 +12,10 @@ from __future__ import annotations
 import itertools
 import posixpath
 import re
-from typing import Final
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Final, Literal
 from urllib.parse import unquote
 
 #: Plan 10.2: the hosts Verdra may decrypt while a feature needs them, exactly as confirmed by
@@ -122,3 +126,75 @@ def refuse_protected(host: str, target: str | bytes) -> None:
     protected endpoint. Every rule a feature makes passes through here (plan 16.2)."""
     if is_protected(host, target):
         raise ProtectedEndpointError(f"{host_name(host)}{canonical_path(target)}")
+
+
+# --- Replacements (specs S-20, S-21) -------------------------------------------------------------
+
+#: Plan 10.2: where asset batches are rewritten, and where asset content is served from (V1).
+ASSET_BATCH_HOST: Final = "assetdelivery.roblox.com"
+ASSET_BATCH_PATH: Final = "/v1/assets/batch"
+ASSET_CONTENT_HOST: Final = "fts.rbxcdn.com"
+
+TargetKind = Literal["asset_id", "file", "url", "remove"]
+Slot = Literal["color", "normal", "metalness", "roughness"]
+#: An original asset, and the TexturePack map it names (None for the whole asset).
+Original = tuple[int, Slot | None]
+
+
+@dataclass(frozen=True, slots=True)
+class Graft:
+    """One replacement as the proxy uses it: the original, and what to send instead."""
+
+    original: int
+    slot: Slot | None
+    kind: TargetKind
+    #: The target asset ID in decimal, a file path, an HTTPS URL, or "" for remove.
+    value: str
+    #: Where it comes from, for Preview changes and warnings.
+    profile: str
+    replacement: str
+
+
+@dataclass(frozen=True, slots=True)
+class GraftSnapshot:
+    """The winning replacement for each original, and the ones each winner overrides (S-23).
+
+    Immutable: the proxy reads one snapshot for a whole request, and a new one is swapped in
+    whole (S-21).
+    """
+
+    grafts: Mapping[Original, Graft] = field(default_factory=lambda: MappingProxyType({}))
+    overridden: Mapping[Original, tuple[Graft, ...]] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+
+    def swaps(self) -> dict[int, int]:
+        """Return {original asset ID: target asset ID} for the whole-asset ID swaps."""
+        return {
+            graft.original: int(graft.value)
+            for (original, slot), graft in self.grafts.items()
+            if slot is None and graft.kind == "asset_id"
+        }
+
+    def hosts(self) -> frozenset[str]:
+        """Return the hosts this snapshot needs decrypted (plan 10.1: only what a feature uses)."""
+        if not self.grafts:
+            return frozenset()
+        if all(g.kind == "asset_id" and g.slot is None for g in self.grafts.values()):
+            return frozenset({ASSET_BATCH_HOST})
+        return frozenset({ASSET_BATCH_HOST, ASSET_CONTENT_HOST})
+
+
+class SnapshotHolder:
+    """The current snapshot, published from the Qt thread and read on the proxy's thread.
+
+    Replacing the attribute is one reference assignment, so a reader sees the old snapshot or the
+    new one, never a mix.
+    """
+
+    def __init__(self) -> None:
+        self.current = GraftSnapshot()
+
+    def publish(self, snapshot: GraftSnapshot) -> None:
+        """Make `snapshot` the one every new request uses."""
+        self.current = snapshot

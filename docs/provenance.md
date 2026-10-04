@@ -71,7 +71,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/roots/litmus.py` | Master plan 10.2, 16.2 (diagnostic interception at M1), spec S-11 (tests 9 and 10), decision record 0015; Python `ssl.SSLObject` documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/mycelium.py` | Master plan 8.3, 10.1, 10.2, spec S-11 (rules 1 and 2, tests 2, 6, 7; hand-off to interception); RFC 9110 9.3.6 (CONNECT); Python `asyncio` streams documentation | PySide6 (translations) | 2026-10-03 |
 | `verdra/roots/owl.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/roots/rules.py` | Master plan 10.2 (intercepted hosts) and 16.2 (the host list confirmed at M1, protected endpoints); specs S-11 (diagnostic hosts, rule 6), S-15 (hosts-file sign); RFC 3986 sections 2.1 and 5.2.4 (percent-encoding, dot segments); Python's `urllib.parse.unquote` and `posixpath.normpath` documentation | — | 2026-10-04 |
+| `verdra/roots/rules.py` | Master plan 10.2 (intercepted hosts) and 16.2 (the host list confirmed at M1, protected endpoints); specs S-11 (diagnostic hosts, rule 6), S-15 (hosts-file sign); RFC 3986 sections 2.1 and 5.2.4 (percent-encoding, dot segments); Python's `urllib.parse.unquote` and `posixpath.normpath` documentation; spec S-21 (the graft snapshot types) | — | 2026-10-04 |
 | `verdra/roots/symbionts/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/roots/symbionts/forager.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -132,7 +132,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/trunk/branches/climate.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/cuttings.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/fallow.py` | Master plan 9.4, Reference R1, spec S-16 (System changes list) | `bark/scar` | 2026-10-03 |
-| `verdra/trunk/branches/grafts.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/trunk/branches/grafts.py` | Master plan 9.2, 9.3 (`verdra.profile` v1), 9.7 (atomic writes, `.bak`, broken files); spec S-20 (store, order, undo and redo, names, limits) and S-21 (snapshot compile); Microsoft's documentation of file names that Windows reserves | msgspec | 2026-10-04 |
 | `verdra/trunk/branches/hive.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/mimicry.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/trunk/branches/pollen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
