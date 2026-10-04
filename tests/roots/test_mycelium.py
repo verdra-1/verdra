@@ -229,3 +229,32 @@ def test_an_unreachable_upstream_gives_502() -> None:
             return reply
 
     assert run(body).startswith(b"HTTP/1.1 502 ")
+
+
+def test_every_connect_target_is_reported_and_a_failing_observer_breaks_nothing() -> None:
+    """S-14 Degraded (a) clears on Roblox traffic: the proxy reports each CONNECT target."""
+    seen: list[tuple[str, int]] = []
+
+    def observe(host: str, port: int) -> None:
+        seen.append((host, port))
+        raise RuntimeError("an observer's own bug")
+
+    async def body() -> bytes:
+        upstream = await asyncio.start_server(lambda _r, w: w.close(), "127.0.0.1", 0)
+        port = upstream.sockets[0].getsockname()[1]
+        server = mycelium.Mycelium(0, direct, on_connect=observe)
+        await server.start()
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            writer.write(f"CONNECT 127.0.0.1:{port} HTTP/1.1\r\n\r\n".encode())
+            await writer.drain()
+            reply = await reader.readuntil(b"\r\n\r\n")
+            writer.close()
+            return reply
+        finally:
+            await server.stop()
+            upstream.close()
+            await upstream.wait_closed()
+
+    assert run(body).startswith(b"HTTP/1.1 200 ")
+    assert [host for host, _port in seen] == ["127.0.0.1"]

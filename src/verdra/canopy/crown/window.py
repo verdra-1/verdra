@@ -33,6 +33,7 @@ from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
 from verdra.canopy.crown.splash import Splash
 from verdra.canopy.crown.tray import Tray
+from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.screens.garden import TweaksScreen
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
@@ -75,6 +76,8 @@ class MainWindow(QMainWindow):
     about_requested = Signal()
     setup_requested = Signal()
     erase_requested = Signal()
+    #: "Launch Roblox" was pressed (Library empty state, spec S-12).
+    launch_requested = Signal()
 
     def __init__(self, services: Services | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -114,7 +117,10 @@ class MainWindow(QMainWindow):
         self.dew = Dew(self)
         self.screens: dict[str, QWidget] = {
             "replacements": ReplacementsScreen(self.stack),
-            "library": LibraryScreen(self.stack),
+            "library": LibraryScreen(
+                self.stack,
+                self.launch_requested.emit if services and services.sprout else None,
+            ),
             "tweaks": TweaksScreen(self.stack),
             "accounts": AccountsScreen(self.stack),
             "traffic": TrafficScreen(self.stack),
@@ -239,6 +245,12 @@ class Shell:
         self.window.about_requested.connect(self.show_about)
         self.window.setup_requested.connect(self.run_setup)
         self.window.erase_requested.connect(self.quit_and_erase)
+        self.window.launch_requested.connect(self.launch_roblox)
+        if services.sprout is not None:
+            services.sprout.refused.connect(self.show_launch_notice)
+            popover = self.window.header.popover
+            popover.set_handled({"start", "retry", "restart_roblox"})
+            popover.fix_requested.connect(self.fix_routing)
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
@@ -337,19 +349,33 @@ class Shell:
             screen.start_reset()
 
     def activate(self, link: str) -> None:
-        """Bring the window forward; a `roblox-player:` link is handed on from M1 (S-12)."""
+        """Bring the window forward; a `roblox-player:` link starts Roblox through Verdra (S-12)."""
         self.window.showNormal()
         self.window.raise_()
         self.window.activateWindow()
-        if link:
-            log.info(
-                "%s",
-                QCoreApplication.translate(
-                    "M-SHELL-03",
-                    "Verdra received a Roblox link. Opening games from links isn't available "
-                    "in this version yet.",
-                ),
-            )
+        if link and self.services.sprout is not None:
+            self.services.sprout.launch(link)
+
+    # --- Routing and launching (spec S-12) ------------------------------------------------
+
+    def launch_roblox(self) -> None:
+        """Start Roblox through Verdra; a refusal shows as a notice (`show_launch_notice`)."""
+        if self.services.sprout is not None:
+            self.services.sprout.launch()
+
+    def fix_routing(self, key: str) -> None:
+        """Run the routing popover's fix (spec S-14): start, try again, or relaunch Roblox."""
+        sprout = self.services.sprout
+        if sprout is None:
+            return
+        if key == "restart_roblox":
+            sprout.launch()
+        else:
+            sprout.start_routing()
+
+    def show_launch_notice(self, text: str) -> None:
+        """Show why routing or a launch didn't happen (M-LAUNCH-01, -04, -05, M-CA-01)."""
+        self.window.notices.addWidget(Notice(text, Tone.WARNING, self.window, dismissible=True))
 
     # --- Closing and quitting -------------------------------------------------------------
 
@@ -381,7 +407,27 @@ class Shell:
         self.quit()
 
     def quit(self) -> None:
-        """Quit Verdra (shutdown runs from the application's aboutToQuit)."""
+        """Quit Verdra (shutdown runs from the application's aboutToQuit).
+
+        If a Roblox Verdra launched is still running and Verdra won't close it on quit, M-SHELL-02
+        asks first (spec S-12, "Closing on quit").
+        """
+        sprout = self.services.sprout
+        if (
+            sprout is not None
+            and not self.services.settings.value("routing.close_roblox_on_quit")
+            and sprout.roblox_running()
+        ):
+            question = DestructiveConfirmation(
+                QCoreApplication.translate("M-SHELL-02", "Quit Verdra while Roblox is running?"),
+                QCoreApplication.translate("M-SHELL-02", "Quit"),
+                QCoreApplication.translate(
+                    "M-SHELL-02", "Your replacements stop the next time Roblox starts."
+                ),
+                self.window,
+            )
+            if question.exec() != DestructiveConfirmation.DialogCode.Accepted:
+                return
         self.window.save_state()
         self.window.allow_close = True
         self.window.close()

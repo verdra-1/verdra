@@ -165,6 +165,13 @@
     </message>
 </context>
 <context>
+    <name>M-CA-01</name>
+    <message>
+        <source>Verdra couldn&apos;t add its certificate to Roblox at {path}: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-CA-02</name>
     <message>
         <source>Roblox updated. Verdra added its certificate to the new version.</source>
@@ -278,6 +285,13 @@
     <name>M-LAUNCH-05</name>
     <message>
         <source>Verdra can&apos;t route a Roblox installed for all users: that needs administrator rights, which routing per app never uses. Install Roblox for your account only, then try again. Nothing was changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-06</name>
+    <message>
+        <source>Verdra couldn&apos;t take over Roblox links: {reason}.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -428,6 +442,13 @@
     <name>M-ONB-10</name>
     <message>
         <source>Open games from the Roblox website through Verdra (link handler)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROXY-01</name>
+    <message>
+        <source>Verdra couldn&apos;t start routing: port {port} is in use and no other port was free.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -701,9 +722,17 @@
     </message>
 </context>
 <context>
-    <name>M-SHELL-03</name>
+    <name>M-SHELL-02</name>
     <message>
-        <source>Verdra received a Roblox link. Opening games from links isn&apos;t available in this version yet.</source>
+        <source>Quit Verdra while Roblox is running?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Your replacements stop the next time Roblox starts.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

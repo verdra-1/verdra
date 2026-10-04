@@ -6,7 +6,7 @@
 **Plan sections:** 7.9 (onboarding routing step), 7.10 (tray), 9.4, 10.1 (per-app routing), 11.1–11.3
 (discovery, launching, link handling, Microsoft Store; confirm at M1), 15 (R-04, R-05),
 Reference R2 (`routing.mode`, `routing.handle_roblox_links`, `routing.close_roblox_on_quit`),
-R3 (URL scheme, handler identifiers), R5 (M-LAUNCH-01 to M-LAUNCH-05, M-SHELL-02)
+R3 (URL scheme, handler identifiers), R5 (M-LAUNCH-01 to M-LAUNCH-06, M-SHELL-02)
 
 ## Purpose
 
@@ -63,6 +63,7 @@ Start Roblox through Verdra on every platform without administrator rights.
 - M-LAUNCH-05 (Notice, new) "Verdra can't route a Roblox installed for all users: that needs
   administrator rights, which routing per app never uses. Install Roblox for your account only,
   then try again. Nothing was changed."
+- M-LAUNCH-06 (Activity, new) "Verdra couldn't take over Roblox links: <reason>."
 - M-SHELL-02 (Dialog, new) "Quit Verdra while Roblox is running? Your replacements stop the next
   time Roblox starts." Buttons "Quit", "Cancel".
 

@@ -25,13 +25,14 @@ import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 import psutil
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from verdra.bark import husk, resin, scar
-from verdra.roots import gardener
+from verdra.roots import gardener, hyphae, mycelium, taproot
 from verdra.soil import humus, terrain
 
 log = logging.getLogger(__name__)
@@ -220,3 +221,176 @@ class Launches:
             except psutil.Error:
                 continue
         self.started.clear()
+
+
+# --- Routing and launching together ---------------------------------------------------------------
+
+
+class Settings(Protocol):
+    """What `Sprout` reads from the settings store (trunk/almanac)."""
+
+    def value(self, key: str) -> Any:
+        """Return a setting's value."""
+        ...
+
+
+class Sprout(QObject):
+    """Starts routing and launches Roblox through it (S-12; the order of plan 10.1).
+
+    Starting routing: choose the client (a refusal is reported, nothing changes), put Verdra's
+    CA into its Player folders, start the proxy on its own thread, take over `roblox-player:`
+    links if `routing.handle_roblox_links` is on, and watch for new Roblox versions. Launching
+    starts routing first if needed, then the client with the proxy variables, and opens the
+    launch window of the routing status (S-14).
+
+    With `diagnose`, the proxy intercepts the 10.2 hosts read-only and logs their TLS details
+    (roots/litmus, source runs only, decision record 0015); otherwise every connection is a
+    blind tunnel, as no feature intercepts anything yet.
+
+    Signals:
+        refused(str): Why routing or a launch didn't happen, as the sentence to show.
+    """
+
+    refused = Signal(str)
+
+    def __init__(
+        self,
+        settings: Settings,
+        status: gardener.RoutingStatusSource,
+        *,
+        platform: humus.Platform | None = None,
+        ledger: Callable[[], scar.Ledger] = scar.Ledger,
+        vault: Callable[[], husk.Husk] = husk.Husk,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        launches: Launches | None = None,
+        connect: mycelium.Connector | None = None,
+        diagnose: bool = False,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.settings = settings
+        self.status = status
+        self.platform = platform or humus.current()
+        self.ledger = ledger
+        self.vault = vault
+        self.clock = clock
+        self.launches = launches or Launches(platform=self.platform)
+        self.connector = connect or self._open_tunnel
+        self.diagnose = diagnose
+        self.router = gardener.Router(status, self)
+        self.client: humus.RobloxClient | None = None
+        self.watch: gardener.VersionWatch | None = None
+
+    @property
+    def routing(self) -> bool:
+        """Whether the proxy is running."""
+        return self.router.running
+
+    def start_routing(self) -> Refused | None:
+        """Start routing; return why not, after reporting it through `refused`."""
+        if self.router.running:
+            return None
+        choice = choose(self.platform.roblox_clients())
+        if isinstance(choice, Refused):
+            return self._refuse(choice)
+        ledger = self.ledger()
+        try:
+            authority = add_certificate(choice, self.vault(), ledger, self.clock())
+        except OSError as error:
+            path = error.filename or (choice.trust_files[0] if choice.trust_files else "")
+            return self._refuse(
+                Refused(
+                    "M-CA-01",
+                    QCoreApplication.translate(
+                        "M-CA-01",
+                        "Verdra couldn't add its certificate to Roblox at {path}: {reason}.",
+                    ).format(path=path, reason=error.strerror or error),
+                )
+            )
+        interceptor = self._diagnostic(authority) if self.diagnose else None
+        try:
+            self.router.start(
+                int(self.settings.value("routing.proxy_port")), self.connector, interceptor
+            )
+        except mycelium.ProxyStartError:
+            return Refused("M-PROXY-01", self.status.current.reason)
+        self.client = choice
+        self._links(ledger)
+        self.watch = gardener.VersionWatch(
+            choice.install_folders,
+            self.platform.trust_files_in,
+            authority.certificate,
+            ledger,
+            self,
+        )
+        return None
+
+    def stop_routing(self) -> None:
+        """Stop the proxy; routing is Idle. Changes stay recorded for Reset everything."""
+        if self.watch is not None:
+            self.watch.deleteLater()
+            self.watch = None
+        self.router.stop()
+
+    def launch(self, link: str | None = None) -> Refused | None:
+        """Start routing if needed, then Roblox with `link` (unchanged); return why not."""
+        refused = self.start_routing()
+        if refused is not None:
+            return refused
+        assert self.client is not None and self.router.port is not None  # noqa: S101 - just started
+        self.launches.launch(self.client, link, self.router.port)
+        self.status.launched()
+        return None
+
+    def roblox_running(self) -> bool:
+        """Whether a Roblox Verdra launched is still running (M-SHELL-02)."""
+        return bool(self.launches.running())
+
+    def quit(self) -> None:
+        """Shutdown's routing steps: close Roblox if the setting says so, then stop routing."""
+        if self.settings.value("routing.close_roblox_on_quit"):
+            self.launches.close_all()
+        self.stop_routing()
+
+    def _refuse(self, refused: Refused) -> Refused:
+        log.warning("%s", refused.text)
+        self.refused.emit(refused.text)
+        return refused
+
+    def _links(self, ledger: scar.Ledger) -> None:
+        """Take over (or give back) `roblox-player:` links as the setting says (S-12)."""
+        try:
+            set_link_handling(
+                bool(self.settings.value("routing.handle_roblox_links")), ledger, self.platform
+            )
+        except LinkHandlingUnavailableError:
+            return
+        except OSError as error:
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-LAUNCH-06", "Verdra couldn't take over Roblox links: {reason}."
+                ).format(reason=error.strerror or error),
+            )
+
+    async def _open_tunnel(self, host: str, port: int) -> mycelium.Streams:
+        return await taproot.open_tunnel(self._transport(), host, port, self.router.port or 0)
+
+    def _transport(self) -> taproot.Transport:
+        """The internet connection from Settings › Routing (`routing.upstream.*`)."""
+        return taproot.Transport(
+            kind=self.settings.value("routing.upstream.kind"),
+            host=str(self.settings.value("routing.upstream.host")),
+            port=int(self.settings.value("routing.upstream.port")),
+            username=str(self.settings.value("routing.upstream.username")),
+        )
+
+    def _diagnostic(self, authority: resin.Authority) -> mycelium.Interceptor:
+        from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision record 0015)
+
+        async def open_upstream(host: str, port: int) -> mycelium.Streams:
+            return await taproot.open_tls(
+                self._transport(), host, port, proxy_port=self.router.port or 0
+            )
+
+        return litmus.interception(hyphae.LeafContexts(authority), open_upstream)

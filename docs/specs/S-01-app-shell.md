@@ -159,8 +159,9 @@ offers at most one action. Every toast is also written to Activity (S-03).
 - M-RESET-04 (retired with S-16 part 2): `verdra --reset-everything` printed it until Reset
   everything was built; the command now runs S-16. The ID isn't reused.
 - Activity lines (new, kind Activity; plan 16.2, M0 review round 3: every line written for the
-  user has an ID): M-SHELL-03 "Verdra received a Roblox link. Opening games from links isn't
-  available in this version yet."; M-SHELL-04 "Verdra's translations couldn't be loaded, so it
+  user has an ID): M-SHELL-03 (retired with S-12: a link now starts Roblox through Verdra; the
+  ID isn't reused) "Verdra received a Roblox link. Opening games from links isn't available in
+  this version yet."; M-SHELL-04 "Verdra's translations couldn't be loaded, so it
   shows English text."; M-SHELL-05 "Verdra <version> started on <system>."; M-SHELL-06 "Verdra
   couldn't set up its single-instance check, so opening Verdra again may start a second copy.";
   M-SHELL-07 "Another launch of Verdra brought this window to the front."; M-SHELL-08 "Verdra is

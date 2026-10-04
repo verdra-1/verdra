@@ -130,6 +130,11 @@ All notable changes to Verdra are recorded here. The format follows
   version, never Studio's. Verdra can take over Roblox links from the browser and gives the
   previous handler back exactly. Where a needed fact isn't confirmed yet (Sober's certificates, a
   Roblox installed for all users), Verdra says so plainly and changes nothing.
+- Routing starts with Verdra once setup is done ("Start routing when Verdra opens"), on the
+  status popover's "Start routing", or when you launch Roblox: "Launch Roblox" in the Library and
+  Roblox links from the browser start Roblox through Verdra. The proxy runs on its own thread.
+  Quitting while a Roblox Verdra started is running asks first, unless Verdra is set to close
+  Roblox on quit.
 
 ### Changed
 
