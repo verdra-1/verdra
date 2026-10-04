@@ -19,7 +19,9 @@ In the report your user folder is written as %USERPROFILE%, so your user name is
 Run:  powershell -NoProfile -ExecutionPolicy Bypass -File stage1-windows.ps1
 #>
 param(
-    [string]$OutFile = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'verdra-stage1-windows.txt')
+    [string]$OutFile = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'verdra-stage1-windows.txt'),
+    # Where all-users installs live; the test passes its own folder here.
+    [string[]]$ProgramFolders = @(${env:ProgramFiles}, ${env:ProgramFiles(x86)})
 )
 
 $ErrorActionPreference = 'Continue'
@@ -66,7 +68,7 @@ if (Test-Path -LiteralPath $versions) {
 Add-Section 'W-02' 'All-users install'
 # An installer run as administrator installs for all users; on a CI runner it went to Program
 # Files, not Program Files (x86) (Platform facts run 37163188729), so both are checked.
-$allUsers = @(${env:ProgramFiles}, ${env:ProgramFiles(x86)} | Where-Object { $_ } | Sort-Object -Unique | ForEach-Object {
+$allUsers = @($ProgramFolders | Where-Object { $_ } | Sort-Object -Unique | ForEach-Object {
     Join-Path $_ 'Roblox\Versions'
 })
 foreach ($folder in $allUsers) {

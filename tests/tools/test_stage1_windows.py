@@ -81,19 +81,12 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     report.parent.mkdir()
     before = {p: p.stat().st_mtime_ns for p in tmp_path.rglob("*")}
     files = {p: p.read_bytes() for p in before if p.is_file()}
-    # Upper case: on Windows `os.environ` keeps names in upper case, and a second spelling of
-    # the same name would reach the script as a duplicate that loses (CI run 37163543239).
-    environment = os.environ | {
-        "LOCALAPPDATA": str(local),
-        "USERPROFILE": str(tmp_path),
-        "PROGRAMFILES": str(programs),
-        "PROGRAMFILES(X86)": str(tmp_path / "Program Files (x86)"),
-    }
+    environment = os.environ | {"LOCALAPPDATA": str(local), "USERPROFILE": str(tmp_path)}
     powershell = shutil.which("powershell.exe")
     assert powershell is not None
     result = subprocess.run(  # noqa: S603 - Windows PowerShell running the repository's script
         [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT),
-         "-OutFile", str(report)],
+         "-OutFile", str(report), "-ProgramFolders", str(programs)],
         env=environment, capture_output=True, text=True, timeout=120, check=False,
     )  # fmt: skip
     assert result.returncode == 0, result.stderr
@@ -114,6 +107,7 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     assert {p: p.read_bytes() for p in files} == files
     assert {p: after[p] for p in files} == {p: before[p] for p in files}
     text = report.read_text(encoding="utf-8-sig")
+    print(text)  # shown when an assertion below fails
     assert str(tmp_path) not in text  # the user folder is hidden
     assert r"%USERPROFILE%\AppData\Local\Roblox\Versions\version-0123456789abcdef" in text
     assert "RobloxPlayerBeta.exe | 21 bytes" in text
@@ -123,6 +117,5 @@ def test_the_script_reads_a_roblox_folder_and_writes_only_its_report(tmp_path: P
     assert f"Version folder: {shown}" in text
     assert "RobloxPlayerBeta.exe | 9 bytes" in text
     assert f"Present: {shown}\\ClientSettings" in text
-    assert r"Not present: %USERPROFILE%\Program Files (x86)\Roblox\Versions" in text
     assert "== W-10 The hosts file is readable as a normal user ==" in text
     assert text.rstrip().endswith("End of report.")
