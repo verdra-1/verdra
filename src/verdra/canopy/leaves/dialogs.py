@@ -57,6 +57,14 @@ class _Dialog(QDialog):
         self.buttons.addStretch()
         self.cancel = QPushButton(QCoreApplication.translate("Dialogs", "Cancel"), self)
         self.cancel.clicked.connect(self.reject)
+        # Detailed logging only: Activity shows a dialog when it appears; this line says how it
+        # was answered (Stage 2 on Windows showed M-SHELL-02 twice and couldn't tell why).
+        # A bound method, not a lambda: a lambda holding `self` would keep the dialog alive.
+        self.finished.connect(self._log_answer)
+
+    def _log_answer(self, result: int) -> None:
+        answer = "with its action" if result == QDialog.DialogCode.Accepted else "with Cancel"
+        log.debug("Dialog answered %s: %s", answer, self.windowTitle())
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
         """Write the dialog to Activity when it appears (Reference R5)."""

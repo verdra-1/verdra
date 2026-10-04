@@ -26,6 +26,17 @@ Filled in from [protocol.md](protocol.md). Until a row is `Confirmed`, no code m
 | L-07 | `/etc/hosts` is readable, and from inside the Flatpak it shows the host's file (S-15) | Same SHA-256 on the host and inside Sober's sandbox (`82f94686…3a1f`) | Confirmed on CI runner (Sober 1.8.0); Verdra's own Flatpak re-checks it | 2026-10-03 | [CI run](https://github.com/verdra-1/verdra/actions/runs/37162568047/job/111318887372), `evidence/linux/ci-run-37162568047.txt` |
 | V0 | Sober honors `HTTPS_PROXY` / `HTTP_PROXY` passed with `--env` | | Unconfirmed | | |
 
+## Real-machine stage 2 (deferred)
+
+Maintainer's decision, 2026-10-04: Linux stays on the CI runners for now. Stage 2 on Linux (Sober
+with a real game: L-02, L-03, L-04, L-06, V0, and R-17 for Sober) waits until a tester with a
+Linux PC can run it, at M2 or later. A virtual machine isn't an option: Sober's documentation
+says virtual machines aren't supported without passing the graphics card through.
+
+Until then, routing Sober stays behind the "unconfirmed" check: Verdra refuses it with the plain
+message M-LAUNCH-04 and changes nothing (spec S-12). M1 closes on Windows plus CI evidence for
+Linux, with this confirmation listed as open in `docs/m1/exit-gate.md`.
+
 ## Differences from the plan
 
 None recorded.

@@ -139,3 +139,16 @@ def test_another_tool_asks_and_try_again_checks_again(
     stub.other_tool.emit(text)  # "Cancel"
     assert shown == ["Try again", "Try again"]
     assert stub.calls == [("retry", None)]
+
+
+def test_how_a_dialog_was_answered_is_logged(
+    qtbot: QtBot, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Stage 2 showed M-SHELL-02 twice; the log must say how each was answered."""
+    for answer, said in ((QDialog.accept, "with its action"), (QDialog.reject, "with Cancel")):
+        dialog = DestructiveConfirmation("Quit Verdra while Roblox is running?", "Quit")
+        qtbot.addWidget(dialog)
+        with caplog.at_level("DEBUG", logger="verdra"):
+            answer(dialog)  # finished() follows accept() and reject() whether shown or not
+        assert f"Dialog answered {said}: Quit Verdra while Roblox is running?" in caplog.text
+        caplog.clear()
