@@ -26,6 +26,7 @@ import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Protocol
 
 import psutil
@@ -422,7 +423,22 @@ class Sprout(QObject):
             ledger,
             self,
         )
+        self.watch.missing.connect(self._certificate_missing)
         return None
+
+    def repair_certificate(self) -> None:
+        """S-14 Degraded (c)'s fix: add the certificate again where it is missing."""
+        if self.watch is not None and self.watch.repair():
+            self.status.ca_repaired()
+
+    def _certificate_missing(self, version: str) -> None:
+        self.status.ca_missing(
+            QCoreApplication.translate(
+                "M-CA-04",
+                "Verdra couldn't add its certificate to the Roblox version {version}, so Roblox "
+                "isn't routed.",
+            ).format(version=Path(version).name)
+        )
 
     def stop_routing(self) -> None:
         """Stop the proxy; routing is Idle. Changes stay recorded for Reset everything."""

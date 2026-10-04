@@ -250,7 +250,7 @@ class Shell:
             services.sprout.refused.connect(self.show_launch_notice)
             services.sprout.other_tool.connect(self.show_other_tool)
             popover = self.window.header.popover
-            popover.set_handled({"start", "retry", "restart_roblox"})
+            popover.set_handled({"start", "retry", "restart_roblox", "repair_certificate"})
             popover.fix_requested.connect(self.fix_routing)
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
@@ -365,7 +365,8 @@ class Shell:
             self.services.sprout.launch()
 
     def fix_routing(self, key: str) -> None:
-        """Run the routing popover's fix (spec S-14): start, try again, or relaunch Roblox."""
+        """Run the routing popover's fix (spec S-14): start, try again, relaunch Roblox, or
+        repair the certificate."""
         sprout = self.services.sprout
         if sprout is None:
             return
@@ -373,6 +374,8 @@ class Shell:
             sprout.launch()
         elif key == "retry":
             sprout.retry()
+        elif key == "repair_certificate":
+            sprout.repair_certificate()
         else:
             sprout.start_routing()
 

@@ -104,3 +104,23 @@ def test_module_tree_expands_os_packages(repo: Path, monkeypatch: pytest.MonkeyP
 
 def test_real_tree_matches_the_source() -> None:
     assert check_docs.check_module_tree() == []
+
+
+def test_a_test_carried_to_a_later_milestone_waits_for_it(repo: Path) -> None:
+    text = SPEC.replace("**Status:** Built", "**Status:** Built\n**Milestone:** M1 (part)")
+    text = text.replace("2. The second", "2. (M6) The second").replace(
+        "4. A wrapped", "4. (M1) A wrapped"
+    )
+    (repo / "docs" / "specs" / "S-99-example.md").write_text(text, encoding="utf-8")
+    (repo / "tests" / "test_example.py").write_text(TEST, encoding="utf-8")
+    problems = check_docs.check_specs()
+    # Test 2 waits for M6; test 4 names the spec's own milestone, so it is still due.
+    assert len(problems) == 1
+    assert "acceptance test 4" in problems[0]
+
+
+def test_a_later_milestone_needs_the_specs_own_milestone(repo: Path) -> None:
+    text = SPEC.replace("2. The second", "2. (M6) The second")
+    (repo / "docs" / "specs" / "S-99-example.md").write_text(text, encoding="utf-8")
+    (repo / "tests" / "test_example.py").write_text(TEST, encoding="utf-8")
+    assert len(check_docs.check_specs()) == 2  # no Milestone line: nothing is carried over

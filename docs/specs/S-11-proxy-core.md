@@ -1,6 +1,6 @@
 # S-11 Proxy core
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1
 **Risk badge:** none
 **Plan sections:** 8.3, 10.1, 10.2, 10.4, 10.6, 12.1, 12.2, 12.4, 15 (R-01, R-18), Reference R2

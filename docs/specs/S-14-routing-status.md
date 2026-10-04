@@ -1,6 +1,6 @@
 # S-14 Routing status
 
-**Status:** Agreed
+**Status:** Built
 **Milestone:** M1
 **Risk badge:** none
 **Plan sections:** 4.6 (tray icons per status), 7.1 (header status pill and popover), 7.10 (tray

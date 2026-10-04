@@ -156,6 +156,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- When Verdra can't add its certificate to a new Roblox version, the routing status now turns
+  Degraded and offers "Repair certificate", instead of giving up silently.
 - When a Roblox server's certificate can't be verified while Verdra reads traffic, the routing
   status now turns Degraded with the reason, as well as blocking the request.
 - UI tests that failed only sometimes on Linux (main after the diagnostic-interception change,

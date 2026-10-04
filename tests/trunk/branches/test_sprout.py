@@ -7,6 +7,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import socket
 import stat
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
+from tests.roots.test_routing_status import FakeClock
 from tests.support.isolation import MemoryKeyring
 from verdra.bark import husk, scar
 from verdra.soil import humus, terrain
@@ -340,17 +342,24 @@ class RoutingPlatform(FakePlatform):
 
 
 @pytest.fixture
+def routing_clock() -> FakeClock:
+    return FakeClock()
+
+
+@pytest.fixture
 def routed(
-    installed: tuple[humus.RobloxClient, Path, Path], tmp_path: Path, qapp: Any
+    installed: tuple[humus.RobloxClient, Path, Path],
+    tmp_path: Path,
+    qapp: Any,
+    routing_clock: FakeClock,
 ) -> Iterator[tuple[sprout.Sprout, RoutingPlatform, scar.Ledger]]:
-    from tests.roots.test_routing_status import FakeClock  # noqa: PLC0415
     from verdra.roots import gardener  # noqa: PLC0415
 
     found, _old, _studio = installed
     platform = RoutingPlatform([found])
     ledger = scar.Ledger(tmp_path / "changes.json")
     vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
-    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    status = gardener.RoutingStatusSource(routing_clock.schedule)
     made = sprout.Sprout(
         FakeSettings(),
         status,
@@ -391,7 +400,6 @@ def test_launching_starts_routing_first_and_opens_the_launch_window(
 
 
 def test_a_refused_client_changes_nothing_and_says_why(tmp_path: Path, qapp: Any) -> None:
-    from tests.roots.test_routing_status import FakeClock  # noqa: PLC0415
     from verdra.roots import gardener  # noqa: PLC0415
 
     platform = RoutingPlatform([client(scope="flatpak", found_by="package", unconfirmed=("L-02",))])
@@ -460,6 +468,102 @@ def test_an_upstream_certificate_failure_turns_routing_degraded(
         "A Roblox server's certificate couldn't be verified (fts.rbxcdn.com). That request was "
         "blocked."
     )
+
+
+@pytest.mark.spec("S-14", 1)
+def test_each_trigger_reaches_the_status_from_where_it_happens(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    routing_clock: FakeClock,
+    qtbot: QtBot,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S-14 test 1 through the real proxy, launcher and version watch. Error from another tool:
+    the S-15 tests below; from taken ports: tests/roots/test_router.py and test_mycelium.py."""
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    made, platform, _ledger = routed
+
+    async def no_network(host: str, port: int) -> Any:
+        raise OSError(f"no network in this test ({host}:{port})")
+
+    made.connector = no_network
+    made.diagnose = True
+    state = lambda: made.status.current.state.value  # noqa: E731
+    trigger = lambda: made.status.current.trigger.value  # type: ignore[union-attr]  # noqa: E731
+    monkeypatch.setattr(platform, "trust_files_in", lambda v: [v / "ssl" / "cacert.pem"])
+    # Start and stop
+    assert made.start_routing() is None
+    assert state() == "routing"
+    made.stop_routing()
+    assert state() == "idle"
+    # (a) Roblox launched with the proxy variables, but no CONNECT within 20 s ...
+    made.launch("roblox-player:1")
+    assert platform.launched == [("roblox-player:1", made.router.port)]
+    routing_clock.advance(20.5)
+    assert (state(), trigger()) == ("degraded", "not_routed")
+    # ... cleared by its first CONNECT through the proxy
+    with socket.create_connection(("127.0.0.1", made.router.port or 0), timeout=5) as client:
+        client.sendall(b"CONNECT assetdelivery.roblox.com:443 HTTP/1.1\r\n\r\n")
+        qtbot.waitUntil(lambda: state() == "routing", timeout=2_000)
+    # (b) an upstream certificate failure, reported on the proxy's thread
+    report = made.router.report_certificate_failure
+    thread = threading.Thread(target=report, args=("fts.rbxcdn.com", "self-signed certificate"))
+    thread.start()
+    thread.join()
+    qtbot.waitUntil(lambda: state() == "degraded", timeout=2_000)
+    assert trigger() == "upstream_certificate"
+    routing_clock.advance(gardener.CERTIFICATE_WINDOW_SECONDS + 1)
+    assert state() == "routing"
+    # (c) a new Roblox version whose trust file can't take the block, until it's repaired
+    assert made.watch is not None
+    made.watch.PATIENCE_SECONDS = 0.2
+    with monkeypatch.context() as locked:
+        locked.setattr(gardener, "add_ca", _locked)
+        version = made.client.install_folders[0] / "version-new"  # type: ignore[union-attr]
+        (version / "ssl").mkdir(parents=True)
+        (version / "ssl" / "cacert.pem").write_bytes(b"")
+        qtbot.waitUntil(lambda: state() == "degraded", timeout=5_000)
+    assert trigger() == "ca_missing"
+    assert made.status.current.reason == (
+        "Verdra couldn't add its certificate to the Roblox version version-new, so Roblox "
+        "isn't routed."
+    )
+    made.repair_certificate()
+    assert state() == "routing"
+
+
+@pytest.mark.spec("S-16", 5)
+def test_reset_completes_with_the_proxy_port_taken_and_routing_in_error(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio  # noqa: PLC0415
+
+    from verdra.trunk.branches import fallow  # noqa: PLC0415
+
+    made, platform, ledger = routed
+    files = list(platform.clients[0].trust_files)
+    before = [p.read_bytes() for p in files]
+
+    async def taken(*_args: object, **_kwargs: object) -> None:
+        raise OSError("in use")
+
+    monkeypatch.setattr(asyncio, "start_server", taken)
+    made.start_routing()
+    assert (made.status.current.state.value, made.routing) == ("error", False)
+    assert made.status.current.trigger.value == "proxy_failed"  # type: ignore[union-attr]
+    assert list(ledger.open_entries())  # the certificate went in before the proxy failed
+    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "other.key")
+    summary = fallow.reset(ledger.path, vault=vault, cert_file=tmp_path / "ca.crt")
+    assert summary.failed == []
+    assert summary.removed == len(files)
+    assert list(scar.Ledger(ledger.path).open_entries()) == []
+    assert [p.read_bytes() for p in files] == before
+
+
+def _locked(*_args: object) -> None:
+    raise PermissionError(13, "Access is denied")
 
 
 # --- Coexistence before routing (spec S-15) ---------------------------------------------------
