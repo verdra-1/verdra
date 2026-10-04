@@ -142,6 +142,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Changed
 
+- Logs hide the secret parts of signed download links at every level, and support bundles
+  replace your user name and Roblox IDs (place, universe, user).
 - Verdra decrypts only the exact Roblox hosts confirmed on a real PC (plan 10.2); any other
   Roblox host is passed through untouched.
 - Roblox's own security and safety traffic (machine checks, screenshot evidence, replays) is
