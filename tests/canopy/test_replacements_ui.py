@@ -9,8 +9,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
 from pytestqt.qtbot import QtBot
 
 from verdra.canopy.crown.dew import Toast
@@ -116,11 +117,95 @@ def test_a_first_replacement_from_the_empty_state_with_the_keyboard(
     assert saved["replacements"][0]["target"] == {"kind": "asset_id", "value": "2222222"}
 
 
-def test_only_asset_id_targets_can_be_chosen_for_now(made: tuple[Shell, StubSprout]) -> None:
+@pytest.mark.spec("S-22", 2)
+def test_a_local_file_dropped_on_the_drawer_is_saved_relative_to_the_profile(
+    made: tuple[Shell, StubSprout], qtbot: QtBot
+) -> None:
+    shell, _stub = made
+    screen = screen_of(shell)
+    screen.empty.buttons[0].click()
+    editor = screen.editor
+    folder = terrain.config_dir() / "profiles" / "My replacements"
+    assert editor.folder == folder
+    picture = folder / "sky" / "top.png"
+    picture.parent.mkdir(parents=True)
+    qtbot.keyClicks(editor.original, "1111111")
+
+    unsupported = folder / "notes.txt"
+    unsupported.write_text("hello")
+    drop(editor, unsupported)
+    assert editor.kind() == "file"
+    assert editor.save.toolTip() == (
+        "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3."
+    )
+    drop(editor, picture)
+    assert editor.save.toolTip() == f"The file for this replacement is missing: {picture}."
+    picture.write_bytes(b"\x89PNG\r\n\x1a\n")
+    drop(editor, picture)  # the same path again is checked again
+    assert editor.save.isEnabled()
+    editor.save.click()
+
+    service = shell.services.grafts
+    assert service is not None
+    saved = json.loads((folder.parent / "My replacements.json").read_bytes())
+    assert saved["replacements"][0]["target"] == {"kind": "file", "value": "./sky/top.png"}
+    assert saved["replacements"][0]["asset_type"] == "Image"
+    note = screen.table.item(0, 3)
+    assert note is not None and note.text().startswith("This part of Verdra isn't built yet.")
+
+
+@pytest.mark.spec("S-22", 1)
+def test_a_link_must_be_https_and_shows_its_host(
+    made: tuple[Shell, StubSprout], qtbot: QtBot
+) -> None:
     screen = screen_of(made[0])
-    buttons = screen.editor.kinds.buttons()
-    assert [b.isEnabled() for b in buttons] == [True, False, False, False]
-    assert all(b.toolTip() for b in buttons[1:])
+    screen.empty.buttons[0].click()
+    editor = screen.editor
+    qtbot.keyClicks(editor.original, "1111111")
+    editor.choose("url")
+    assert not editor.browse.isVisibleTo(editor)
+    qtbot.keyClicks(editor.target, "http://cdn.example/a.png")
+    assert editor.save.toolTip() == "Only HTTPS links are allowed."
+    assert editor.detail.text() == ""
+    editor.target.clear()
+    qtbot.keyClicks(editor.target, "https://cdn.example/a.png")
+    assert editor.save.isEnabled()
+    assert editor.detail.text() == "Downloads from cdn.example."
+    qtbot.keyClick(editor.target, Qt.Key.Key_Return)
+    service = made[0].services.grafts
+    assert service is not None
+    target = service.profiles[0].replacements[0].target
+    assert (target.kind, target.value) == ("url", "https://cdn.example/a.png")
+
+
+def test_remove_needs_only_the_original(made: tuple[Shell, StubSprout], qtbot: QtBot) -> None:
+    screen = screen_of(made[0])
+    screen.empty.buttons[0].click()
+    editor = screen.editor
+    editor.choose("remove")
+    assert not editor.target.isVisibleTo(editor)
+    assert editor.save.toolTip() == "Enter the asset ID to replace."
+    qtbot.keyClicks(editor.original, "1111111")
+    assert editor.save.isEnabled()
+    editor.save.click()
+    service = made[0].services.grafts
+    assert service is not None
+    target = service.profiles[0].replacements[0].target
+    assert (target.kind, target.value) == ("remove", "")
+
+
+def drop(widget: QWidget, path: Path) -> None:
+    """Drop one local file on `widget`, as a file manager does."""
+    data = QMimeData()
+    data.setUrls([QUrl.fromLocalFile(str(path))])
+    position = QPointF(widget.rect().center())
+    buttons, keys = Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
+    enter = QDragEnterEvent(position.toPoint(), Qt.DropAction.CopyAction, data, buttons, keys)
+    QApplication.sendEvent(widget, enter)
+    assert enter.isAccepted()
+    QApplication.sendEvent(
+        widget, QDropEvent(position, Qt.DropAction.CopyAction, data, buttons, keys)
+    )
 
 
 @pytest.mark.spec("S-20", 4)

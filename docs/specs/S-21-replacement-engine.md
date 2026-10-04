@@ -94,3 +94,8 @@ Make Roblox receive the replacement instead of the original asset.
   that an active feature needs are decrypted").
 - The first build step is the Asset ID kind, which needs no codec; the other kinds follow with
   `strata/ochre` and `strata/clay`.
+- **Until the grafter serves content**, Local file, URL and Remove replacements are left out of
+  the snapshot with M-SOON-01 (`grafts.SERVED`), so the interception set stays
+  `assetdelivery.roblox.com` and real traffic is unchanged while the first real-machine test of
+  Asset ID swaps runs (maintainer, 2026-10-04: "Keep the grafter's real-traffic behaviour as it
+  is until my test result is in").
