@@ -8,9 +8,13 @@
 from __future__ import annotations
 
 import os
+import subprocess
+from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
+from verdra.soil.tundra import launcher
 
 if TYPE_CHECKING:
     import ssl
@@ -56,6 +60,29 @@ class Tundra:
         finally:
             for fd in descriptors:
                 os.close(fd)
+
+    def roblox_clients(self) -> list[humus.RobloxClient] | humus.Unsupported:
+        """Return Sober if it is installed (L-01)."""
+        return launcher.find_clients()
+
+    def trust_files_in(self, version_folder: Path) -> list[Path]:
+        """Return none: Sober has no version folders, and L-02 isn't confirmed."""
+        return []
+
+    def launch_roblox(
+        self,
+        client: humus.RobloxClient,
+        link: str | None,
+        proxy_port: int,
+        environment: Mapping[str, str],
+        spawn: humus.Spawn = subprocess.Popen,
+    ) -> int:
+        """Start Sober through `flatpak run` with the proxy variables."""
+        return launcher.launch(client, link, proxy_port, environment, spawn)
+
+    def link_handler(self) -> humus.LinkHandler | humus.Unsupported:
+        """Return why not yet: links would reach Sober unrouted until L-02 is confirmed."""
+        return humus.Unsupported(system="linux", reason="unconfirmed")
 
 
 def _memory_file(name: str, data: bytes) -> int:

@@ -6,7 +6,7 @@
 **Plan sections:** 7.9 (onboarding routing step), 7.10 (tray), 9.4, 10.1 (per-app routing), 11.1–11.3
 (discovery, launching, link handling, Microsoft Store; confirm at M1), 15 (R-04, R-05),
 Reference R2 (`routing.mode`, `routing.handle_roblox_links`, `routing.close_roblox_on_quit`),
-R3 (URL scheme, handler identifiers), R5 (M-LAUNCH-01 to M-LAUNCH-03, M-SHELL-02)
+R3 (URL scheme, handler identifiers), R5 (M-LAUNCH-01 to M-LAUNCH-05, M-SHELL-02)
 
 ## Purpose
 
@@ -58,6 +58,11 @@ Start Roblox through Verdra on every platform without administrator rights.
   Switch to Hosts-file routing in Settings › Routing."
 - M-LAUNCH-03 (Dialog) "Restart Roblox now? Unsaved progress in your game may be lost." Buttons
   "Restart Roblox", "Cancel".
+- M-LAUNCH-04 (Notice, new) "Verdra can't route Sober yet: where Sober reads its certificates hasn't
+  been confirmed. Nothing was changed."
+- M-LAUNCH-05 (Notice, new) "Verdra can't route a Roblox installed for all users: that needs
+  administrator rights, which routing per app never uses. Install Roblox for your account only,
+  then try again. Nothing was changed."
 - M-SHELL-02 (Dialog, new) "Quit Verdra while Roblox is running? Your replacements stop the next
   time Roblox starts." Buttons "Quit", "Cancel".
 
@@ -90,3 +95,23 @@ Start Roblox through Verdra on every platform without administrator rights.
 - M-SHELL-02 is listed here because closing on quit belongs to launching; S-01 already reserves
   it "once S-12 can tell that Roblox is running".
 - Rule 4 (close only what Verdra started) makes the plan's "the client Verdra launched" testable.
+- Built on the facts confirmed on the maintainer's PC (docs/platforms/windows.md, 2026-10-04;
+  maintainer's instructions of that day):
+  - A **Player** version folder is one that holds `RobloxPlayerBeta.exe` (W-01). A folder holding
+    `RobloxStudioBeta.exe` is never used and never changed, even if it also holds the Player.
+  - The current Player folder is the one the per-user handler's `version` value names (W-03);
+    if that value is missing or names no Player folder, the newest Player folder (by its
+    program's date) is used. The value counts only as a folder name, never as a path.
+  - Verdra's CA goes into the trust file of **every** Player folder of the client (W-05), never
+    Studio's, each as a `ca_roblox_bundle` entry that restores the read-only flag (S-10).
+  - Verdra changes only the handler command's `(default)` value; Roblox's `version` value stays.
+    If Roblox's updater has rewritten the handler since, the old entry is closed and a new
+    snapshot is recorded, so turning handling off never puts back a stale command.
+- **Unconfirmed facts block instead of guessing (plan 16.4):** a client that needs one is
+  refused with a plain message. Sober needs L-02 (M-LAUNCH-04). A Roblox installed for all
+  users (W-02) needs administrator rights to change its trust files, which rule 3 forbids
+  (M-LAUNCH-05). Linux doesn't take over `roblox-player:` links until L-02 is confirmed: they
+  would reach Sober unrouted.
+- **Waiting for facts:** Microsoft Store detection (M-LAUNCH-02, test 7's second half) waits
+  until a Store install is observed (W-04: none on the maintainer's PC); cache clearing (test 4)
+  waits for the cache file list (W-06, not settled by a listing).

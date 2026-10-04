@@ -10,10 +10,14 @@ from __future__ import annotations
 import ctypes
 import os
 import secrets
+import subprocess
 import threading
+from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
+from verdra.soil.meadow import launcher
 
 if TYPE_CHECKING:
     import ssl
@@ -70,6 +74,35 @@ class Meadow:
         for pipe in pipes:
             if pipe.error is not None:
                 raise pipe.error
+
+    def roblox_clients(self) -> list[humus.RobloxClient] | humus.Unsupported:
+        """Return the installed Players: per-user first, then all-users (W-01 to W-03)."""
+        return launcher.find_clients(
+            launcher.local_appdata(os.environ),
+            launcher.program_folders(os.environ),
+            launcher.WindowsRegistry(),
+        )
+
+    def trust_files_in(self, version_folder: Path) -> list[Path]:
+        """Return a new Player version folder's trust file; none for any other folder."""
+        if not launcher.is_player_folder(version_folder):
+            return []
+        return [version_folder.joinpath(*launcher.TRUST_FILE)]
+
+    def launch_roblox(
+        self,
+        client: humus.RobloxClient,
+        link: str | None,
+        proxy_port: int,
+        environment: Mapping[str, str],
+        spawn: humus.Spawn = subprocess.Popen,
+    ) -> int:
+        """Start the Player directly with the proxy variables; return its process ID."""
+        return launcher.launch(client, link, proxy_port, environment, spawn)
+
+    def link_handler(self) -> humus.LinkHandler | humus.Unsupported:
+        """Return the per-user `roblox-player:` handler in HKCU (W-03)."""
+        return launcher.WindowsLinkHandler(launcher.WindowsRegistry())
 
 
 # Win32 constants (CreateNamedPipeW, winbase.h).

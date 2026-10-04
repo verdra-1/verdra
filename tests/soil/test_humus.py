@@ -122,3 +122,21 @@ def test_the_os_check_scan_catches_checks() -> None:
     ]
     for probe in probes:
         assert OS_CHECK.search(ast.unparse(ast.parse(probe))), probe
+
+
+def test_the_proxy_environment_replaces_every_spelling_and_keeps_the_rest() -> None:
+    environment = {"Path": "x", "https_proxy": "http://a:1", "Http_Proxy": "http://b:2", "NO": "1"}
+    assert humus.proxy_environment(environment, 5000) == {
+        "Path": "x",
+        "NO": "1",
+        "HTTPS_PROXY": "http://127.0.0.1:5000",
+        "HTTP_PROXY": "http://127.0.0.1:5000",
+    }
+    assert environment["https_proxy"] == "http://a:1"  # the user's own copy is untouched
+
+
+def test_macos_answers_every_s12_job_with_deferred(tmp_path: Path) -> None:
+    expected = humus.Unsupported(system="macos", reason="deferred")
+    assert orchard.PLATFORM.roblox_clients() == expected
+    assert orchard.PLATFORM.link_handler() == expected
+    assert orchard.PLATFORM.trust_files_in(tmp_path) == []

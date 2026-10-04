@@ -10,12 +10,15 @@ implementations and macOS can return without restructuring. `PLATFORM` and every
 
 from __future__ import annotations
 
+import subprocess
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
 
 if TYPE_CHECKING:
     import ssl
+    from pathlib import Path
 
 #: What every job answers on macOS while it is deferred (decision record 0014).
 UNSUPPORTED: Final = humus.Unsupported(system="macos", reason="deferred")
@@ -50,6 +53,29 @@ class Orchard:
     def load_cert_chain(self, context: ssl.SSLContext, certificate: bytes, key: bytes) -> None:
         """Refuse: macOS is deferred until after 1.0 (decision record 0014)."""
         raise NotImplementedError(UNSUPPORTED)
+
+    def roblox_clients(self) -> list[humus.RobloxClient] | humus.Unsupported:
+        """Return why not: macOS is deferred."""
+        return UNSUPPORTED
+
+    def trust_files_in(self, version_folder: Path) -> list[Path]:
+        """Return none: macOS is deferred."""
+        return []
+
+    def launch_roblox(
+        self,
+        client: humus.RobloxClient,
+        link: str | None,
+        proxy_port: int,
+        environment: Mapping[str, str],
+        spawn: humus.Spawn = subprocess.Popen,
+    ) -> int:
+        """Refuse: macOS is deferred until after 1.0 (decision record 0014)."""
+        raise NotImplementedError(UNSUPPORTED)
+
+    def link_handler(self) -> humus.LinkHandler | humus.Unsupported:
+        """Return why not: macOS is deferred."""
+        return UNSUPPORTED
 
 
 PLATFORM: Final = Orchard()
