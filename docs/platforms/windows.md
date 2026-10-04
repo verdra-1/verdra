@@ -70,8 +70,8 @@ detailed logging.
 
 Also seen: one `sc5.rbxcdn.com` connection closed with "Upstream … failed: Connection lost".
 It was Roblox closing its own connection to Verdra while a video segment was still being
-relayed, which Verdra mislabeled as an upstream failure (see the fix's pull request for the
-evidence). Window visible after launch on this PC: 1,461 ms and 1,020 ms (plan 12.4: ≤ 1.5 s).
+relayed, which Verdra mislabeled as an upstream failure (evidence and fix:
+[verdra-1/verdra#67](https://github.com/verdra-1/verdra/pull/67)). Window visible after launch on this PC: 1,461 ms and 1,020 ms (plan 12.4: ≤ 1.5 s).
 
 ## Differences from the plan
 
