@@ -10,6 +10,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 - Replacement profiles: saved as `verdra.profile` files with a published JSON Schema, kept in
   your order, with undo and redo of the last 50 edits (the Replacements screen follows).
+- Asset ID replacements: while one is on, Verdra asks Roblox for the replacement asset instead
+  of the original, and decrypts only `assetdelivery.roblox.com` to do it.
 - Repository foundations: license, notice, README, security policy, privacy statement,
   contribution guide and code of conduct, with the project's support contact.
 - Project tooling: `pyproject.toml` with dependency floors, `uv.lock`, Python 3.14 pin,
