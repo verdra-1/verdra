@@ -676,3 +676,74 @@ def test_routing_decrypts_only_what_the_replacements_need(
     assert [s.name for s in interceptor.pipeline().request] == ["grafter"]  # type: ignore[attr-defined]
     made.snapshots.publish(rules.GraftSnapshot())
     assert not interceptor.wants("assetdelivery.roblox.com", 443)
+
+
+#: Roblox's own files beside the version folders: the W-06 names from the maintainer's Stage 1
+#: report (cache database and its journal files, cache folders, local storage, logs, settings).
+ROBLOX_FILES = (
+    "rbx-storage.db",
+    "rbx-storage.db-shm",
+    "rbx-storage.db-wal",
+    "rbx-storage/ab/cd0123",
+    "LocalStorage/appStorage.json",
+    "logs/0.741_20261004_player.log",
+    "GlobalBasicSettings_13.xml",
+    "frm.cfg",
+    "Downloads/roblox-installer.exe",
+)
+
+
+@pytest.mark.spec("S-24", 6)
+def test_apply_now_deletes_and_changes_no_roblox_file(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], tmp_path: Path
+) -> None:
+    """S-24 rule 4: until the cache files are recorded, Apply now clears nothing. It publishes the
+    snapshot and restarts only the Roblox Verdra launched; the only changes on disk are routing's
+    own (the CA block in Player trust files, the link handler), each in the ledger."""
+    from verdra.trunk.branches import grafts  # noqa: PLC0415
+
+    made, platform, ledger = routed
+    roblox = tmp_path / "Roblox"
+    for name in ROBLOX_FILES:
+        (roblox / name).parent.mkdir(parents=True, exist_ok=True)
+        (roblox / name).write_bytes(name.encode())
+    studio = roblox / "Versions" / "version-studio" / "ssl" / "cacert.pem"
+    assert made.start_routing() is None  # routing's own changes happen here, recorded
+    recorded = [(e.kind, e.target) for e in ledger.entries()]
+    assert {kind for kind, _ in recorded} == {"ca_roblox_bundle", "uri_handler"}
+
+    def files() -> dict[str, tuple[bytes, int]]:
+        return {
+            str(p.relative_to(roblox)): (p.read_bytes(), p.stat().st_mtime_ns)
+            for p in sorted(roblox.rglob("*"))
+            if p.is_file()
+        }
+
+    before = files()
+
+    class Settings:
+        def __init__(self) -> None:
+            self.values: dict[str, object] = {"replacements.profile_order": []}
+
+        def value(self, key: str) -> object:
+            return self.values[key]
+
+        def set(self, key: str, value: object) -> None:
+            self.values[key] = value
+
+    service = grafts.Grafts(tmp_path / "profiles", Settings(), holder=made.snapshots)
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="asset_id", value="2222222"),
+    )
+    assert service.publish() == 1  # what Apply now does first
+    made.restart_roblox()  # then, after M-LAUNCH-03, this
+    assert made.snapshots.current.swaps() == {1111111: 2222222}
+    assert files() == before  # nothing in Roblox's folder deleted or changed
+    assert studio.read_bytes() == PEM  # Studio's trust file never touched
+    assert [(e.kind, e.target) for e in ledger.entries()] == recorded  # no new system change
+    assert platform.launched[-1] == (None, made.router.port)  # relaunched through Verdra
+    service.deleteLater()

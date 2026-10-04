@@ -52,6 +52,10 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 4. Canceling M-LAUNCH-03 publishes the snapshot and closes nothing.
 5. The relaunch goes to the last joined game when Verdra knows it, and to the start screen
    otherwise.
+6. Until the cache files are recorded (rule 4), Apply now deletes and changes no file in Roblox's
+   folder (the W-06 names: the cache database and its journal files, cache folders, local
+   storage, logs, settings files, downloads, Studio's version folders) and records no new system
+   change; the only changes on disk are routing's own, already in the ledger.
 
 ## Lives in
 
@@ -59,7 +63,7 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 
 ## Refinements from the plan
 
-- Tests 3 to 5 are added for the branches of the flow.
+- Tests 3 to 6 are added for the branches of the flow and rule 4.
 - Rule 4 and M-APPLY-03 cover the time before W-06 is recorded: the plan's step "clear Roblox's
   asset cache" can't be built before the cache files are known (plan 16.4). Replacements served
   by Asset ID still apply at once, because the batch request is rewritten whether or not the
