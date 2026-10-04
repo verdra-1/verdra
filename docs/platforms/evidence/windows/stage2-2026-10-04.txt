@@ -1,0 +1,141 @@
+# Stage 2 on Windows, maintainer's PC, 2026-10-04 (Roblox Player 0.741.0.7411058).
+# Anonymised summary of verdra.log: hosts and path names only. No query strings, IDs,
+# tokens, timestamps or user names; numeric and hashed path parts are replaced by <n>,
+# <hash>, <id>, <thumbnail-key> or <segment>.
+
+== Events, in order (Verdra's own lines) ==
+startup: Verdra 0.0.1 started on Windows.
+startup: Diagnostic interception is on. Verdra is reading Roblox's traffic to check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off.
+notice: Diagnostic interception is on. Verdra is reading Roblox's traffic to check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off.
+gardener: Routing status changed from Idle to Routing.
+proxy: Upstream sc5.rbxcdn.com failed: Connection lost
+proxy: Closed a connection to sc5.rbxcdn.com: upstream failed: ConnectionResetError
+request: POST gamejoin.roblox.com /v1/join-game (a game join through Verdra)
+single: Another launch of Verdra brought this window to the front.
+sprout: Coexistence check: RobloxPlayerBeta.exe (<pid>) {'HTTPS_PROXY': 'http://127.0.0.1:49443', 'HTTP_PROXY': 'http://127.0.0.1:49443'}
+request: POST gamejoin.roblox.com /v1/join-game (a game join through Verdra)
+window: Verdra is still running in the tray. Quit it from the tray menu.
+dialogs: Quit Verdra while Roblox is running? Your replacements stop the next time Roblox starts.
+dialogs: Quit Verdra while Roblox is running? Your replacements stop the next time Roblox starts.
+shutdown: Verdra is quitting.
+gardener: Routing status changed from Routing to Idle.
+shutdown: Shutdown finished after <n> ms of running.
+startup: Verdra 0.0.1 started on Windows.
+startup: Startup: settings and logging ready after <n> ms.
+startup: Startup: splash shown after <n> ms.
+startup: Startup: services started after <n> ms.
+startup: Startup: window shown after <n> ms.
+sprout: Coexistence check: RobloxPlayerBeta.exe (<pid>) {'HTTPS_PROXY': 'http://127.0.0.1:49443', 'HTTP_PROXY': 'http://127.0.0.1:49443'}
+gardener: Routing status changed from Idle to Routing.
+startup: Startup: main window ready after <n> ms.
+shutdown: Verdra is quitting.
+gardener: Routing status changed from Routing to Idle.
+shutdown: Shutdown finished after <n> ms of running.
+startup: Verdra 0.0.1 started on Windows.
+startup: Startup: settings and logging ready after <n> ms.
+startup: Startup: splash shown after <n> ms.
+startup: Startup: services started after <n> ms.
+startup: Startup: window shown after <n> ms.
+sprout: Coexistence check: RobloxPlayerBeta.exe (<pid>) {'HTTPS_PROXY': 'http://127.0.0.1:49443', 'HTTP_PROXY': 'http://127.0.0.1:49443'}
+gardener: Routing status changed from Idle to Routing.
+startup: Startup: main window ready after <n> ms.
+dialogs: Remove everything Verdra changed on this computer? Your profiles and library stay.
+fallow: Removed Roblox link handler (roblox-player).
+fallow: Removed Verdra's certificate in Roblox (%USERPROFILE%\AppData\Local\Roblox\Versions\version-02c37bc51a384b8f\ssl\cacert.pem).
+fallow: Removed 2 changes. Verdra left nothing behind.
+
+== TLS per connection side: count | host | side | version | cipher | detail ==
+1 | apis.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | apis.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+37 | apis.roblox.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+37 | apis.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+16 | assetdelivery.roblox.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+16 | assetdelivery.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+4 | clientsettings.roblox.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+4 | clientsettings.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+9 | clientsettingscdn.roblox.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+5 | clientsettingscdn.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+4 | clientsettingscdn.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+54 | fts.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+23 | fts.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+31 | fts.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+2 | gamejoin.roblox.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+2 | gamejoin.roblox.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+1 | sc0.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | sc0.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+1 | sc0ak.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | sc0ak.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+1 | sc0aws.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | sc0aws.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+1 | sc2.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | sc2.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+1 | sc5.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+1 | sc5.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_128_GCM_SHA256 | the server's certificate verified
+5 | tr.rbxcdn.com | Roblox to Verdra | TLSv1.3 | TLS_AES_256_GCM_SHA384 | Verdra's certificate, key ECDSA P-256
+5 | tr.rbxcdn.com | Verdra to the server | TLSv1.3 | TLS_AES_256_GCM_SHA384 | the server's certificate verified
+
+== Requests: count | method | host | path ==
+12 | GET | apis.rbxcdn.com | /games-autocomplete/v1/request-local-cache/<n>
+12 | HEAD | apis.roblox.com | /
+1 | GET | apis.roblox.com | //robuxbadge/v1/robuxbadge
+2 | GET | apis.roblox.com | /access-management/v1/feature-access
+1 | GET | apis.roblox.com | /account-security-service/v1/prompt-assignments
+2 | GET | apis.roblox.com | /adaptive-config-service/public/v1/configs/perfdata/envs/production:settings
+1 | POST | apis.roblox.com | /ads/v2/gma-eligibility-check
+1 | POST | apis.roblox.com | /attribution/v1/events/post-authentication
+1 | POST | apis.roblox.com | /browser-tracker-api/device/initialize
+2 | GET | apis.roblox.com | /checkout/v1/offers
+1 | POST | apis.roblox.com | /discovery-api/omni-recommendation
+32 | POST | apis.roblox.com | /experience-signals-ingest/public/v1/events/single
+5 | POST | apis.roblox.com | /game-passes/v1/game-passes:batchGet
+4 | GET | apis.roblox.com | /guac-v2/v1/bundles/app-policy
+2 | GET | apis.roblox.com | /guac-v2/v1/bundles/intl-auth-compliance
+3 | GET | apis.roblox.com | /maintenance-status/v1/alerts/alert-info
+1 | GET | apis.roblox.com | /marketplace-widgets/v1/widgets
+9 | POST | apis.roblox.com | /marketplace-widgets/v1/widgets/hydrate
+2 | GET | apis.roblox.com | /marketplace-widgets/v1/widgets/shop-widgets
+4 | POST | apis.roblox.com | /matchmaking-api/v1/client-status
+1 | GET | apis.roblox.com | /modals-api/v1/modal
+3 | GET | apis.roblox.com | /modals-api/v1/prompts
+1 | POST | apis.roblox.com | /modals-api/v1/prompts/impression
+4 | GET | apis.roblox.com | /platform-chat-api/v1/get-conversation-metadata
+3 | GET | apis.roblox.com | /platform-chat-api/v1/metadata
+2 | GET | apis.roblox.com | /player-policy-service/v1/player-policy-client
+3 | GET | apis.roblox.com | /preset-chat/v1/preset-chat-options
+9 | POST | apis.roblox.com | /product-experimentation-platform/v1/projects/<n>/values
+4 | GET | apis.roblox.com | /realtime-replay-api/v1/config
+8 | POST | apis.roblox.com | /realtime-replay-api/v1/replay
+3 | POST | apis.roblox.com | /rm3-evidence-filter/v1/upload-screenshot
+2 | GET | apis.roblox.com | /universes/v1/places/<n>/universe
+2 | GET | apis.roblox.com | /universes/v1/universes/<n>/is-private-playtester
+1 | GET | apis.roblox.com | /upsellcard/type
+8 | GET | apis.roblox.com | /user-agreements/v1/agreements-resolution/Web
+6 | POST | apis.roblox.com | /user-heartbeats-api/action-report
+5 | POST | apis.roblox.com | /user-heartbeats-api/pulse
+165 | POST | apis.roblox.com | /user-profile-api/v1/user/profiles/get-profiles
+3 | POST | apis.roblox.com | /validate-machine
+2 | GET | assetdelivery.roblox.com | /v1/asset/
+204 | POST | assetdelivery.roblox.com | /v1/assets/batch
+4 | GET | clientsettings.roblox.com | /v2/user-channel
+6 | GET | clientsettingscdn.roblox.com | /v2/client-version/WindowsPlayer
+2 | GET | clientsettingscdn.roblox.com | /v2/ota-version/WindowsPlayer
+5 | GET | clientsettingscdn.roblox.com | /v2/settings-compressed/application/PCDesktopClient/<id>
+38 | GET | fts.rbxcdn.com | /sc0/<hash>
+43 | GET | fts.rbxcdn.com | /sc1/<hash>
+41 | GET | fts.rbxcdn.com | /sc2/<hash>
+41 | GET | fts.rbxcdn.com | /sc3/<hash>
+55 | GET | fts.rbxcdn.com | /sc4/<hash>
+44 | GET | fts.rbxcdn.com | /sc5/<hash>
+51 | GET | fts.rbxcdn.com | /sc6/<hash>
+48 | GET | fts.rbxcdn.com | /sc7/<hash>
+1 | GET | fts.rbxcdn.com | /v2/sc2/<hash>
+2 | POST | gamejoin.roblox.com | /v1/join-game
+2 | GET | sc0.rbxcdn.com | /test-50kb.png
+1 | GET | sc0ak.rbxcdn.com | /test-50kb.png
+2 | GET | sc0aws.rbxcdn.com | /test-50kb.png
+1 | GET | sc2.rbxcdn.com | /c/<hash>/<hash>/main.m3u8
+1 | GET | sc5.rbxcdn.com | /c/<hash>/<hash>/<n>/<segment>.webm
+2 | GET | tr.rbxcdn.com | /<id>/<n>/<n>/Avatar/Webp/noFilter
+2 | GET | tr.rbxcdn.com | /<id>/<n>/<n>/Hat/Webp/noFilter
+4 | GET | tr.rbxcdn.com | /<id>/<n>/<n>/Image/Webp/noFilter
+1 | GET | tr.rbxcdn.com | /<id>/<n>/<n>/NeckAccessory/Webp/noFilter

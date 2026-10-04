@@ -7,44 +7,75 @@ Filled in from [protocol.md](protocol.md). Until a row is `Confirmed`, no code m
 
 | Field | Maintainer's PC | CI runner |
 |---|---|---|
-| OS, version, build | Windows 11 Home, build 26200 | Windows Server 2025 Datacenter, build 26100 |
-| Architecture | In the report (not yet in the repository) | x64 (64-bit) |
-| Roblox | Player 0.741.0.7411058, per-user install (Studio also installed) | `version-02c37bc51a384b8f`, all-users install (installer run as administrator) |
-| Checked by, date | Maintainer, Stage 1 script, 2026-10-04 | Platform facts workflow, 2026-10-03 |
-| Evidence folder | `evidence/windows/` | `evidence/windows/` |
+| OS, version, build | Windows 11 Home, version 10.0.26200, build 26200, 64-bit | Windows Server 2025 Datacenter, build 26100, 64-bit |
+| Roblox | Player 0.741.0.7411058 in `version-02c37bc51a384b8f`, per-user; Studio 0.713.0.7130910 in `version-913142fd943640d2` | Player in `version-02c37bc51a384b8f`, all-users (installer run as administrator); no Studio |
+| Checked by, date | Maintainer: Stage 1 script and Stage 2, 2026-10-04 | Platform facts workflow, 2026-10-03 |
+| Evidence | `evidence/windows/maintainer-pc-2026-10-04.txt` (Stage 1), `evidence/windows/stage2-2026-10-04.txt` (Stage 2, anonymised) | `evidence/windows/ci-run-37163188729.txt` |
 
 ## Facts
 
-Plan 11.1 is the reference; "PC" below means: Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04).
+"PC" below means: confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player
+0.741.0.7411058, 2026-10-04). Plan 11.1 is the reference.
 
 | ID | Plan says | Recorded value | State | Date | Evidence |
 |---|---|---|---|---|---|
-| W-01 | `%LOCALAPPDATA%\Roblox\Versions\version-*\RobloxPlayerBeta.exe` | PC: per-user install under `%LOCALAPPDATA%\Roblox\Versions\version-*`. Roblox Studio can have version folders there too: a **Player** version folder is one that contains `RobloxPlayerBeta.exe`; Studio folders (`RobloxStudioBeta.exe`) are never touched. Several version folders can exist side by side | Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
-| W-02 | All-users installs under `Program Files\Roblox\Versions` or `Program Files (x86)\Roblox\Versions`, handler then under HKLM | PC: no all-users install (both folders checked). CI runner, installer run as administrator: `C:\Program Files\Roblox\Versions\version-02c37bc51a384b8f` | Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04); Observed on CI runner (Program Files) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository); [CI run](https://github.com/verdra-1/verdra/actions/runs/37163188729/job/111320711417), `evidence/windows/ci-run-37163188729.txt` |
-| W-03 | Handler in `HKCU\Software\Classes\roblox-player`; HKLM for all-users installs | PC: `HKCU\Software\Classes\roblox-player\shell\open\command` = `"<version folder>\RobloxPlayerBeta.exe" %1`, with a `version` value naming the current version folder; nothing in HKLM. CI runner (administrator install): the same layout under HKLM, no HKCU key | Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04); Observed on CI runner (HKLM) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository); [CI run](https://github.com/verdra-1/verdra/actions/runs/37163188729/job/111320711417), `evidence/windows/ci-run-37163188729.txt` |
-| W-04 | Microsoft Store package (detection, and whether proxy variables reach it) | PC: no Microsoft Store Roblox. Whether proxy variables reach a Store build: no Store install to test on | Detection: Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04). Store behavior: Unconfirmed | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
-| W-05 | Trust file `ssl\cacert.pem` in each version folder | PC: `ssl\cacert.pem` exists in each version folder and is not read-only. Its hashes differ between the Player and Studio folders (evidence only: Verdra never touches Studio's). Sizes: copied from the report once it is in the repository | Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
-| W-06 | Cache files under `%LOCALAPPDATA%\Roblox` and `%TEMP%\Roblox` (exact list) | PC: top-level names in `%LOCALAPPDATA%\Roblox` copied from the report once it is in the repository, without the `<numeric folder, likely the user ID>`. `GlobalBasicSettings_13.xml` and `frm.cfg` are candidates for the frame-rate cap (M4), unconfirmed. Which files are cache (S-12 cache clearing) isn't settled by a listing | Names: Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04). Cache files and frame-rate file: Unconfirmed | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
-| W-07 | `ClientSettings\ClientAppSettings.json`; global settings XML | PC: no `ClientSettings` folder in the Player version folder by default. Verdra creates it when needed, recorded as a `client_settings_file` ledger entry. Whether Roblox reads it is confirmed at M4 | Absence: Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04). Roblox reading it: Unconfirmed (M4) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
+| W-01 | `%LOCALAPPDATA%\Roblox\Versions\version-*\RobloxPlayerBeta.exe` | Per-user version folders in `%LOCALAPPDATA%\Roblox\Versions`; several side by side. **Player** folder `version-02c37bc51a384b8f`: `RobloxPlayerBeta.exe` (141,403,600 bytes, 0.741.0.7411058), `RobloxCrashHandler.exe`, `RobloxPlayerInstaller.exe`. **Studio** folder `version-913142fd943640d2`: `RobloxStudioBeta.exe` (0.713.0.7130910) and Studio's own programs. A Player folder is one holding `RobloxPlayerBeta.exe`; Studio folders (`RobloxStudioBeta.exe`) are never touched | Confirmed, PC | 2026-10-04 | Stage 1 |
+| W-02 | All-users installs under `Program Files\Roblox\Versions` or `Program Files (x86)\Roblox\Versions`, handler then under HKLM | PC: neither folder exists. CI runner (installer run as administrator): `C:\Program Files\Roblox\Versions\version-02c37bc51a384b8f` | Confirmed, PC (none); observed on CI runner | 2026-10-04 | Stage 1; CI run |
+| W-03 | Handler in `HKCU\Software\Classes\roblox-player` | `HKCU\Software\Classes\roblox-player\shell\open\command`: `(default)` = `"<version folder>\RobloxPlayerBeta.exe" %1`, `version` = `version-02c37bc51a384b8f` (the current Player folder); `DefaultIcon` = the same program. Nothing in HKLM | Confirmed, PC | 2026-10-04 | Stage 1 |
+| W-04 | Microsoft Store package (detection, and whether proxy variables reach it) | No Store Roblox (`Get-AppxPackage -Name *Roblox*` finds none). Whether proxy variables reach a Store build: no Store install to test | Detection: Confirmed, PC. Store behavior: Unconfirmed | 2026-10-04 | Stage 1 |
+| W-05 | Trust file `ssl\cacert.pem` in each version folder | Player: `ssl\cacert.pem`, 228,725 bytes, not read-only. Studio: `ssl\cacert.pem`, 233,371 bytes, not read-only. Their SHA-256 hashes differ (in the evidence; Verdra never touches Studio's). Stage 2: Verdra's block went into the Player's file only and Reset removed it | Confirmed, PC | 2026-10-04 | Stage 1; Stage 2 |
+| W-06 | Cache files under `%LOCALAPPDATA%\Roblox` and `%TEMP%\Roblox` (exact list) | Top-level names in `%LOCALAPPDATA%\Roblox`: folders `AssistantSettings`, `ClientSettings`, `DefaultInstances`, `Downloads`, `LocalStorage`, `logs`, `notifications`, `OTAPatchBackups`, `OTAPlugins`, `placeIDEState`, `rbx-storage`, `rbx-storage-sc`, `RobloxPlayerInstaller`, `RobloxStudio`, `RobloxStudioInstaller`, `tmp-capture-storage`, `UniversalApp`, `Versions`, and `<numeric folder, likely the user ID>`; files `AnalysticsSettings.xml`, `frm.cfg`, `GlobalBasicSettings_13.xml`, `GlobalBasicSettings_13_Studio.xml`, `GlobalSettings_13.xml`, `mcp.bat`, `rbx-storage.db`, `rbx-storage.db-shm`, `rbx-storage.db-wal`, `rbx-storage.id`. `GlobalBasicSettings_13.xml` and `frm.cfg` are candidates for the frame-rate cap (M4), unconfirmed. Which of these are cache (S-12 cache clearing) isn't settled by a listing | Names: Confirmed, PC. Cache files, frame-rate file: Unconfirmed | 2026-10-04 | Stage 1 |
+| W-07 | `ClientSettings\ClientAppSettings.json`; global settings XML | No `ClientSettings` folder in the Player version folder by default; Verdra creates it when needed, as a `client_settings_file` ledger entry. (A top-level `%LOCALAPPDATA%\Roblox\ClientSettings` folder exists; Verdra doesn't use it.) Global settings XML: `GlobalBasicSettings_13.xml`, `GlobalSettings_13.xml`. Whether Roblox reads a `ClientAppSettings.json` Verdra writes is confirmed at M4 | Absence: Confirmed, PC. Roblox reading it: Unconfirmed (M4) | 2026-10-04 | Stage 1 |
 | W-08 | Single-instance object name | Confirmed at M5 with multi-instance (plan 16.2) | Not at M1 | | |
-| W-09 | A running Roblox's proxy variables can be read (S-15) | Needs a running Roblox: Stage 2 | Unconfirmed | | |
-| W-10 | The hosts file is readable without administrator rights (S-15) | PC: readable as a normal user | Confirmed on maintainer's PC (Windows 11 Home, build 26200, Roblox Player 0.741.0.7411058, 2026-10-04) | 2026-10-04 | Stage 1 report from the maintainer, 2026-10-04 (redacted copy `evidence/windows/maintainer-pc-2026-10-04.txt` follows once the file is in the repository) |
-| V0 | Client honors `HTTPS_PROXY` / `HTTP_PROXY` | Needs a running game: Stage 2 | Unconfirmed | | |
+| W-09 | A running Roblox's proxy variables can be read (S-15) | Readable as the same user, without administrator rights: the coexistence check read `HTTPS_PROXY` and `HTTP_PROXY` = `http://127.0.0.1:49443` from three running Players | Confirmed, PC | 2026-10-04 | Stage 2 |
+| W-10 | The hosts file is readable without administrator rights (S-15) | Readable as a normal user (20 lines) | Confirmed, PC | 2026-10-04 | Stage 1 |
+| V0 | Client honors `HTTPS_PROXY` / `HTTP_PROXY` | The Player launched with the variables sent all its HTTPS traffic through Verdra: 133 connections to 13 hosts, two game joins | Confirmed, PC | 2026-10-04 | Stage 2 |
 
 ## Maintainer's PC compared with the CI runner
+
+Every difference between the Stage 1 report and the CI runner's findings:
 
 | Topic | Maintainer's PC | CI runner |
 |---|---|---|
 | System | Windows 11 Home, build 26200, normal user | Windows Server 2025, build 26100, administrator |
 | Install (W-01, W-02) | Per-user, `%LOCALAPPDATA%\Roblox\Versions` | All-users, `C:\Program Files\Roblox\Versions` |
-| Link handler (W-03) | HKCU, with a `version` value | HKLM, same layout and `version` value |
-| Roblox Studio | Installed; its version folders sit beside the Player's | Not installed |
-| Trust file (W-05) | `ssl\cacert.pem` in each version folder, not read-only | Not recorded (the stage 1 script then looked only at per-user folders) |
-| Roblox folder (W-06) | Its own list (see W-06), including a numeric folder | `Downloads`, `LocalStorage`, `logs`, `RobloxPlayerInstaller` |
-| `ClientSettings` (W-07) | None | None |
-| Hosts file (W-10) | Readable as a normal user | Readable, but as administrator |
+| Player version folder | `version-02c37bc51a384b8f` | `version-02c37bc51a384b8f` (the same build) |
+| Programs in the Player folder | `RobloxPlayerBeta.exe`, `RobloxCrashHandler.exe`, `RobloxPlayerInstaller.exe` | Not listed (the stage 1 script then looked only at per-user folders) |
+| Roblox Studio | Installed (`version-913142fd943640d2`) | Not installed |
+| Link handler (W-03) | HKCU, with `version` and `DefaultIcon` | HKLM, same layout; no HKCU key |
+| Trust file (W-05) | Player and Studio `cacert.pem`, both not read-only, different sizes and hashes | Not recorded |
+| Roblox folder (W-06) | 29 entries (above), including a numeric folder | 4 entries: `Downloads`, `LocalStorage`, `logs`, `RobloxPlayerInstaller` |
+| Settings XML files (W-07) | `AnalysticsSettings.xml`, `GlobalBasicSettings_13.xml`, `GlobalBasicSettings_13_Studio.xml`, `GlobalSettings_13.xml` | None |
+| `ClientSettings` in a version folder (W-07) | None | None |
+| Hosts file (W-10) | Readable, 20 lines, as a normal user | Readable, 21 lines, as administrator |
 | Microsoft Store (W-04) | None | None |
+
+## Stage 2 results (maintainer's PC, 2026-10-04)
+
+From the maintainer's `verdra.log`, anonymised in `evidence/windows/stage2-2026-10-04.txt`
+(the raw log isn't committed). Verdra ran from source with `--diagnose-interception` and
+detailed logging.
+
+| Step | What the log proves | What it doesn't prove | Result |
+|---|---|---|---|
+| 1–2 Install uv, download Verdra | Verdra ran from source (steps 3 onward) | Nothing more | Pass |
+| 3 Start with `--diagnose-interception` | "Verdra 0.0.1 started on Windows"; M-DIAG-01 as an Activity line and as the notice | | Pass |
+| 4 Setup, detailed logging | DEBUG lines are present, so detailed logging was on | The onboarding choices themselves (not logged) | Pass |
+| 5 Launch Roblox | Routing changed from Idle to Routing; Roblox's traffic arrived through the proxy at once (V0) | Which button started it (the Library's "Launch Roblox" or Start routing) | Pass |
+| 6 A game, 2 minutes | A game join (`gamejoin.roblox.com/v1/join-game`) through Verdra. On all 133 intercepted connections the Player accepted Verdra's ECDSA P-256 leaf over TLS 1.3, and every upstream certificate verified (none "not verified"). R-17 closed for Windows (plan 16.2). | How the game looked; that comes from the maintainer ("no Roblox error") | Pass |
+| 7 Play from the browser | A second launch handed Verdra a link (M-SHELL-07), the coexistence check ran for that launch, and 3.5 s later a second game join went through Verdra. The maintainer's YES/NO field came back unfilled, so this result rests on the log | That the game window was the one the link asked for | Pass (log) |
+| 8 Quit while Roblox runs, restart | M-SHELL-02 appears **twice**, 37 s apart. Activity records a dialog when it **appears**, not the answer; Verdra kept running after the first, so it was answered Cancel, Esc or closed (Cancel is the default button, so Enter also cancels). The second was answered Quit and shutdown followed 1 s later. On restart with Roblox running, the coexistence check read the running Player's proxy variables (W-09) and routing started | What was clicked the first time. Dialog answers are now logged (detailed logging) so the next log shows it | Pass |
+| 9 Reset everything | "Removed 2 changes. Verdra left nothing behind.": the link handler and Verdra's block in the Player's `cacert.pem`. The ledger held no Studio file, so Reset had nothing to undo there | That the Player's `cacert.pem` is byte-identical afterwards, and that Studio's still has its Stage 1 hash. The tests prove the mechanism (`tests/trunk/branches/test_sprout.py`); re-running the Stage 1 script would prove it on the PC | Pass |
+| 10 Send the log | Received | | Pass |
+
+Also seen: one `sc5.rbxcdn.com` connection closed with "Upstream … failed: Connection lost".
+It was Roblox closing its own connection to Verdra while a video segment was still being
+relayed, which Verdra mislabeled as an upstream failure (see the fix's pull request for the
+evidence). Window visible after launch on this PC: 1,461 ms and 1,020 ms (plan 12.4: ≤ 1.5 s).
 
 ## Differences from the plan
 
-None open. The CI runner's all-users install under `Program Files` (2026-10-03) is now in plan 11.1.
+- Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and
+  `sc0aws` served the speed test (`/test-50kb.png`), while `sc2` served a video playlist
+  (`main.m3u8`) and `sc5` a video segment (`.webm`). The host list is the same; only the
+  description differs. Reported to the maintainer.

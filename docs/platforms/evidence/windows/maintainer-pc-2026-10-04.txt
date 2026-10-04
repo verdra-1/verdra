@@ -1,0 +1,81 @@
+# The maintainer's Stage 1 report, 2026-10-04 (tools/platforms/stage1-windows.ps1), as received.
+# One line redacted: a folder named only with digits (very likely the Roblox user ID) is shown as
+# <numeric folder, likely the user ID>. The user folder was already written as %USERPROFILE%.
+Verdra stage 1 facts, Windows (docs/platforms/protocol.md)
+Date: 2026-10-04 12:25
+
+== Step 0 The machine ==
+OS: Microsoft Windows 11 Home | version 10.0.26200 | build 26200 | 64-bit
+
+== W-01 Per-user Roblox install ==
+Version folder: %USERPROFILE%\AppData\Local\Roblox\Versions\version-02c37bc51a384b8f
+  RobloxCrashHandler.exe | 13007824 bytes | 2026-10-04 | product version 
+  RobloxPlayerBeta.exe | 141403600 bytes | 2026-10-04 | product version 0, 741, 0, 7411058
+  RobloxPlayerInstaller.exe | 13410768 bytes | 2026-10-04 | product version 1, 6, 0, 0
+Version folder: %USERPROFILE%\AppData\Local\Roblox\Versions\version-913142fd943640d2
+  NativeDialog.exe | 21456 bytes | 2026-03-18 | product version 
+  RobloxCrashHandler.exe | 12323280 bytes | 2026-03-18 | product version 
+  RobloxStudioBeta.exe | 196819408 bytes | 2026-03-18 | product version 0, 713, 0, 7130910
+  RobloxStudioInstaller.exe | 9966032 bytes | 2026-03-18 | product version 1, 6, 0, 7130910
+  StudioMCP.exe | 5737424 bytes | 2026-03-18 | product version 
+
+== W-02 All-users install ==
+Not present: C:\Program Files\Roblox\Versions
+Not present: C:\Program Files (x86)\Roblox\Versions
+
+== W-03 The roblox-player link handler ==
+Key: HKCU:\Software\Classes\roblox-player
+  HKCU\Software\Classes\roblox-player\DefaultIcon | (default) = %USERPROFILE%\AppData\Local\Roblox\Versions\version-02c37bc51a384b8f\RobloxPlayerBeta.exe
+  HKCU\Software\Classes\roblox-player\shell\open\command | (default) = "%USERPROFILE%\AppData\Local\Roblox\Versions\version-02c37bc51a384b8f\RobloxPlayerBeta.exe" %1
+  HKCU\Software\Classes\roblox-player\shell\open\command | version = version-02c37bc51a384b8f
+Not present: HKLM:\Software\Classes\roblox-player
+
+== W-04 Microsoft Store Roblox ==
+No Microsoft Store Roblox package.
+
+== W-05 Trust files in each version folder ==
+%USERPROFILE%\AppData\Local\Roblox\Versions\version-02c37bc51a384b8f\ssl\cacert.pem | 228725 bytes | SHA-256 2EBA303A7B3C87F0C52FA8F977B703EC6DEA7DE703F97644546D2D34E53E4CD9 | read-only False
+%USERPROFILE%\AppData\Local\Roblox\Versions\version-913142fd943640d2\ssl\cacert.pem | 233371 bytes | SHA-256 416DF7C7A6AF3D35B06B3AEE5E736B02C8AEFD4A3B9BE31BEFC1C97AB323FFA6 | read-only False
+
+== W-06 What is directly in the Roblox folder (names only, nothing opened) ==
+  folder | <numeric folder, likely the user ID>
+  file | AnalysticsSettings.xml
+  folder | AssistantSettings
+  folder | ClientSettings
+  folder | DefaultInstances
+  folder | Downloads
+  file | frm.cfg
+  file | GlobalBasicSettings_13.xml
+  file | GlobalBasicSettings_13_Studio.xml
+  file | GlobalSettings_13.xml
+  folder | LocalStorage
+  folder | logs
+  file | mcp.bat
+  folder | notifications
+  folder | OTAPatchBackups
+  folder | OTAPlugins
+  folder | placeIDEState
+  folder | rbx-storage
+  file | rbx-storage.db
+  file | rbx-storage.db-shm
+  file | rbx-storage.db-wal
+  file | rbx-storage.id
+  folder | rbx-storage-sc
+  folder | RobloxPlayerInstaller
+  folder | RobloxStudio
+  folder | RobloxStudioInstaller
+  folder | tmp-capture-storage
+  folder | UniversalApp
+  folder | Versions
+
+== W-07 Client settings folder and settings file names ==
+No ClientSettings folder in any version folder.
+Settings file name: AnalysticsSettings.xml
+Settings file name: GlobalBasicSettings_13.xml
+Settings file name: GlobalBasicSettings_13_Studio.xml
+Settings file name: GlobalSettings_13.xml
+
+== W-10 The hosts file is readable as a normal user ==
+Readable: 20 lines (contents not copied)
+
+End of report.
