@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """strata/clay: FileMesh versions 1.00 to 5.00, version 2.00 writing, OBJ, and plan 10.7."""
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Every test file that uses Roblox IDs also uses real-size ones (`tests/ids.py`).
 

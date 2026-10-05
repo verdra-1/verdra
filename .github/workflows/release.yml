@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 # Release pipeline (Master plan 13.5). Stub at M0: it builds the Python distribution so the
 # workflow, its trigger and the release environment exist. Packaging, THIRD_PARTY_NOTICES.md,

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SPDX-FileCopyrightText: 2026 The Verdra Authors -->
+<!-- SPDX-FileCopyrightText: 2026 q0f7 -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US" sourcelanguage="en_US">

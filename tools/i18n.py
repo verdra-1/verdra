@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Update the message catalogue `src/verdra/assets/i18n/verdra_en.ts` and its compiled `.qm`.
 
@@ -76,8 +76,7 @@ def drop_code_comments(path: Path) -> None:
 
 
 SPDX_HEADER = (
-    "<!-- SPDX-FileCopyrightText: 2026 The Verdra Authors -->\n"
-    "<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
+    "<!-- SPDX-FileCopyrightText: 2026 q0f7 -->\n<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
 )
 
 

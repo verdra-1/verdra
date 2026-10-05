@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Decision record 0012: what CI runs and which check it reports, for each event.
 

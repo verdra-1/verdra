@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Constants: app IDs, service names, folder paths (R3).
 
@@ -22,7 +22,7 @@ PRODUCT_NAME: Final = "Verdra"
 DISTRIBUTION: Final = "verdra"
 EXECUTABLE: Final = "verdra"
 KEEPER_EXECUTABLE: Final = "verdra-keeper"
-AUTHORS: Final = "The Verdra Authors"
+AUTHORS: Final = "q0f7"
 
 #: Reverse-DNS base. Where a system forbids the hyphen (Flatpak and desktop-entry IDs) the
 #: underscore form below is used instead.

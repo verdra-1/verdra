@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Generate every logo, wordmark, app-icon and tray-icon file from the master geometry and tokens.
 
@@ -90,8 +90,7 @@ def load_colors() -> dict[str, dict[str, str]]:
 
 
 SPDX_HEADER = (
-    "<!-- SPDX-FileCopyrightText: 2026 The Verdra Authors -->\n"
-    "<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
+    "<!-- SPDX-FileCopyrightText: 2026 q0f7 -->\n<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
 )
 
 

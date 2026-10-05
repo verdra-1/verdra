@@ -85,7 +85,7 @@ not licensed for use beyond describing where a fork came from (section 6 of the 
 
 ```
 Verdra
-Copyright 2026 The Verdra Authors
+Copyright 2026 q0f7
 
 Original project: https://github.com/verdra-1/verdra
 Licensed under the Apache License, Version 2.0.

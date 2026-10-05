@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Diagnostic interception (--diagnose-interception): pass-through only, TLS details logged; source
 runs only, excluded from builds (decision 0015).
