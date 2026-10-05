@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """The custom icon set of Master plan 6.8, each with its hand-tuned 16 px variant (finding L3)."""
 

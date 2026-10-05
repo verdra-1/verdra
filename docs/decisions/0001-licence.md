@@ -18,7 +18,7 @@ Verdra is licensed under the Apache License 2.0. The repository carries:
 - `LICENSE`: the unmodified Apache-2.0 text from apache.org;
 - `NOTICE`, with the original project's address, exactly as plan section 3.2 gives it;
 - an SPDX header on every source file:
-  `SPDX-FileCopyrightText: 2026 The Verdra Authors` and `SPDX-License-Identifier: Apache-2.0`.
+  `SPDX-FileCopyrightText: 2026 q0f7` and `SPDX-License-Identifier: Apache-2.0`.
 
 The README footer and the About dialog show the NOTICE text with a clickable link. The credit line in
 the README (3.3) is a courtesy, not a licence requirement, and appears nowhere else.

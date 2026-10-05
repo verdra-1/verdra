@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """The routing lifecycle (roots/gardener.Router): the proxy on its own thread (plan 8.3, 10.1)."""
 

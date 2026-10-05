@@ -161,6 +161,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Changed
 
+- The copyright holder is now "q0f7" (NOTICE, every file header, the About dialog and the package
+  metadata). The project's home stays https://github.com/verdra-1/verdra.
 - Logs hide the secret parts of signed download links at every level, and support bundles
   replace your user name and Roblox IDs (place, universe, user).
 - Verdra decrypts only the exact Roblox hosts confirmed on a real PC (plan 10.2); any other

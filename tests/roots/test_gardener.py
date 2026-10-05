@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Spec S-10: the CA block in Roblox trust files (rules 2 to 4, tests 2 and 7)."""
 

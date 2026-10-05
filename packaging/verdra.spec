@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: F821 - PyInstaller defines SPECPATH, workpath, Analysis, PYZ, EXE and COLLECT.
 """PyInstaller build of Verdra (Master plan 13.6).

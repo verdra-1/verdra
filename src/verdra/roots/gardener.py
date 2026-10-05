@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Routing lifecycle and status (Idle, Routing, Degraded, Error); CA in Roblox trust files;
 coexistence check.

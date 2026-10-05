@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 """Every source and config file Verdra writes starts with its SPDX header (plan 3.2, CLAUDE.md).
 
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SUFFIXES = {".py", ".toml", ".yml", ".yaml", ".spec", ".svg", ".ts", ".sh", ".ps1", ".iss"}
 NAMES = {".gitignore", ".gitattributes", ".editorconfig"}
 THIRD_PARTY = (PurePosixPath("src/verdra/assets/icons/lucide"),)
-COPYRIGHT = "SPDX-FileCopyrightText: 2026 The Verdra Authors"
+COPYRIGHT = "SPDX-FileCopyrightText: 2026 q0f7"
 LICENSE = "SPDX-License-Identifier: Apache-2.0"
 
 
@@ -34,6 +34,10 @@ def needs_header(path: PurePosixPath) -> bool:
     if any(path.is_relative_to(folder) for folder in THIRD_PARTY):
         return False
     return path.suffix in SUFFIXES or path.name in NAMES
+
+
+#: The copyright holder's former name (plan 16.2, 5 October 2026): it may not appear anywhere.
+FORMER_HOLDER = "The Verdra " + "Authors"
 
 
 def missing_header(text: str) -> bool:
@@ -57,3 +61,20 @@ def test_the_check_sees_a_missing_header() -> None:
     assert not missing_header(f"<!-- {COPYRIGHT} -->\n<!-- {LICENSE} -->\n<svg/>\n")
     assert needs_header(PurePosixPath("src/verdra/assets/icons/custom/leaf.svg"))
     assert not needs_header(PurePosixPath("src/verdra/assets/icons/lucide/leaf.svg"))
+    assert missing_header(f"# SPDX-FileCopyrightText: 2026 {FORMER_HOLDER}\n# {LICENSE}\n")
+
+
+def test_the_former_holder_name_appears_nowhere() -> None:
+    """Plan 16.2: the copyright holder is q0f7 in NOTICE, every header and every text."""
+    found = [
+        str(path)
+        for path in tracked()
+        if (ROOT / path).is_file()
+        and path.suffix not in {".png", ".ico", ".icns", ".ttf", ".otf", ".woff2", ".qm"}
+        and FORMER_HOLDER in (ROOT / path).read_text(encoding="utf-8", errors="replace")
+    ]
+    assert found == []
+    assert "Copyright 2026 q0f7\n" in (ROOT / "NOTICE").read_text(encoding="utf-8")
+    assert "Original project: https://github.com/verdra-1/verdra\n" in (ROOT / "NOTICE").read_text(
+        encoding="utf-8"
+    )

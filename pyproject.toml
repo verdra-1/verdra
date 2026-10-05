@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 
 [project]
@@ -8,7 +8,7 @@ description = "Change how your game looks, only on your screen."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
-authors = [{ name = "The Verdra Authors" }]
+authors = [{ name = "q0f7" }]
 requires-python = ">=3.14"
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",

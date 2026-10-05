@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 # Daily: long fuzzing, benchmarks, pip-audit, a dependency freshness report (Master plan 13.5) and
 # the whole test suite several times in a shuffled order, to find tests that pass or fail depending

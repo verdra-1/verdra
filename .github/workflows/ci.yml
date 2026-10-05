@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Verdra Authors
+# SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
 # Every gate from Master Build Plan 12.3, on pull requests and on pushes to main.
 # Actions are pinned to full commit SHAs (13.5); Dependabot keeps them current.

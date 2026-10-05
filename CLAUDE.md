@@ -58,7 +58,7 @@ Windows-only tests skipped, but only Windows CI counts.
 ## 5. Licence, dependencies, Qt
 
 - Apache-2.0; `NOTICE` is exactly plan 3.2. Every source file starts with
-  `# SPDX-FileCopyrightText: 2026 The Verdra Authors` and
+  `# SPDX-FileCopyrightText: 2026 q0f7` and
   `# SPDX-License-Identifier: Apache-2.0` (in the file type's comment syntax).
 - Every dependency passes the licence allowlist (plan 12.3, Reference R4) before it is added.
 - PySide6 only (LGPL), never PyQt, and only the Qt modules in plan 8.1: Core, Gui, Widgets,
