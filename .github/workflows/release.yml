@@ -16,10 +16,14 @@ permissions: {}
 env:
   UV_FROZEN: "1"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: Build distribution
-    runs-on: ubuntu-24.04
+    runs-on: windows-latest
     environment: release
     permissions:
       contents: read

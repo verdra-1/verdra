@@ -193,8 +193,8 @@ def test_the_duplicate_run_report_never_fails_the_job() -> None:
 
 def test_every_run_is_a_full_run() -> None:
     text = CI.read_text(encoding="utf-8")
-    # Decision record 0012: no fast mode, no markers left out. Decision record 0014: Windows and
-    # Linux runners only; macOS is deferred until after 1.0.
+    # Decision record 0012: no fast mode, no markers left out. Decision record 0018: Windows
+    # runners only (Linux is paused; macOS is deferred until after 1.0, decision record 0014).
     assert "fast" not in plan_script()
     assert 'pytest -m "not slow"' not in text
     jobs = workflow()["jobs"]
@@ -202,6 +202,7 @@ def test_every_run_is_a_full_run() -> None:
         (entry["runner"], entry["system"])
         for entry in jobs["tests"]["strategy"]["matrix"]["include"]
     ]
-    assert tests == [("windows-latest", "windows"), ("ubuntu-24.04", "linux")]
-    assert jobs["build"]["strategy"]["matrix"]["runner"] == ["windows-latest", "ubuntu-24.04"]
+    assert tests == [("windows-latest", "windows")]
+    assert jobs["build"]["strategy"]["matrix"]["runner"] == ["windows-latest"]
     assert "macos-" not in text  # no macOS runner label
+    assert "ubuntu-" not in text  # no Linux runner label

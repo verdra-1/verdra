@@ -4,6 +4,10 @@
 - **Date:** 2026-10-01
 - **Plan sections:** 9.1, 9.2, 9.3, 9.7
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 Verdra keeps settings, profiles, a change ledger, captured assets and logs. People share

@@ -7,7 +7,7 @@ Spec:
 ## Definition of done
 
 - [ ] Linked to its spec; acceptance tests added or updated
-- [ ] All CI gates green on Windows and Linux
+- [ ] All CI gates green (Windows)
 - [ ] Provenance entry written in `docs/provenance.md` for new modules
 - [ ] User-facing text follows the voice rules and is in the message catalogue
 - [ ] Changelog entry under "Unreleased"

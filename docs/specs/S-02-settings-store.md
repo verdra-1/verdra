@@ -41,7 +41,7 @@ Typed, versioned, crash-safe settings with one screen that shows them all.
 ## Rules
 
 1. Every write goes through `soil/atomic.py`: temporary file in the same folder, write, fsync,
-   `os.replace`, and on macOS and Linux an fsync of the folder. The previous good file is kept as
+   `os.replace` (on macOS and Linux, deferred and paused, also an fsync of the folder). The previous good file is kept as
    `settings.json.bak`.
 2. Unknown keys are preserved on save, so a newer Verdra's settings survive a downgrade round
    trip.

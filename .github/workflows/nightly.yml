@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Daily: long fuzzing, benchmarks, pip-audit, a dependency freshness report (Master plan 13.5) and
 # the whole test suite several times in a shuffled order, to find tests that pass or fail depending
-# on what ran before them (plan 16.2, "M1 decisions").
+# on what ran before them (plan 16.2, "M1 decisions"). Every job runs on Windows, the only platform
+# (decision record 0018).
 name: Nightly
 
 on:
@@ -10,9 +11,6 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
-      linux_runs:
-        description: Shuffled runs of the whole suite on Linux
-        default: "5"
       windows_runs:
         description: Shuffled runs of the whole suite on Windows
         default: "3"
@@ -47,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, windows-latest]
+        runner: [windows-latest]
     env:
       QT_QPA_PLATFORM: offscreen
       HYPOTHESIS_PROFILE: nightly
@@ -56,13 +54,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Qt system libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
-            libfontconfig1 libdbus-1-3 libglib2.0-0t64
       - name: Install
         run: uv sync
       - name: Every test, with long Hypothesis runs
@@ -71,7 +62,7 @@ jobs:
   benchmarks:
     name: Benchmarks
     if: ${{ !inputs.repeat_only }}
-    runs-on: ubuntu-24.04
+    runs-on: windows-latest
     permissions:
       contents: read
       issues: write
@@ -108,7 +99,7 @@ jobs:
   audit:
     name: Vulnerabilities and freshness
     if: ${{ !inputs.repeat_only && !inputs.benchmarks_only }}
-    runs-on: ubuntu-24.04
+    runs-on: windows-latest
     permissions:
       contents: read
     steps:
@@ -141,7 +132,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-24.04, runs: "${{ inputs.linux_runs || '5' }}" }
           - { runner: windows-latest, runs: "${{ inputs.windows_runs || '3' }}" }
     env:
       QT_QPA_PLATFORM: offscreen
@@ -151,13 +141,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Qt system libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
-            libfontconfig1 libdbus-1-3 libglib2.0-0t64
       - name: Install
         run: uv sync
       - name: Shuffled runs
@@ -191,7 +174,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, windows-latest]
+        runner: [windows-latest]
     env:
       QT_QPA_PLATFORM: offscreen
       VERDRA_PYTHON_UNPINNED: "1"
@@ -200,13 +183,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Qt system libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
-            libfontconfig1 libdbus-1-3 libglib2.0-0t64
       - name: Newest Python 3.14
         # The pinned patch is in .python-version; this job tries whatever 3.14.x is newest, so an
         # upstream change shows up here before anyone moves the pin (plan 16.2).

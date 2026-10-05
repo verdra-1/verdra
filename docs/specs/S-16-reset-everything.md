@@ -32,8 +32,9 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   after M-LAUNCH-03 when Roblox is running.
 - **Command line.** `verdra --reset-everything` runs the same steps with the same ledger, printing
   each item and the summary; `--quiet` prints nothing and reports through the exit code (0 all
-  removed or nothing to remove, 1 some failed). The Windows and Linux uninstallers and macOS
-  "Remove Verdra…" run `verdra --reset-everything --quiet` first (plan 11.1–11.3).
+  removed or nothing to remove, 1 some failed). The Windows uninstaller runs
+  `verdra --reset-everything --quiet` first (plan 11.1; the Linux and macOS removers, paused and
+  deferred, will do the same).
 - **Option "Also delete my profiles, library and settings"** (off by default): after the ledger
   is empty, deletes Verdra's own config, data and cache folders (plan 9.1), not the log folder
   until the end of the run.

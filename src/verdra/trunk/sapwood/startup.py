@@ -241,7 +241,6 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     app.setApplicationName(terrain.PRODUCT_NAME)
     app.setApplicationVersion(verdra.__version__)
     app.setOrganizationName(terrain.PRODUCT_NAME)
-    app.setDesktopFileName(terrain.LINUX_DESKTOP_ENTRY.removesuffix(".desktop"))
     if not single.claim(arguments.link):
         logging_.stop()
         return 0

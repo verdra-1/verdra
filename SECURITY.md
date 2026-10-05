@@ -24,5 +24,5 @@ Until 1.0, only the latest release receives security fixes.
 ## Scope
 
 In scope: the Verdra app, its privileged helper (Verdra Keeper), its installers and release
-artefacts, and the signed preset catalogue client. Out of scope: Roblox itself, Sober, and
+artefacts, and the signed preset catalogue client. Out of scope: Roblox itself, and
 third-party presets or packs (report those to their authors).

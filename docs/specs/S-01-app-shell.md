@@ -79,11 +79,13 @@ offers at most one action. Every toast is also written to Activity (S-03).
 
 ### Tray
 
-- Tray icon (menu-bar icon on macOS) in the variant for the current routing status (plan 4.6).
+- Tray icon (on macOS, deferred, a menu-bar icon) in the variant for the current routing status
+  (plan 4.6).
 - Menu (plan 7.10): "Open Verdra"; a status line that isn't clickable; "Apply now"; "Pause
   routing" / "Resume routing"; "Reset everything…"; separator; "Quit Verdra". Items whose feature
   isn't built yet are disabled.
-- Left-click opens the window on Windows and Linux; on macOS the menu-bar icon opens the menu.
+- Left-click opens the window on Windows. (Reference for later: on Linux, paused, the same; on
+  macOS, deferred, the menu-bar icon opens the menu.)
 
 ### Closing and quitting
 
@@ -189,7 +191,8 @@ offers at most one action. Every toast is also written to Activity (S-03).
 12. Window size, position, sidebar state and last screen are restored on the next start.
 13. Onboarding shows on first run, saves the routing choice, sets `general.onboarding_done`, and
     shows again after "Run setup again".
-14. The tray icon, its menu and left-click behaviour work on Windows, macOS and Linux (manual).
+14. The tray icon, its menu and left-click behaviour work on Windows (manual; Linux is paused and
+    macOS deferred, both planned later).
 15. The window is visible within 1.5 s of launch on a mid-range machine (manual, from the startup
     timestamps in the log).
 

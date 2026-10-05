@@ -1,5 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Multi-instance support (Moderation risk). Windows and macOS per S-51; Linux as Sober allows
-(confirm at M5), otherwise unsupported.
-"""
+"""Multi-instance support (Moderation risk), per S-51."""
+
+from verdra.soil import humus, tundra
+
+
+def support() -> humus.Unsupported:
+    """Return why this job isn't available: Linux is paused (decision record 0018)."""
+    return tundra.UNSUPPORTED

@@ -25,7 +25,7 @@ You run day-to-day work and move on to the next milestone by yourself after an e
   settings. Branch protection is optional; CI and these rules stand in for it until the
   maintainer sets it up.
 - If a check fails after a merge, stop and tell the maintainer in plain words.
-- Exit gates are judged on CI evidence (Windows and Linux runners). Anything that needs a real computer with Roblox or Sober
+- Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.
 - **Stop and ask** only for: real-machine tests, money (paid accounts, certificates), legal
@@ -34,11 +34,15 @@ You run day-to-day work and move on to the next milestone by yourself after an e
 
 ## 3. Platforms
 
-Windows (main platform) and Linux with Sober. **macOS is deferred until after 1.0**
-(decision record 0014): never build, test, package or release anything for macOS.
-`soil/orchard/` stays, and its modules return "unsupported on this system". Every OS-specific
-path goes through the Platform interface in `soil/humus.py`; nothing outside `soil/` checks the
-operating system. The maintainer has one Windows PC; Linux runs in a virtual machine on it.
+**Windows is the only platform until further notice** (decision record 0018). **Linux is
+paused** and **macOS is deferred until after 1.0** (decision record 0014): never build, test,
+package or release anything for either. `soil/tundra/` and `soil/orchard/` stay, and their
+modules return "unsupported on this system". No text may say Verdra runs on Linux or macOS;
+mention them only as "paused, planned later" (`tests/test_platform_claims.py` checks it). Every
+OS-specific path goes through the Platform interface in `soil/humus.py`; nothing outside `soil/`
+checks the operating system. The maintainer has one Windows PC. A session's own machine may run
+Linux, which Verdra doesn't support while it is paused: the gates still run there, with the
+Windows-only tests skipped, but only Windows CI counts.
 
 ## 4. Clean room (plan 3.1, non-negotiable)
 
@@ -86,7 +90,7 @@ operating system. The maintainer has one Windows PC; Linux runs in a virtual mac
   reporting (`SECURITY.md`).
 - Every PR description covers what, why, plan sections, how it was tested and the 12.6
   definition-of-done checklist.
-- CI (decision record 0012): every run is a full run on `windows-latest` and `ubuntu-24.04`;
+- CI (decision records 0012, 0018): every run is a full run on `windows-latest` only;
   "All gates green" (the required check) comes only from runs against `main`. Exactly one
   completed run per PR head: a duplicate is acceptable only if cancelled before any step runs,
   with the kept run testing the current merge ref. Never skip, disable or weaken a gate; never
@@ -115,7 +119,7 @@ one question if you need a decision.
 
 ## 10. Only the maintainer
 
-Real-machine tests (Windows PC, Linux VM, Roblox, Sober), money, legal questions, anything
+Real-machine tests (Windows PC, Roblox), money, legal questions, anything
 irreversible, repository settings, and changes to the brand, names, licence or plan rules. Never
 touch the hosts file, certificates or Roblox on any real machine yourself.
 

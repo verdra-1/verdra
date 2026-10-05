@@ -31,7 +31,7 @@ Organize replacements into named profiles that can be switched on and off.
 
 1. Order decides conflicts: a profile higher in the list wins for the same original asset (and
    slot). Within one profile, the later replacement for the same original wins.
-2. Names must be valid file names on Windows and Linux (and macOS, for later): characters
+2. Names must be valid file names on Windows (and on Linux and macOS, for later): characters
    `<>:"/\|?*` and control characters are rejected as they are typed, as are names that are
    reserved on Windows (`CON`, `NUL`, `COM1`…), end with a dot or a space, or are longer than
    100 characters. Names are compared without regard to case (M-PROF-01).

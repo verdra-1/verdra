@@ -53,10 +53,8 @@ def test_no_roblox_is_m_launch_01() -> None:
 
 
 def test_a_client_with_an_unconfirmed_fact_is_refused_plainly() -> None:
-    sober = client(scope="flatpak", found_by="package", unconfirmed=("L-02",))
     shared = client(scope="all_users", unconfirmed=("W-02",))
-    assert sprout.choose([sober]) == sprout.unconfirmed("L-02")
-    assert sprout.choose([sober]).message_id == "M-LAUNCH-04"  # type: ignore[union-attr]
+    assert sprout.choose([shared]) == sprout.unconfirmed("W-02")
     assert sprout.choose([shared]).message_id == "M-LAUNCH-05"  # type: ignore[union-attr]
     mine = client()
     assert sprout.choose([mine, shared]) is mine
@@ -74,7 +72,7 @@ def test_every_fact_soil_can_report_has_a_message() -> None:
         and isinstance(node.value, str)
         and re.fullmatch(r"[LW]-\d\d", node.value)
     }
-    assert facts == {"L-02", "W-02"}
+    assert facts == {"W-02"}  # Linux (L-) facts left with Linux (decision record 0018)
     for fact in facts:
         assert sprout.unconfirmed(fact).text
 
@@ -115,7 +113,7 @@ def test_the_certificate_goes_into_every_player_folder_and_never_studio(
     installed: tuple[humus.RobloxClient, Path, Path], tmp_path: Path
 ) -> None:
     found, old, studio = installed
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    vault = husk.Husk(MemoryKeyring())
     ledger = scar.Ledger(tmp_path / "changes.json")
     # Windows reports a read-only file as 0o444, POSIX as 0o400: compare with what it was.
     read_only = stat.S_IMODE(old.stat().st_mode)
@@ -136,7 +134,7 @@ def test_the_certificate_goes_into_every_player_folder_and_never_studio(
 
 
 def test_a_client_with_an_unconfirmed_fact_never_gets_the_certificate(tmp_path: Path) -> None:
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    vault = husk.Husk(MemoryKeyring())
     ledger = scar.Ledger(tmp_path / "changes.json")
     with pytest.raises(ValueError, match="unconfirmed"):
         sprout.add_certificate(client(unconfirmed=("W-02",)), vault, ledger, NOW)
@@ -215,7 +213,7 @@ def test_reset_everything_restores_the_handler(
     monkeypatch.setattr(humus, "current", lambda: platform)
     ledger = scar.Ledger(tmp_path / "changes.json")
     sprout.set_link_handling(True, ledger, platform, ["verdra"])
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    vault = husk.Husk(MemoryKeyring())
     summary = fallow.reset(ledger.path, vault=vault, cert_file=tmp_path / "ca.crt")
     assert summary.failed == []
     assert handler.command is None
@@ -359,7 +357,7 @@ def routed(
     found, _old, _studio = installed
     platform = RoutingPlatform([found])
     ledger = scar.Ledger(tmp_path / "changes.json")
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    vault = husk.Husk(MemoryKeyring())
     status = gardener.RoutingStatusSource(routing_clock.schedule)
     made = sprout.Sprout(
         FakeSettings(),
@@ -403,14 +401,14 @@ def test_launching_starts_routing_first_and_opens_the_launch_window(
 def test_a_refused_client_changes_nothing_and_says_why(tmp_path: Path, qapp: Any) -> None:
     from verdra.roots import gardener  # noqa: PLC0415
 
-    platform = RoutingPlatform([client(scope="flatpak", found_by="package", unconfirmed=("L-02",))])
+    platform = RoutingPlatform([client(scope="all_users", unconfirmed=("W-02",))])
     ledger = scar.Ledger(tmp_path / "changes.json")
     status = gardener.RoutingStatusSource(FakeClock().schedule)
     made = sprout.Sprout(FakeSettings(), status, platform=platform, ledger=lambda: ledger)  # type: ignore[arg-type]
     said: list[str] = []
     made.refused.connect(said.append)
     made.launch("roblox-player:1")
-    assert said == [sprout.unconfirmed("L-02").text]
+    assert said == [sprout.unconfirmed("W-02").text]
     assert not made.routing
     assert platform.launched == []
     assert ledger.entries() == []
@@ -555,7 +553,7 @@ def test_reset_completes_with_the_proxy_port_taken_and_routing_in_error(
     assert (made.status.current.state.value, made.routing) == ("error", False)
     assert made.status.current.trigger.value == "proxy_failed"  # type: ignore[union-attr]
     assert list(ledger.open_entries())  # the certificate went in before the proxy failed
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "other.key")
+    vault = husk.Husk(MemoryKeyring())
     summary = fallow.reset(ledger.path, vault=vault, cert_file=tmp_path / "ca.crt")
     assert summary.failed == []
     assert summary.removed == len(files)

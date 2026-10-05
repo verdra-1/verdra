@@ -2,15 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Platform protocol every OS package implements; picks the right one at startup.
 
-meadow (Windows), orchard (macOS) and tundra (Linux and Sober) each provide one `Platform`.
+meadow (Windows), orchard (macOS) and tundra (Linux) each provide one `Platform`.
 Nothing outside soil checks the operating system: it asks `current()` (Master plan 16.2). M0
 holds the parts the app shell needs: which system Verdra runs on, whether Verdra supports it,
 and whether the system asks for reduced motion (6.6). The routing, launching and keeper parts
 of the protocol arrive with their specs (M1 onward): S-12 adds Roblox discovery, launching and
 link handling.
 
-macOS is deferred until after 1.0 (decision record 0014): orchard answers every job with
-`Unsupported`.
+Windows is the only platform until further notice. macOS is deferred until after 1.0 (decision
+record 0014) and Linux is paused, planned later (decision record 0018): orchard and tundra answer
+every job with `Unsupported`.
 """
 
 from __future__ import annotations
@@ -34,10 +35,11 @@ _TIMEOUT_SECONDS = 1.0
 
 
 #: Why a job isn't available. "deferred": the whole system waits for a later release (macOS,
-#: decision record 0014). "unconfirmed": the job needs a platform fact that isn't confirmed in
-#: docs/platforms/ yet (plan 16.4), so Verdra doesn't guess. More reasons arrive with the specs
-#: that need them (S-51 instances).
-Reason = Literal["deferred", "unconfirmed"]
+#: decision record 0014). "paused": the system is paused until further notice, planned later
+#: (Linux, decision record 0018). "unconfirmed": the job needs a platform fact that isn't
+#: confirmed in docs/platforms/ yet (plan 16.4), so Verdra doesn't guess. More reasons arrive
+#: with the specs that need them (S-51 instances).
+Reason = Literal["deferred", "paused", "unconfirmed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +54,11 @@ class Unsupported:
     reason: Reason
 
 
-#: How an installed Roblox client was installed: for this user, for all users (Windows), or as
-#: the Sober Flatpak (Linux).
-Scope = Literal["user", "all_users", "flatpak"]
-#: How the version to launch was chosen (spec S-12): the link handler's `version` value, the
-#: newest Player version folder, or the package (Sober has no version folders).
-FoundBy = Literal["handler", "newest", "package"]
+#: How an installed Roblox client was installed: for this user or for all users (Windows).
+Scope = Literal["user", "all_users"]
+#: How the version to launch was chosen (spec S-12): the link handler's `version` value or the
+#: newest Player version folder.
+FoundBy = Literal["handler", "newest"]
 
 #: Starts a process: `subprocess.Popen` in the app, a recorder in tests.
 Spawn = Callable[..., Any]
@@ -156,14 +157,6 @@ class Platform(Protocol):
 
     def support(self) -> Unsupported | None:
         """Return None when Verdra supports this system, else why it doesn't."""
-        ...
-
-    @property
-    def key_file_fallback(self) -> bool:
-        """Whether the CA key may live in a user-only file when there is no secret store.
-
-        Only Linux, where a desktop may lack a Secret Service (plan 16.2, risk R-10).
-        """
         ...
 
     def prefers_reduced_motion(self) -> bool | None:

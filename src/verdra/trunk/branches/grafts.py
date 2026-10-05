@@ -106,7 +106,7 @@ _RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"{p}{n}" for p in ("COM", "LPT") fo
 
 
 def name_problem(name: str) -> str | None:
-    """Return why `name` can't be a profile name on Windows and Linux, or None if it can."""
+    """Return why `name` can't be a profile name on Windows, or None if it can."""
     if not name.strip():
         return QCoreApplication.translate("M-PROF-04", "Enter a name for the profile.")
     if _FORBIDDEN.search(name):

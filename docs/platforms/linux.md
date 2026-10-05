@@ -1,5 +1,10 @@
 # Linux platform facts
 
+> **Paused, planned later** (Master plan 16.2, 5 October 2026; decision record 0018). Windows is
+> the only platform until further notice. Nothing on this page is run, built or tested while
+> Linux is paused; the facts found on a CI runner before the pause are kept as reference, so
+> Linux can return without starting over. Verdra doesn't run on Linux.
+
 Filled in from [protocol.md](protocol.md). Until a row is `Confirmed`, no code may depend on it
 (plan 16.4). States are defined in [README.md](README.md).
 

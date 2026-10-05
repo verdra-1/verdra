@@ -30,5 +30,6 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 | [S-23](S-23-preview-changes.md) | Preview changes | M2 | Agreed |
 | [S-24](S-24-apply-now.md) | Apply now | M2 | Agreed |
 
-macOS is deferred until after 1.0 (decision record 0014): the macOS parts of the specs stay as
-reference only, and nothing macOS-specific is built or tested.
+Windows is the only platform (decision record 0018). Linux is paused and macOS is deferred until
+after 1.0 (decision record 0014): their parts of the specs stay as reference only, and nothing
+Linux- or macOS-specific is built or tested.

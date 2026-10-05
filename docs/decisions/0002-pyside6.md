@@ -4,6 +4,10 @@
 - **Date:** 2026-10-01
 - **Plan sections:** 3.4, 5.6, 8.1, 13.6
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 Verdra needs one native-feeling desktop interface on Windows, macOS and Linux, with a tray icon,
