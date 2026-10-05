@@ -439,6 +439,24 @@
     </message>
 </context>
 <context>
+    <name>M-ERR-01</name>
+    <message>
+        <source>Something went wrong. Details are in Activity.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Activity</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ERR-02</name>
+    <message>
+        <source>Verdra ran into an error it didn&apos;t expect. Details follow.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-GRAFT-02</name>
     <message>
         <source>The file for this replacement is missing: {path}.</source>

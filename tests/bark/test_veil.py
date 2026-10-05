@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 import pytest
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.bark import veil
 
 # A made-up login token in the published format; not a real credential.
@@ -230,6 +231,7 @@ def test_rewritten_sample_lines_keep_no_secret() -> None:
         ("Saved in C:\\Users\\alex.", "Saved in C:\\Users\\<user>."),
         ("place 1818 universe 1234567 user 9876543210", "place 1818 universe <id> user <id>"),
         ("placeId=1234567890&x=1", "placeId=<id>&x=1"),
+        (f"asset {ABOVE_UINT32} place {ABOVE_INT32}", "asset <id> place <id>"),
         ("/universes/v1/places/1234567890/universe", "/universes/v1/places/<id>/universe"),
         (
             "Roblox 0.741.0.7411058, pid 41234, port 51234",

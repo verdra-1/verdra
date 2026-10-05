@@ -11,7 +11,7 @@ disabled with M-SOON-01.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
@@ -257,17 +257,15 @@ class ReplacementsScreen(QWidget):
         else:
             self.editor.start()
 
-    def _save(self, original: int, kind: str, value: str, family: str) -> None:
+    def _save(self, original: grafts.Original, target: grafts.Target, family: str) -> None:
         profile_id = self.selected_id()
         if profile_id is None:
             return
-        self._edit(
-            "add_replacement",
-            profile_id,
-            grafts.Original(asset_id=original),
-            grafts.Target(kind=cast("grafts.TargetKind", kind), value=value),
-            family,
-        )
+        try:
+            self._edit("add_replacement", profile_id, original, target, family)
+        except grafts.ProfileError as error:  # a refusal the user can act on: say it in place
+            self.editor.problem.setText(str(error))
+            return
         self.editor.hide()
 
     def _remove(self) -> None:

@@ -13,6 +13,7 @@ with `bark/pollinator`.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QCoreApplication, QUrl, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
@@ -38,12 +39,15 @@ class Editor(QFrame):
     """The replacement editor drawer.
 
     Signals:
-        saved(int, str, str, str): Save was pressed: the original asset ID, the target kind,
-            the target value (an asset ID, a stored path, a link or "") and the asset family
-            the target's file belongs to ("" when unknown).
+        saved(Original, Target, str): Save was pressed: the original, the target and the asset
+            family the target's file belongs to ("" when unknown).
+
+    The IDs travel inside Python objects, never as a Qt `int`: Qt's `int` is 32 bits and real
+    asset IDs are larger (a Toolbox image can be 15553230204), so an `int` signal argument
+    overflows and the save never reaches the screen.
     """
 
-    saved = Signal(int, str, str, str)
+    saved = Signal(object, object, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -221,9 +225,9 @@ class Editor(QFrame):
 
     def _save(self) -> None:
         if not self.problem_text():
-            self.saved.emit(
-                int(self.original.text().strip()), self.kind(), self.value(), self.family()
-            )
+            original = grafts.Original(asset_id=int(self.original.text().strip()))
+            target = grafts.Target(kind=cast("grafts.TargetKind", self.kind()), value=self.value())
+            self.saved.emit(original, target, self.family())
 
 
 def _dropped_file(urls: list[QUrl]) -> Path | None:

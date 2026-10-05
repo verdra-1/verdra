@@ -14,10 +14,13 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 from pytestqt.qtbot import QtBot
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
+from verdra.roots import hyphae, rules
+from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import terrain
 from verdra.trunk.branches import grafts
 from verdra.trunk.sapwood import startup
@@ -385,3 +388,79 @@ def test_replacement_shortcuts_add_undo_redo_and_apply(
     keys["Ctrl+Return"].activated.emit()
     assert service.holder.current.swaps() == {1111111: 2222222}
     assert stub.calls == []  # Roblox isn't running: nothing to restart
+
+
+@pytest.mark.spec("S-22", 3)
+def test_the_first_texture_swap_guide_steps_6_to_9_with_real_size_ids(
+    made: tuple[Shell, StubSprout], qtbot: QtBot
+) -> None:
+    """docs/guides/first-texture-swap.md steps 6 to 9, through the real widgets and the proxy."""
+    shell, stub = made
+    service = shell.services.grafts
+    assert service is not None
+    # Step 6: Replacements › Add replacement, type both IDs, press Save; the row appears.
+    shell.window.show_screen("replacements")
+    screen = screen_of(shell)
+    screen.empty.buttons[0].click()
+    editor = screen.editor
+    qtbot.keyClicks(editor.original, str(ABOVE_UINT32))
+    qtbot.keyClicks(editor.target, str(ABOVE_INT32))
+    assert editor.save.isEnabled(), editor.save.toolTip()
+    qtbot.mouseClick(editor.save, Qt.MouseButton.LeftButton)
+    assert editor.isHidden()
+    assert screen.table.rowCount() == 1
+    cells = [screen.table.item(0, column) for column in range(3)]
+    assert [c.text() if c else None for c in cells] == [
+        str(ABOVE_UINT32),
+        str(ABOVE_INT32),
+        "Asset ID",
+    ]
+    saved = json.loads((terrain.config_dir() / "profiles" / "My replacements.json").read_bytes())
+    assert saved["replacements"][0]["original"] == {"asset_id": ABOVE_UINT32, "slot": None}
+    assert saved["replacements"][0]["target"] == {"kind": "asset_id", "value": str(ABOVE_INT32)}
+    # Step 7: Apply now with Roblox closed: the snapshot holds the exact IDs, and the toast says so.
+    shell.window.header.apply_now.click()
+    assert service.holder.current.swaps() == {ABOVE_UINT32: ABOVE_INT32}
+    assert service.holder.current.hosts() == {rules.ASSET_BATCH_HOST}
+    assert toasts(shell)[-1] == "Applied 1 replacement. They'll appear next time Roblox starts."
+    assert stub.calls == []
+    # Steps 8 and 9: the Player's asset batch asks for the target; the answer comes back under
+    # the original's ID, in both the number and the text form.
+    grafter = Grafter(service.holder)
+    for sent in (ABOVE_UINT32, str(ABOVE_UINT32)):
+        items = [{"requestId": "r-0", "assetId": sent, "assetType": "Image"}]
+        request = hyphae.Request(
+            rules.ASSET_BATCH_HOST, b"POST", rules.ASSET_BATCH_PATH.encode(), (),
+            json.dumps(items).encode(),
+        )  # fmt: skip
+        assert grafter.wants_request_body(request)
+        asked = grafter.on_request(request)
+        assert asked is not None and asked.body is not None
+        target = ABOVE_INT32 if isinstance(sent, int) else str(ABOVE_INT32)
+        assert json.loads(asked.body)[0]["assetId"] == target
+        answer = [{"requestId": "r-0", "assetId": target, "location": "https://cdn.example/x"}]
+        response = hyphae.Response(200, (), body=json.dumps(answer).encode())
+        assert grafter.wants_response_body(asked, response)
+        back = grafter.on_response(asked, response)
+        assert back is not None and back.body is not None
+        assert json.loads(back.body)[0]["assetId"] == sent
+
+
+@pytest.mark.spec("S-20", 7)
+def test_a_save_the_profile_refuses_shows_why_in_the_drawer(
+    made: tuple[Shell, StubSprout], qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(grafts, "MAX_REPLACEMENTS", 1)
+    screen = screen_of(made[0])
+    screen.empty.buttons[0].click()
+    editor = screen.editor
+    for target in (ABOVE_INT32, ABOVE_INT32 + 1):
+        editor.start(editor.folder)
+        qtbot.keyClicks(editor.original, str(ABOVE_UINT32))
+        qtbot.keyClicks(editor.target, str(target))
+        qtbot.mouseClick(editor.save, Qt.MouseButton.LeftButton)
+    assert not editor.isHidden()  # the second save was refused and the drawer stays open
+    assert editor.problem.text() == "A profile can hold at most 1 replacements."
+    service = made[0].services.grafts
+    assert service is not None
+    assert len(service.profiles[0].replacements) == 1

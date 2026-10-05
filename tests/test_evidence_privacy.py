@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
+
 EVIDENCE = Path(__file__).resolve().parents[1] / "docs" / "platforms" / "evidence"
 
 FORBIDDEN = {
@@ -65,6 +67,8 @@ def test_no_evidence_file_holds_anything_personal(name: str) -> None:
             "a long numeric ID in a path",
             "GET apis.roblox.com /universes/v1/places/1234567/universe",
         ),
+        ("a long numeric ID in a path", f"GET x.roblox.com /v1/assets/{ABOVE_INT32}/x"),
+        ("a long numeric ID in a path", f"GET x.roblox.com /v1/assets/{ABOVE_UINT32}/x"),
     ],
 )
 def test_the_patterns_catch_what_they_name(name: str, line: str) -> None:

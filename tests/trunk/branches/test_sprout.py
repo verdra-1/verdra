@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from tests.roots.test_routing_status import FakeClock
 from tests.support.isolation import MemoryKeyring
 from verdra.bark import husk, scar
@@ -739,9 +740,15 @@ def test_apply_now_deletes_and_changes_no_roblox_file(
         grafts.Original(asset_id=1111111),
         grafts.Target(kind="asset_id", value="2222222"),
     )
-    assert service.publish() == 1  # what Apply now does first
+    service.edit(  # real-size IDs: one above Qt's 32-bit int, one above 2^32
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=ABOVE_UINT32),
+        grafts.Target(kind="asset_id", value=str(ABOVE_INT32)),
+    )
+    assert service.publish() == 2  # what Apply now does first
     made.restart_roblox()  # then, after M-LAUNCH-03, this
-    assert made.snapshots.current.swaps() == {1111111: 2222222}
+    assert made.snapshots.current.swaps() == {1111111: 2222222, ABOVE_UINT32: ABOVE_INT32}
     assert files() == before  # nothing in Roblox's folder deleted or changed
     assert studio.read_bytes() == PEM  # Studio's trust file never touched
     assert [(e.kind, e.target) for e in ledger.entries()] == recorded  # no new system change

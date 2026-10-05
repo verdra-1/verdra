@@ -18,14 +18,17 @@ import logging
 import logging.handlers
 import platform
 import queue
+import sys
 import threading
 import time
+import traceback
 import zipfile
 from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import TracebackType
 from typing import Any, ClassVar
 
 from PySide6.QtCore import (
@@ -459,6 +462,69 @@ def _redacted_json(path: Path, names: tuple[str, ...]) -> str:
     except ValueError:
         return veil.anonymize_text(text, names)
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+class ErrorHook(QObject):
+    """Unhandled errors: logged in full and announced, never only printed to a console.
+
+    Spec S-03 refinement. `install` replaces `sys.excepthook`, which PySide calls for an
+    exception raised in a slot, a virtual override or a timer, and `threading.excepthook` for
+    other threads. Each error is written to the log, and so to Activity, as an Error record with
+    its whole traceback; the traceback goes through the same anonymizing as support bundles
+    (user names and long IDs replaced) besides the redaction every record gets. Then `happened`
+    tells the interface, which shows M-ERR-01 (queued across threads). Ctrl+C keeps its default.
+
+    Signals:
+        happened(): An unhandled error was logged.
+    """
+
+    happened = Signal()
+    #: Emitted on the thread that failed; queued, so `happened` always fires on this object's
+    #: thread (the interface's), whichever thread the error came from.
+    _raised = Signal()
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._previous: tuple[Any, Any] | None = None
+        self._raised.connect(self.happened, Qt.ConnectionType.QueuedConnection)
+
+    def install(self) -> ErrorHook:
+        """Become the handler for unhandled errors in every thread; return self."""
+        if self._previous is None:
+            self._previous = (sys.excepthook, threading.excepthook)
+            sys.excepthook = self.report
+            threading.excepthook = self._report_thread
+        return self
+
+    def uninstall(self) -> None:
+        """Give the handlers back."""
+        if self._previous is not None:
+            sys.excepthook, threading.excepthook = self._previous
+            self._previous = None
+
+    def report(
+        self,
+        kind: type[BaseException],
+        error: BaseException,
+        trace: TracebackType | None,
+    ) -> None:
+        """Log one unhandled error with its traceback and announce it (`sys.excepthook`)."""
+        if issubclass(kind, KeyboardInterrupt):
+            sys.__excepthook__(kind, error, trace)
+            return
+        detail = "".join(traceback.format_exception(kind, error, trace)).rstrip()
+        logging.getLogger(LOGGER_NAME).error(
+            "%s\n%s",
+            QCoreApplication.translate(
+                "M-ERR-02", "Verdra ran into an error it didn't expect. Details follow."
+            ),
+            veil.anonymize_text(detail, current_user_names()),
+        )
+        self._raised.emit()
+
+    def _report_thread(self, arguments: threading.ExceptHookArgs) -> None:
+        if arguments.exc_value is not None:
+            self.report(arguments.exc_type, arguments.exc_value, arguments.exc_traceback)
 
 
 def current_user_names() -> tuple[str, ...]:

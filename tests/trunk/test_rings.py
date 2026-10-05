@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from pytestqt.qtbot import QtBot
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.bark import veil
 from verdra.trunk import rings
 from verdra.trunk.almanac.store import SettingsStore
@@ -267,13 +268,17 @@ def test_support_bundle_replaces_user_names_and_long_ids(
     )
     log.info("Joined place 1234567890 as alex.e from C:\\Users\\Alex Example\\AppData")
     log.info("GET apis.roblox.com /universes/v1/places/9876543210/universe")
+    log.info("Asset %d replaced by %d", ABOVE_UINT32, ABOVE_INT32)
     logging_on.stop()
     bundle_path = rings.export_support_bundle(
         tmp_path / "u.zip", logging_on, sources, user_names=["Alex Example", "alex.e"]
     )
     with zipfile.ZipFile(bundle_path) as bundle:
         text = "\n".join(bundle.read(name).decode("utf-8") for name in bundle.namelist())
-    for private in ("Alex Example", "alex.e", "alex/", "1234567890", "9876543210", "2345678"):
+    for private in (
+        *("Alex Example", "alex.e", "alex/", "1234567890", "9876543210", "2345678"),
+        *(str(ABOVE_UINT32), str(ABOVE_INT32)),
+    ):
         assert private not in text, private
     assert "Joined place <id> as <user> from C:\\Users\\<user>\\AppData" in text
     assert "/home/<user>/.var/app" in text

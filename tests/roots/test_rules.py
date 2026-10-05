@@ -8,6 +8,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from tests.roots.test_hyphae import PROTECTED_SPELLINGS
 from verdra.roots import rules
 
@@ -99,6 +100,16 @@ def test_a_snapshot_needs_only_the_hosts_its_replacements_use() -> None:
         assert snapshot.hosts() == {"assetdelivery.roblox.com", "fts.rbxcdn.com"}
         assert snapshot.swaps() == {1: 2}
     assert all(rules.is_roblox_host(host) for host in ids.hosts() | snapshot.hosts())
+
+
+def test_swaps_keep_real_size_ids_exactly() -> None:
+    snapshot = rules.GraftSnapshot(
+        {
+            (ABOVE_UINT32, None): graft(ABOVE_UINT32, value=str(ABOVE_INT32)),
+            (ABOVE_INT32, None): graft(ABOVE_INT32, value=str(ABOVE_UINT32)),
+        }
+    )
+    assert snapshot.swaps() == {ABOVE_UINT32: ABOVE_INT32, ABOVE_INT32: ABOVE_UINT32}
 
 
 def test_the_holder_swaps_whole_snapshots() -> None:
