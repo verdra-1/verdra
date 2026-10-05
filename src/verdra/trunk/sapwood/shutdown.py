@@ -40,6 +40,8 @@ def run(services: Services) -> None:
         services.state.save()
     services.single.release()
     log.debug("Shutdown finished after %d ms of running.", services.elapsed_ms())
+    if services.errors is not None:
+        services.errors.uninstall()
     services.rings.stop()
     if services.erase_own_data:
         # Last, with logging stopped: the log folder goes at the end of the run (spec S-16).

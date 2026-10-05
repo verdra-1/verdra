@@ -81,6 +81,8 @@ class Services:
     sprout: sprout_.Sprout | None = None
     #: Replacement profiles and the snapshot the proxy reads (specs S-20, S-21).
     grafts: grafts_.Grafts | None = None
+    #: Unhandled errors, logged in full; the interface announces them (M-ERR-01).
+    errors: rings.ErrorHook | None = None
 
     def elapsed_ms(self) -> int:
         """Return milliseconds since launch."""
@@ -262,6 +264,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         single=single,
         started=started,
         routing=gardener.RoutingStatusSource(),
+        errors=rings.ErrorHook(app).install(),
     )
     settings.save_in_background(services.tendrils.submit)
     assert services.routing is not None  # noqa: S101 - set just above

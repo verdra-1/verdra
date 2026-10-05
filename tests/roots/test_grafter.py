@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from tests.roots.test_hyphae import FakeServer, Proxy, body_of, run
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
@@ -115,6 +116,31 @@ def test_an_asset_id_replacement_is_asked_for_and_mapped_back(
     expected[1]["assetId"] = "2222222"
     assert received == expected
     assert received[2] == answer_for(REQUEST_ITEMS)[2]  # the item that stays is unchanged
+
+
+@pytest.mark.spec("S-21", 1)
+def test_real_size_ids_are_swapped_and_mapped_back_exactly(tmp_path: Path) -> None:
+    items = [
+        {"requestId": "big-0", "assetId": ABOVE_UINT32, "assetType": "Image"},
+        {"requestId": "big-1", "assetId": str(ABOVE_INT32), "assetType": "Decal"},
+    ]
+    swapped = [{**items[0], "assetId": ABOVE_INT32}, {**items[1], "assetId": str(ABOVE_UINT32)}]
+    server = FakeServer(
+        tmp_path, {BATCH: http(json.dumps(answer_for(swapped)).encode())}, host=HOST
+    )
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32, ABOVE_INT32: ABOVE_UINT32}))
+    pipeline = hyphae.Pipeline(request=[grafter], response=[grafter])
+
+    async def body() -> list[object]:
+        async with Proxy(server, pipeline) as proxy:
+            client = await proxy.connect()
+            _raw, events = await client.send(post(json.dumps(items).encode()), method=b"POST")
+            return events
+
+    events = run(body)
+    assert json.loads(server.received[0].body) == swapped
+    received = json.loads(body_of(events))
+    assert [item["assetId"] for item in received] == [ABOVE_UINT32, str(ABOVE_INT32)]
 
 
 @pytest.mark.spec("S-21", 6)

@@ -12,6 +12,7 @@ import msgspec
 import pytest
 from PySide6.QtWidgets import QApplication
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.roots import rules
 from verdra.trunk.almanac import schema
 from verdra.trunk.branches import grafts
@@ -69,6 +70,21 @@ def test_every_field_round_trips_byte_for_byte(tmp_path: Path) -> None:
         "asset_type": "Image",
         "note": "n",
     }
+
+
+@pytest.mark.spec("S-20", 1)
+def test_real_size_ids_round_trip_compile_and_preview_exactly(tmp_path: Path) -> None:
+    made = store(tmp_path)
+    profile = made.create("Big")
+    made.add_replacement(profile.id, *swap(ABOVE_UINT32, ABOVE_INT32), asset_type="Image")
+    made.add_replacement(profile.id, *swap(ABOVE_INT32, ABOVE_UINT32), asset_type="Image")
+    written = (tmp_path / "Big.json").read_bytes()
+    assert f'"asset_id": {ABOVE_UINT32}'.encode() in written  # a JSON number, not rounded
+    assert grafts.read_profile(tmp_path / "Big.json") == made.get(profile.id)
+    snapshot = made.compile().snapshot
+    assert snapshot.swaps() == {ABOVE_UINT32: ABOVE_INT32, ABOVE_INT32: ABOVE_UINT32}
+    shown = grafts.preview(snapshot)
+    assert {row.winner.original for row in shown.groups["Image"]} == {ABOVE_INT32, ABOVE_UINT32}
 
 
 def test_the_published_schema_names_every_field() -> None:

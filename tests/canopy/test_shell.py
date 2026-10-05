@@ -729,3 +729,76 @@ def test_the_window_is_revealed_after_the_splash_with_no_reference_kept(
     shell.show_window(minimized=False)
     qtbot.waitUntil(shell.window.isVisible, timeout=3000)
     qtbot.waitUntil(lambda: shell.splash is None, timeout=3000)
+
+
+@pytest.mark.qt_no_exception_capture  # the app's own hook must see the error, as in real use
+def test_an_error_in_a_slot_is_logged_and_announced_never_only_printed(
+    services: Services, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first-texture-swap failure: an exception in Save's slot reached only the console."""
+    import threading  # noqa: PLC0415
+
+    from verdra.canopy.screens.grafts.screen import ReplacementsScreen  # noqa: PLC0415
+    from verdra.soil import terrain  # noqa: PLC0415
+    from verdra.trunk import rings  # noqa: PLC0415
+    from verdra.trunk.branches import grafts  # noqa: PLC0415
+
+    services.errors = rings.ErrorHook().install()
+    services.grafts = grafts.Grafts(terrain.config_dir() / "profiles", services.settings)
+    shell = Shell(services)
+    shell.build()
+    qtbot.addWidget(shell.window)
+    try:
+        screen = shell.window.screens["replacements"]
+        assert isinstance(screen, ReplacementsScreen)
+        home = str(Path.home())
+
+        def broken(*_args: object) -> None:
+            raise RuntimeError(f"profile folder {home} is broken for asset 15553230204")
+
+        monkeypatch.setattr(grafts.ProfileStore, "add_replacement", broken)
+        screen.empty.buttons[0].click()
+        qtbot.keyClicks(screen.editor.original, "15553230204")
+        qtbot.keyClicks(screen.editor.target, "2147483655")
+        for _ in range(3):  # the maintainer clicked Save 12 times: one notice, not twelve
+            qtbot.mouseClick(screen.editor.save, Qt.MouseButton.LeftButton)
+        qtbot.waitUntil(lambda: bool(shell.window.dew.toasts))  # queued to the interface's thread
+        notice = "Something went wrong. Details are in Activity."
+        texts = [t.text for t in shell.window.dew.toasts]
+        assert texts.count(notice) == 1
+        [toast] = [t for t in shell.window.dew.toasts if t.text == notice]
+        assert toast.kind is Kind.ERROR and toast.action_button is not None
+        toast.action_button.click()
+        assert shell.window.stack.currentWidget() is shell.window.screens["activity"]
+
+        # An error on another thread is announced on the interface's thread too.
+        threads: list[threading.Thread] = []
+        services.errors.happened.connect(lambda: threads.append(threading.current_thread()))
+        worker = threading.Thread(target=lambda: 1 / 0)
+        with qtbot.waitSignal(services.errors.happened):
+            worker.start()
+            worker.join()
+        qtbot.waitUntil(lambda: any(t.text == notice for t in shell.window.dew.toasts))
+        assert threads == [threading.main_thread()]  # the notice is made on the interface's thread
+    finally:
+        services.errors.uninstall()
+        shell.window.allow_close = True
+        shell.window.close()
+    check_activity(services)
+
+
+def check_activity(services: Services) -> None:
+    """Every unhandled error reached Activity in full and anonymized, with the notice's line."""
+    services.rings.stop()  # records reach the ring on the listener thread: drain it first
+    errors = [r.message for r in services.rings.ring.snapshot() if r.level == logging.ERROR]
+    unhandled = [m for m in errors if m.startswith("Verdra ran into an error it didn't expect.")]
+    assert len(unhandled) == 4  # three clicks and the thread: every one logged in full
+    assert "Traceback (most recent call last):" in unhandled[0]
+    assert "RuntimeError: profile folder" in unhandled[0] and "in _save" in unhandled[0]
+    assert "ZeroDivisionError" in unhandled[-1]
+    assert not any(Path.home().name in m or "15553230204" in m for m in unhandled)
+    assert notice_in(errors)
+
+
+def notice_in(errors: list[str]) -> bool:
+    return "Something went wrong. Details are in Activity." in errors

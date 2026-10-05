@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from verdra.canopy.crown import theme
 from verdra.canopy.crown.about import AboutDialog
-from verdra.canopy.crown.dew import Dew
+from verdra.canopy.crown.dew import Dew, Kind
 from verdra.canopy.crown.header import Header, StatusView, status_of
 from verdra.canopy.crown.seedling import Onboarding
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
@@ -300,6 +300,8 @@ class Shell:
                 "Ctrl+Return": self.apply_now,
             }
         self.shortcuts = Shortcuts(self.window, actions)
+        if services.errors is not None:
+            services.errors.happened.connect(self.show_error)
         services.tendrils.slow.connect(self.window.dew.show_job)
         services.tendrils.submitted.connect(self._report_job_end)
         if services.routing is not None:
@@ -446,6 +448,22 @@ class Shell:
         elif sprout is not None and not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
         self.window.dew.show(ApplyText().next_time(count))
+
+    def show_error(self) -> None:
+        """M-ERR-01: an unhandled error was logged; say so, with a way to the details."""
+        text = QCoreApplication.translate(
+            "M-ERR-01", "Something went wrong. Details are in Activity."
+        )
+        if any(toast.text == text for toast in self.window.dew.toasts):
+            return  # one notice for a burst of the same error, not one per click
+        self.window.dew.show(
+            text,
+            Kind.ERROR,
+            (
+                QCoreApplication.translate("M-ERR-01", "Open Activity"),
+                lambda: self.window.show_screen("activity"),
+            ),
+        )
 
     def show_other_tool(self, text: str) -> None:
         """M-COEX-01: another tool routes Roblox; "Try again" runs the check again (S-15)."""

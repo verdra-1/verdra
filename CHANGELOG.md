@@ -176,6 +176,10 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Saving a replacement whose asset ID is larger than 2,147,483,647 (most real asset IDs today)
+  did nothing. Asset IDs of any size are now saved, applied and swapped.
+- An unexpected error is no longer only printed to the console: Verdra shows "Something went
+  wrong. Details are in Activity." and writes the details there.
 - When Verdra can't add its certificate to a new Roblox version, the routing status now turns
   Degraded and offers "Repair certificate", instead of giving up silently.
 - When a Roblox server's certificate can't be verified while Verdra reads traffic, the routing

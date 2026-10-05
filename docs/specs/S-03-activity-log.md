@@ -55,6 +55,10 @@ One logging system for the app, readable in the Activity screen and safe to shar
   "Include my replacement profiles"; buttons "Export…", "Cancel".
 - M-LOG-03 (new, help text) "Debug records appear only while detailed logging is on."
 - M-LOG-04 (new, kind Activity) "Detailed logging turned itself off after 24 hours."
+- M-ERR-01 (new, Toast, kind Error) "Something went wrong. Details are in Activity." Action
+  "Open Activity".
+- M-ERR-02 (new, kind Activity) "Verdra ran into an error it didn't expect. Details follow."
+  followed by the error's traceback.
 - Every Info, Warning and Error line is written for the user and has a message ID; technical
   detail (Debug lines, exception text, values inside placeholders) has none (plan 16.2, M0 review
   round 3). `tests/test_activity_lines.py` enforces it.
@@ -87,3 +91,11 @@ One logging system for the app, readable in the Activity screen and safe to shar
 - Redaction also covers exception text and log arguments, not only the message.
 - Rule 2's signed-URL parameters and rule 3's user names and IDs, with tests 8 and 9, carry out
   plan 16.2 ("Stage 2 on Windows"); the parameter names are those seen in the Stage 2 capture.
+- **Unhandled errors (2026-10-05)**: an error no code handles, in a Qt slot, a timer or any
+  thread, is never only printed to a console. `trunk/rings.ErrorHook` takes `sys.excepthook`
+  (which PySide calls for exceptions in slots) and `threading.excepthook`. It writes M-ERR-02
+  with the full traceback at Error level, anonymized as support bundles are (user names and long
+  IDs replaced) besides the usual redaction, and the shell shows M-ERR-01 once per burst, with
+  "Open Activity". M-ERR-01 can't name the action that failed, because the hook doesn't know it;
+  refusals the user can act on (a full profile) are caught where they happen and shown in place.
+  Found by the first-texture-swap test, where Save failed with a console-only traceback.
