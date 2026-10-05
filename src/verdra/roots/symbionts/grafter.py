@@ -2,21 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rewrites asset batch requests and responses; serves replacement content.
 
-Spec S-21. This part swaps asset IDs: in a batch request (`POST /v1/assets/batch` on
-`assetdelivery.roblox.com`, fact V1), each item whose asset ID has a replacement asks for the
-target ID instead, and every other field of the item is kept. The response is mapped back by
-each item's request ID, so the client receives the content for the item it asked for, with the
-original ID wherever the response names one.
+Spec S-21. This part swaps asset IDs on `assetdelivery.roblox.com`:
+
+- In a batch request (`POST /v1/assets/batch`, fact V1), each item whose asset ID has a
+  replacement asks for the target ID instead, and every other field of the item is kept. The
+  response is mapped back by each item's request ID, so the client receives the content for the
+  item it asked for, with the original ID wherever the response names one.
+- A single-asset request (`GET /v1/asset/?id=…` and `/v2/asset/?id=…`, seen in the first swap
+  test's log, and `/v1/assetId/<id>` and `/v2/assetId/<id>`, from the service's public API
+  description) asks for the target ID instead; every other part of the address is kept.
 
 Anything the grafter doesn't recognize (a body that isn't a JSON array of objects, a compressed
 request, a response it can't map back) passes through unchanged (rule 4). Everything it needs is
 in the snapshot it read when the request arrived; it does no disk or network work (rule 2).
+
+What it saw is logged at Debug level (Settings › Advanced › Detailed logging), one line per
+batch whatever the outcome: how many items were replaced, the asset IDs asked for and the field
+names of the items, and why a batch was passed on unchanged. Asset IDs are public; no other value
+is logged (field names only, never a value such as a download link, which carries a signature).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from collections import OrderedDict
 from dataclasses import replace
 from typing import Any, Final
@@ -29,6 +39,12 @@ log = logging.getLogger(__name__)
 _PENDING_LIMIT: Final = 1024
 _ASSET_ID: Final = "assetId"
 _REQUEST_ID: Final = "requestId"
+#: At most this many asset IDs per log line, so one large batch stays one readable line.
+_LOGGED_IDS: Final = 100
+#: Single-asset requests: `/v1/asset/?id=…` (and v2), and `/v1/assetId/<id>` (and v2).
+_SINGLE_QUERY_PATHS: Final = frozenset({"/v1/asset", "/v2/asset"})
+_QUERY_ID = re.compile(r"(?i)(^|&)(id=)(\d+)(?=&|$)")
+_PATH_ID = re.compile(r"(?i)^(/v[12]/assetid/)(\d+)(?=/|$)")
 
 
 class Grafter:
@@ -50,29 +66,88 @@ class Grafter:
 
     def on_request(self, request: hyphae.Request) -> hyphae.Request | None:
         """Ask for each replaced asset's target instead; None if nothing changes."""
-        if request.body is None or not _is_batch(request) or _encoded(request.headers):
-            return None
+        if _is_batch(request):
+            return self._batch_request(request)
+        if _is_single(request):
+            return self._single_request(request)
+        return None
+
+    def _batch_request(self, request: hyphae.Request) -> hyphae.Request | None:
         swaps = self.holder.current.swaps()
+        if not swaps:
+            return None
+        if request.body is None:
+            log.debug("An asset batch request was too large to read; passed on unchanged")
+            return None
+        if _encoded(request.headers):
+            log.debug(
+                "An asset batch request was compressed (%s); passed on unchanged",
+                _header(request.headers, b"content-encoding"),
+            )
+            return None
         items = self._items(request.body, "request")
-        if items is None or not swaps:
+        if items is None:
             return None
         originals: dict[Any, Any] = {}
+        asked: list[str] = []
+        without_request_id = 0
         for item in items:
             sent = item.get(_ASSET_ID)
             asset_id = _as_id(sent)
-            if asset_id is None or asset_id not in swaps or _REQUEST_ID not in item:
+            asked.append(str(sent) if asset_id is not None else "?")
+            if asset_id is None or asset_id not in swaps:
+                continue
+            if _REQUEST_ID not in item:
+                without_request_id += 1
                 continue
             target = swaps[asset_id]
             item[_ASSET_ID] = str(target) if isinstance(sent, str) else target
             originals[_key(item[_REQUEST_ID])] = sent
+            asked[-1] += f"->{target}"
+        log.debug(
+            "Asset batch: %d of %d items replaced%s (asked for: %s; item fields: %s)",
+            len(originals),
+            len(items),
+            f", {without_request_id} without a request ID left alone" if without_request_id else "",
+            _listed(asked),
+            _fields(items),
+        )
         if not originals:
             return None
         changed = replace(request, body=json.dumps(items, separators=(",", ":")).encode())
         self._pending[id(changed)] = (changed, originals)
         while len(self._pending) > _PENDING_LIMIT:
             self._pending.popitem(last=False)
-        log.debug("Asset batch: %d of %d items replaced", len(originals), len(items))
         return changed
+
+    def _single_request(self, request: hyphae.Request) -> hyphae.Request | None:
+        swaps = self.holder.current.swaps()
+        if not swaps:
+            return None
+        target = request.target.decode("latin-1")
+        path, mark, query = target.partition("?")
+        path_match = _PATH_ID.match(path)
+        query_match = _QUERY_ID.search(query) if mark else None
+        match = path_match or query_match
+        if match is None:
+            log.debug("An asset request named no asset ID it could read; passed on unchanged")
+            return None
+        original = int(match.group(3) if match is query_match else match.group(2))
+        replacement = swaps.get(original)
+        log.debug(
+            "Asset request for %d: %s",
+            original,
+            f"replaced by {replacement}" if replacement is not None else "no replacement",
+        )
+        if replacement is None:
+            return None
+        if path_match is not None:
+            path = path_match.group(1) + str(replacement) + path[path_match.end() :]
+        else:
+            query = _QUERY_ID.sub(
+                lambda m: m.group(1) + m.group(2) + str(replacement), query, count=1
+            )
+        return replace(request, target=(path + mark + query).encode("latin-1"))
 
     # --- Responses -------------------------------------------------------------------------
 
@@ -91,15 +166,23 @@ class Grafter:
         items = self._items(response.body, "response")
         if items is None:
             return None
+        mapped = 0
         changed = False
         for item in items:
             request_id = item.get(_REQUEST_ID)
             if request_id is None or _key(request_id) not in originals:
                 continue
+            mapped += 1
             if _ASSET_ID in item:
                 original = originals[_key(request_id)]
                 item[_ASSET_ID] = _like(original, item[_ASSET_ID])
                 changed = True
+        log.debug(
+            "Asset batch response: %d of %d replaced items found by request ID (item fields: %s)",
+            mapped,
+            len(originals),
+            _fields(items),
+        )
         if not changed:
             return None
         return replace(response, body=json.dumps(items, separators=(",", ":")).encode())
@@ -126,6 +209,37 @@ def _is_batch(request: hyphae.Request) -> bool:
         and rules.canonical_path(request.target) == rules.ASSET_BATCH_PATH
         and not rules.is_protected(request.host, request.target)
     )
+
+
+def _is_single(request: hyphae.Request) -> bool:
+    if (
+        rules.host_name(request.host) != rules.ASSET_BATCH_HOST
+        or request.method != b"GET"
+        or rules.is_protected(request.host, request.target)
+    ):
+        return False
+    path = rules.canonical_path(request.target)
+    return path in _SINGLE_QUERY_PATHS or _PATH_ID.match(path) is not None
+
+
+def _header(headers: hyphae.Headers, name: bytes) -> str:
+    for key, value in headers:
+        if key.lower() == name:
+            return value.decode("latin-1")
+    return ""
+
+
+def _listed(values: list[str]) -> str:
+    shown = ", ".join(values[:_LOGGED_IDS])
+    return shown + (f", and {len(values) - _LOGGED_IDS} more" if len(values) > _LOGGED_IDS else "")
+
+
+def _fields(items: list[dict[str, Any]]) -> str:
+    """The field names the items use (never their values), in first-seen order."""
+    names: dict[str, None] = {}
+    for item in items:
+        names.update(dict.fromkeys(str(key) for key in item))
+    return ", ".join(names) or "none"
 
 
 def _encoded(headers: hyphae.Headers) -> bool:

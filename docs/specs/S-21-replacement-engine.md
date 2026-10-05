@@ -99,3 +99,10 @@ Make Roblox receive the replacement instead of the original asset.
   `assetdelivery.roblox.com` and real traffic is unchanged while the first real-machine test of
   Asset ID swaps runs (maintainer, 2026-10-04: "Keep the grafter's real-traffic behaviour as it
   is until my test result is in").
+- **After the first swap test (2026-10-05).** The Asset ID kind also covers single-asset
+  requests: `GET /v1/asset/?id=…` and `/v2/asset/?id=…` (seen in the test's log) and
+  `/v1/assetId/<id>` and `/v2/assetId/<id>` (from the service's public API description) ask for
+  the target ID, with every other part of the address kept. Every batch is logged at Debug level
+  whatever the outcome (how many items were replaced, the asset IDs asked for, the items' field
+  names, and why a batch was passed on unchanged), and each response's mapping likewise; asset
+  IDs are public, and no other value is logged.

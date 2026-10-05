@@ -11,6 +11,7 @@ from __future__ import annotations
 import builtins
 import gzip
 import json
+import logging
 import socket
 from pathlib import Path
 from types import MappingProxyType
@@ -251,3 +252,130 @@ def test_forgotten_batches_are_bounded() -> None:
     kept = [grafter.on_request(request) for _ in range(1100)]  # responses that never came
     assert len(grafter._pending) == 1024  # noqa: SLF001
     assert all(k is not None for k in kept)
+
+
+# --- What the grafter logs, and the single-asset routes (first swap test, 5 October 2026) --------
+
+
+def debug_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "verdra.roots.symbionts.grafter"]
+
+
+def test_every_batch_is_logged_even_when_nothing_matches(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The first swap test's log had no grafter line at all: a batch with no match said nothing."""
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    items = [
+        {"requestId": "a", "assetId": 1111111, "assetType": "Image"},
+        {"requestId": "b", "assetId": "2222222", "assetType": "Decal"},
+    ]
+    request = hyphae.Request(HOST, b"POST", BATCH, (), json.dumps(items).encode())
+    assert grafter.on_request(request) is None
+    assert debug_lines(caplog) == [
+        "Asset batch: 0 of 2 items replaced (asked for: 1111111, 2222222; "
+        "item fields: requestId, assetId, assetType)"
+    ]
+
+
+def test_a_match_names_both_ids_and_skipped_batches_say_why(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    items = [
+        {"requestId": "a", "assetId": ABOVE_UINT32},
+        {"assetId": ABOVE_UINT32},  # no request ID: can't be mapped back, so it's left alone
+        {"requestId": "c", "id": 5},  # another shape
+    ]
+    assert grafter.on_request(hyphae.Request(HOST, b"POST", BATCH, (), json.dumps(items).encode()))
+    gzipped = hyphae.Request(HOST, b"POST", BATCH, ((b"Content-Encoding", b"gzip"),), b"\x1f\x8b")
+    assert grafter.on_request(gzipped) is None
+    unread = hyphae.Request(HOST, b"POST", BATCH, ())  # over the buffer limit: no body
+    assert grafter.on_request(unread) is None
+    assert debug_lines(caplog) == [
+        f"Asset batch: 1 of 3 items replaced, 1 without a request ID left alone (asked for: "
+        f"{ABOVE_UINT32}->{ABOVE_INT32}, {ABOVE_UINT32}, ?; item fields: requestId, assetId, id)",
+        "An asset batch request was compressed (gzip); passed on unchanged",
+        "An asset batch request was too large to read; passed on unchanged",
+    ]
+
+
+def test_the_log_names_fields_and_asset_ids_never_other_values(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    items = [{"requestId": "secret-request", "assetId": ABOVE_UINT32, "token": "secret-token"}]
+    asked = grafter.on_request(hyphae.Request(HOST, b"POST", BATCH, (), json.dumps(items).encode()))
+    assert asked is not None
+    location = "https://fts.rbxcdn.com/sc1/abc?__token__=exp=1~hmac=secret-signature"
+    answer = [{"requestId": "secret-request", "location": location, "assetId": ABOVE_INT32}]
+    response = hyphae.Response(200, (), body=json.dumps(answer).encode())
+    assert grafter.on_response(asked, response) is not None
+    logged = "\n".join(debug_lines(caplog))
+    assert "Asset batch response: 1 of 1 replaced items found by request ID" in logged
+    assert "item fields: requestId, location, assetId" in logged
+    assert "secret" not in logged
+
+
+def test_a_response_without_asset_ids_stays_byte_identical() -> None:
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    items = [{"requestId": "a", "assetId": ABOVE_UINT32}]
+    asked = grafter.on_request(hyphae.Request(HOST, b"POST", BATCH, (), json.dumps(items).encode()))
+    assert asked is not None
+    body = b'[ {"requestId": "a",   "location": "https://fts.rbxcdn.com/sc1/x"} ]'
+    assert grafter.on_response(asked, hyphae.Response(200, (), body=body)) is None
+
+
+SINGLE_ROUTES = [
+    (
+        f"/v1/asset/?id={ABOVE_UINT32}&permissionContext=ignoreUniverse",
+        f"/v1/asset/?id={ABOVE_INT32}&permissionContext=ignoreUniverse",
+    ),
+    (f"/v1/asset?ID={ABOVE_UINT32}", f"/v1/asset?ID={ABOVE_INT32}"),
+    (f"/v2/asset/?x=1&id={ABOVE_UINT32}", f"/v2/asset/?x=1&id={ABOVE_INT32}"),
+    (f"/v1/assetId/{ABOVE_UINT32}", f"/v1/assetId/{ABOVE_INT32}"),
+    (f"/v2/assetId/{ABOVE_UINT32}/version/3", f"/v2/assetId/{ABOVE_INT32}/version/3"),
+]
+
+
+@pytest.mark.spec("S-21", 1)
+@pytest.mark.parametrize(("asked", "sent"), SINGLE_ROUTES)
+def test_a_single_asset_request_asks_for_the_target(tmp_path: Path, asked: str, sent: str) -> None:
+    """Seen in the first swap test: GET /v1/asset/?id=… alongside the batches."""
+    server = FakeServer(tmp_path, {sent.encode(): http(b"content")}, host=HOST)
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    pipeline = hyphae.Pipeline(request=[grafter], response=[grafter])
+    get = (f"GET {asked} HTTP/1.1\r\nHost: {HOST}\r\n\r\n").encode()
+
+    async def body() -> list[object]:
+        async with Proxy(server, pipeline) as proxy:
+            client = await proxy.connect()
+            _raw, events = await client.send(get, method=b"GET")
+            return events
+
+    assert body_of(run(body)) == b"content"
+    assert [r.target for r in server.received] == [sent.encode()]
+
+
+def test_single_asset_requests_without_a_replacement_or_id_pass_unchanged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    grafter = Grafter(holder({ABOVE_UINT32: ABOVE_INT32}))
+    for target in (b"/v1/asset/?id=1111111", b"/v1/asset/?assetName=x", b"/v1/assetId/1/version/x"):
+        assert grafter.on_request(hyphae.Request(HOST, b"GET", target, ())) is None
+    assert debug_lines(caplog)[:2] == [
+        "Asset request for 1111111: no replacement",
+        "An asset request named no asset ID it could read; passed on unchanged",
+    ]
+    for host, method, target in (
+        ("apis.roblox.com", b"GET", f"/v1/asset/?id={ABOVE_UINT32}".encode()),
+        (HOST, b"POST", f"/v1/asset/?id={ABOVE_UINT32}".encode()),
+        (HOST, b"GET", f"/v1/assets/{ABOVE_UINT32}".encode()),
+    ):
+        assert grafter.on_request(hyphae.Request(host, method, target, ())) is None
+    nothing = Grafter(holder({}))
+    assert nothing.on_request(hyphae.Request(HOST, b"GET", b"/v1/asset/?id=5", ())) is None

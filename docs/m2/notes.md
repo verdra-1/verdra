@@ -67,7 +67,63 @@ before the Player does, so a shared cache is a possible reason for a failed swap
 picture shows and that line is missing while `POST assetdelivery.roblox.com /v1/assets/batch`
 lines are present, the Player didn't ask for the original: cache (or an ID mismatch, such as a
 decal ID instead of the image ID). If the line is there and the original picture still shows,
-the problem is after the request.
+the problem is after the request. (Corrected after the test below: the line was also missing
+when the grafter skipped a batch without saying so, so its absence alone didn't prove that.)
 
 The safe cache-clearing design will be proposed from that log, and nothing in Roblox's folders
 will be deleted until the maintainer approves it.
+
+## First texture swap test, first attempt (2026-10-05): not seen
+
+The maintainer replaced one Toolbox picture (the original, its Texture number from Studio) with
+another and saw only the original, through several Apply now restarts and joins. Evidence:
+`docs/platforms/evidence/windows/first-swap-2026-10-05.txt` (counts and anonymised names only).
+
+**What the log proves**
+
+- The replacement was published ("Applied 1 replacement") and routing was on.
+- 64 batch requests (`POST /v1/assets/batch`) and 2 single-asset requests
+  (`GET /v1/asset/?id=…`) passed through Verdra, which read them. Nothing else was decrypted.
+- The grafter wrote no line at all. Before verdra-1/verdra#87 it logged only when it replaced
+  something; it also skipped silently a compressed batch, a batch too large to read, and items
+  without a request ID. So the log proves only that no batch was **replaced**, not why.
+- The two single-asset requests asked for other assets (videos, by their requested format), so
+  they weren't the picture; but that route was not handled at all, so a picture fetched that way
+  could never have been swapped (now handled, with tests).
+- Neither asset ID appears in any request address. Download addresses on `fts.rbxcdn.com` and
+  the other CDN hosts are content hashes, never asset IDs, so no CDN route carries the ID.
+- The Player found running at startup (process ID in the log) carried Verdra's proxy address, so
+  an earlier Verdra started it; Verdra had just started and hadn't. "Restart Roblox" closes only
+  the Players the current run started, so that Player was never closed during the test.
+
+**What the log doesn't prove (and the next log will)**
+
+- Whether any batch held the original: bodies weren't logged. The next log names every asset ID
+  asked for and the item field names, one line per batch, and says why a batch was skipped.
+- Which cache held the picture. Probable, in order: (1) the Player's own cache, since the run
+  before (Save didn't work then) restarted Roblox twice while nothing was replaced, so the Player
+  most likely loaded the original itself; (2) the Player kept running from that run, holding the
+  picture in memory; (3) the cache Studio shares, where the picture was placed first.
+- That the original number was the image the game loads: the guide says to copy the Texture
+  property, which is the image Studio resolved from the decal. Verdra's sandbox can't reach
+  Roblox's API to check the two numbers' asset types (blocked by its network policy).
+
+**Do Studio and the Player share `%LOCALAPPDATA%\Roblox\rbx-storage*`?**
+
+- Proven (W-06, the maintainer's PC): there is one Roblox folder per user, holding one
+  `rbx-storage.db` (with `-shm` and `-wal`, the SQLite write-ahead files) and the folders
+  `rbx-storage` and `rbx-storage-sc`, next to both the Player's settings file
+  (`GlobalBasicSettings_13.xml`) and Studio's (`GlobalBasicSettings_13_Studio.xml`), and a
+  separate `RobloxStudio` folder. No Studio-only storage database appears in the listing.
+- Probable, not proven: both apps use that one storage as their download cache. Roblox doesn't
+  document its cache, and a listing can't show which program writes which file. The read-only
+  check in the re-test guide (sizes and modified times before and after a join) shows whether the
+  Player writes to it; whether Studio does would need the same check around a Studio session.
+
+**What changes**
+
+- The grafter logs every batch (verdra-1/verdra#87) and handles the single-asset routes.
+- Apply now moves the download cache to a backup folder, only with Player and Studio closed
+  (spec S-24, the cache-clearing design approved in principle on 2026-10-05), which also removes
+  the "Player kept running" case: Apply now asks for every Player to be closed first.
+
