@@ -102,6 +102,15 @@ No gate is removed or weakened.
   against `main` reports the required check. When a lower pull request merges and the next one
   is retargeted to `main`, the retarget starts a new full run against `main`; until it is
   green, the pull request can't merge.
+- **Push, then retarget, never both at once.** A push to a stacked pull request's branch and its
+  retarget to `main` within the same few seconds race in the shared concurrency group: on
+  verdra-1/verdra#88 (5 October 2026) the push's `synchronize` run (37378577183) started a
+  moment after the retarget's run (37378576193) and cancelled it, and its event still named
+  the old base, so the only completed run on that head reported "Full gates green (stacked)"
+  and never "All gates green". So retarget a stacked pull request only once the run for its
+  current head has started, or bring the branch up to date with `main` after the retarget,
+  which starts one run against `main`. Rebasing onto the new `main` is that update, since it
+  changes the head.
 - Every pull request in a stack shows the full matrix, so a failure on one runner is found on
   the pull request that causes it.
 - If the queue turns out too slow, the simplest fallback that keeps the guarantee above is to run
