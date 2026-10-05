@@ -1,0 +1,30 @@
+First texture swap test, maintainer's PC (Windows 11), 2026-10-05: the Verdra run that held the
+test (one session, about 13 minutes). Counts and anonymised host and path names only: no query
+strings, IDs, timestamps or tokens (plan 16.2). Detailed logging was on.
+
+Requests through Verdra's proxy that Verdra read (count | method host path):
+64 | POST assetdelivery.roblox.com /v1/assets/batch
+2 | GET assetdelivery.roblox.com /v1/asset/
+(No other host was read: with only Asset ID replacements, only assetdelivery.roblox.com is
+decrypted; everything else passed through as tunnels, S-21 interception set.)
+
+Lines from Verdra's own modules (count | module | text):
+1 | sapwood.startup | Verdra 0.0.1 started on Windows.
+2 | branches.sprout | Coexistence check: RobloxPlayerBeta.exe (<pid>) with HTTPS_PROXY and HTTP_PROXY = http://127.0.0.1:49443 (the same Player process both times)
+1 | gardener | Routing status changed from Idle to Routing.
+1 | sapwood.single | Another launch of Verdra brought this window to the front.
+2 | dew | Applied 1 replacement. They'll appear next time Roblox starts.
+3 | dialogs | Restart Roblox now? Unsaved progress in your game may be lost. (answered with its action)
+3 | dew | Applied 1 replacement. Assets Roblox already saved may change only after it refreshes them.
+2 | dew | Applied 0 replacements. They'll appear next time Roblox starts. (profile switched off)
+0 | symbionts.grafter | (no line at all)
+1 | sapwood.shutdown | Verdra is quitting.
+
+Earlier run the same day (Save didn't work then: fixed in verdra-1/verdra#84):
+1 | dialogs | Quit Verdra while Roblox is running? Your replacements stop the next time Roblox starts. (answered with its action)
+1 | sapwood.shutdown | Verdra is quitting.
+2 | dialogs | Restart Roblox now? ... (answered with its action), before the quit
+(Verdra doesn't log the process IDs it starts, so which Player each run started isn't in the
+log. The Player the test run found already running carried Verdra's proxy address, which only a
+Player started through Verdra gets, and the run before had restarted Roblox twice and then quit
+with Roblox running: most likely that Player, not proven.)

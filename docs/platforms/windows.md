@@ -74,6 +74,22 @@ It was Roblox closing its own connection to Verdra while a video segment was sti
 relayed, which Verdra mislabeled as an upstream failure (evidence and fix:
 [verdra-1/verdra#67](https://github.com/verdra-1/verdra/pull/67)). Window visible after launch on this PC: 1,461 ms and 1,020 ms (plan 12.4: ≤ 1.5 s).
 
+## First texture swap test (maintainer's PC, 2026-10-05): not seen
+
+From the maintainer's `verdra.log`, anonymised in `evidence/windows/first-swap-2026-10-05.txt`
+(the raw log isn't committed). The full analysis is in [`docs/m2/notes.md`](../m2/notes.md).
+
+| Step (guide) | What the log proves | What it doesn't prove | Result |
+|---|---|---|---|
+| 1–5 Update, place, pictures, publish | Verdra ran (started on Windows, routing on) | The place and pictures (not logged) | Pass (as reported) |
+| 6 Save the replacement | Saved after verdra-1/verdra#84 ("Applied 1 replacement" follows) | | Pass |
+| 7 Apply now | "Applied 1 replacement"; three restarts asked and confirmed | | Pass |
+| 8 Join from the browser | A second launch handed Verdra a link; 64 asset batches and 2 single-asset requests then went through Verdra | Which Player rendered the game: one started by Verdra's previous run was still running and was never closed | Pass (log) |
+| 9 The wall | The original showed every time (the maintainer) | Why: no grafter line at all, and the grafter then said nothing for a batch without a match or one it skipped | **Fail** |
+
+V1 (the batch body shape) stays Unconfirmed: the bodies weren't logged. The next log names the
+asset IDs and item field names of every batch (verdra-1/verdra#87).
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

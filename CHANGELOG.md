@@ -177,6 +177,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- A replaced asset that Roblox fetches on its own (`/v1/asset/?id=…` and the like) rather than in
+  a batch is now replaced too. With detailed logging, Activity shows every asset batch: how many
+  items were replaced, which asset IDs were asked for, and why a batch was passed on unchanged.
 - Saving a replacement whose asset ID is larger than 2,147,483,647 (most real asset IDs today)
   did nothing. Asset IDs of any size are now saved, applied and swapped.
 - An unexpected error is no longer only printed to the console: Verdra shows "Something went
