@@ -83,11 +83,9 @@ SETTINGS_FILE: Final = "settings.json"
 STATE_FILE: Final = "state.json"
 LEDGER_FILE: Final = "changes.json"
 LOG_FILE: Final = "verdra.log"
-#: Under the config folder (plan 9.1): the CA certificate, and on Linux without a secret store
-#: the CA key file (mode 0600, M-CA-03; plan 16.2, risk R-10).
+#: Under the config folder (plan 9.1): the CA certificate.
 TRUST_FOLDER: Final = "trust"
 CA_CERTIFICATE_FILE: Final = "ca.crt"
-CA_KEY_FALLBACK_FILE: Final = "ca.key"
 
 
 def _override() -> Path | None:
@@ -165,7 +163,7 @@ MACOS_KEEPER_LABEL: Final = APP_ID + ".keeper"
 MACOS_KEEPER_SOCKET: Final = f"/var/run/{MACOS_KEEPER_LABEL}.sock"
 MACOS_PACK_UTI: Final = APP_ID + ".pack"
 
-# --- Linux -----------------------------------------------------------------------------------
+# --- Linux (paused, planned later: reference only, decision record 0018) ----------------------
 
 LINUX_FLATPAK_ID: Final = APP_ID_UNDERSCORE
 LINUX_DESKTOP_ENTRY: Final = APP_ID_UNDERSCORE + ".desktop"

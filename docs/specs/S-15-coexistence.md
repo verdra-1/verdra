@@ -25,8 +25,8 @@ Never fight with another routing tool, and say so clearly.
      proxy variables isn't a sign (it was started normally; S-14 shows "Restart Roblox through
      Verdra" instead).
   2. **Roblox hostnames mapped in the hosts file without Verdra's marker.** Verdra reads the
-     system hosts file (read-only; `%SystemRoot%\System32\drivers\etc\hosts` on Windows,
-     `/etc/hosts` on Linux) and looks for any line that maps a hostname from 10.2 to
+     system hosts file (read-only; `%SystemRoot%\System32\drivers\etc\hosts`) and looks for
+     any line that maps a hostname from 10.2 to
      an address and doesn't carry Verdra's marker `# verdra:route`. This breaks per-app routing
      too: Verdra's upstream lookup for that host would reach the other tool instead of Roblox.
 - **Not a sign:** Verdra's own port (`routing.proxy_port`, default 49443) being taken. S-11
@@ -91,11 +91,11 @@ lookup), `canopy/leaves/dialogs.py` (the dialog).
   marker. Port 443 on loopback is checked only in Hosts-file mode (M6).
 - Tests 3 to 7 are added for the signs and rules; tests 8 and 9 carry the Hosts-file part to M6,
   where they become Built with S-13.
-- Verdra never writes the hosts file in per-app mode. That a normal user can read it, and that
-  the Flatpak build sees the host's `/etc/hosts` rather than the sandbox's, is confirmed at M1
-  (facts W-10 and L-07 in `docs/platforms/`).
+- Verdra never writes the hosts file in per-app mode. That a normal user can read it is
+  confirmed at M1 (fact W-10 in `docs/platforms/`; the Linux fact L-07 is kept as reference
+  while Linux is paused).
 - Reading another process's environment is OS-dependent; the protocol in `docs/platforms/`
-  records whether it works (facts W-09 and L-06).
+  records whether it works (fact W-09; L-06 for Linux, paused).
 - Built for per-app mode (2026-10-04):
   - The check runs before routing starts and before each launch through Verdra, as a background
     job (rule 3). Signs go to Activity one line each (M-COEX-02, M-COEX-03, rule 4); the
@@ -104,9 +104,8 @@ lookup), `canopy/leaves/dialogs.py` (the dialog).
     discovered install, run by the same user (W-01). Its environment is read with psutil;
     whether that works on a real machine is W-09 (stage 2). When it can't be read, the client
     isn't a sign and M-COEX-04 records it (test 6).
-  - Linux: which process carries Sober's variables is L-06 (stage 2), so processes aren't listed
-    yet and M-COEX-04 records the check as incomplete. Linux routing is refused before the check
-    anyway until L-02 is confirmed (S-12, M-LAUNCH-04).
+  - Linux is paused (decision record 0018): nothing is listed there, and Verdra doesn't run on
+    Linux.
   - The hosts file is read from `%SystemRoot%\System32\drivers\etc\hosts` (W-10) and
     `/etc/hosts` (L-07), as text, never written.
   - Plan 10.2's hosts live in `roots/rules`: the exact list confirmed by capture on Windows at

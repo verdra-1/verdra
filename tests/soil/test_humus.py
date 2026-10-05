@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 The Verdra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for `verdra.soil.humus`: one Platform per OS package, macOS deferred (decision 0014)."""
+"""Tests for `verdra.soil.humus`: one Platform per OS package; Windows only (0014, 0018)."""
 
 import ast
 import importlib
@@ -28,22 +28,36 @@ def test_each_os_package_implements_the_platform() -> None:
     assert [p.name for p in platforms.values()] == ["Windows", "macOS", "Linux"]
 
 
-def test_windows_and_linux_are_supported() -> None:
+def test_only_windows_is_supported() -> None:
     assert meadow.PLATFORM.support() is None
-    assert tundra.PLATFORM.support() is None
+    assert tundra.PLATFORM.support() == humus.Unsupported(system="linux", reason="paused")
+    assert orchard.PLATFORM.support() == humus.Unsupported(system="macos", reason="deferred")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Linux paused (plan 16.2), macOS deferred")
 def test_the_running_system_is_supported() -> None:
-    # CI runs on Windows and Linux only (decision record 0014).
+    # CI runs on Windows only (decision record 0018).
     assert humus.current().support() is None
-    assert humus.system_name() in {"Windows", "Linux"}
+    assert humus.system_name() == "Windows"
 
 
-def test_the_macos_adapter_reports_unsupported() -> None:
-    expected = humus.Unsupported(system="macos", reason="deferred")
-    assert orchard.PLATFORM.support() == expected
-    assert orchard.PLATFORM.prefers_reduced_motion() is None
-    modules = [info.name for info in pkgutil.iter_modules(orchard.__path__)]
+@pytest.mark.real_platform
+@pytest.mark.parametrize(
+    ("package", "expected"),
+    [
+        (orchard, humus.Unsupported(system="macos", reason="deferred")),
+        (tundra, humus.Unsupported(system="linux", reason="paused")),
+    ],
+)
+def test_the_paused_and_deferred_adapters_report_unsupported(
+    package: object, expected: humus.Unsupported
+) -> None:
+    platform = package.PLATFORM  # type: ignore[attr-defined]
+    assert platform.support() == expected
+    assert platform.prefers_reduced_motion() is None
+    assert platform.roblox_clients() == expected
+    assert platform.link_handler() == expected
+    modules = [info.name for info in pkgutil.iter_modules(package.__path__)]  # type: ignore[attr-defined]
     assert sorted(modules) == sorted(
         [
             "autostart",
@@ -57,7 +71,7 @@ def test_the_macos_adapter_reports_unsupported() -> None:
         ]
     )
     for name in modules:
-        module = importlib.import_module(f"verdra.soil.orchard.{name}")
+        module = importlib.import_module(f"{package.__name__}.{name}")  # type: ignore[attr-defined]
         assert module.support() == expected, name
 
 
@@ -67,10 +81,10 @@ def test_macos_resolves_to_the_deferred_adapter(monkeypatch: pytest.MonkeyPatch)
     assert humus.prefers_reduced_motion() is None
 
 
-def test_linux_reads_gnome_animations(monkeypatch: pytest.MonkeyPatch) -> None:
-    for output, reduce in (("false", True), ("true", False), (None, None)):
-        monkeypatch.setattr(humus, "read_command", lambda _command, out=output: out)
-        assert tundra.PLATFORM.prefers_reduced_motion() is reduce
+def test_linux_resolves_to_the_paused_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert humus.current() is tundra.PLATFORM
+    assert humus.prefers_reduced_motion() is None
 
 
 def test_a_failing_os_read_counts_as_unknown(monkeypatch: pytest.MonkeyPatch) -> None:

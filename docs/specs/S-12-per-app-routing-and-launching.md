@@ -16,16 +16,18 @@ Start Roblox through Verdra on every platform without administrator rights.
 
 - **Discovery.** Verdra finds the installed Roblox clients at the locations recorded in
   `docs/platforms/<os>.md` at M1 (plan 11.1 to 11.3: per-user and all-users versions on Windows,
-  the Microsoft Store package, `Roblox.app` on macOS, Sober on Linux). If none is found, M-LAUNCH-01.
+  the Microsoft Store package; for later, `Roblox.app` on macOS and Sober on Linux, deferred and
+  paused). If none is found, M-LAUNCH-01.
 - **Launching.** "Launch Roblox" (Library empty state, tray, onboarding) and every in-app launch
   start the client with `HTTPS_PROXY` and `HTTP_PROXY` set to Verdra's proxy, added to a copy of
   the user's environment:
   - Windows: start the player executable directly with that environment.
-  - macOS: execute the player binary inside the app bundle directly.
-  - Linux: `flatpak run --env=HTTPS_PROXY=… --env=HTTP_PROXY=… org.vinegarhq.Sober <link>`.
+  - Reference for later (macOS deferred, Linux paused): macOS executes the player binary inside
+    the app bundle; Linux runs `flatpak run --env=HTTPS_PROXY=… --env=HTTP_PROXY=…
+    org.vinegarhq.Sober <link>`.
 - **Links from the browser.** If `routing.handle_roblox_links` is on, Verdra registers itself as
-  the handler for `roblox-player:` links (Windows `HKCU\Software\Classes\roblox-player`, macOS
-  `LSSetDefaultHandlerForURLScheme`, Linux `xdg-mime` with the handler desktop entry). A link that
+  the handler for `roblox-player:` links (Windows `HKCU\Software\Classes\roblox-player`; for
+  later, macOS `LSSetDefaultHandlerForURLScheme` and Linux `xdg-mime`, deferred and paused). A link that
   arrives (also through the single-instance channel, S-01) is passed on unchanged to the real
   client, launched as above. The previous handler is stored in a `uri_handler` ledger entry
   before the change.
@@ -58,8 +60,8 @@ Start Roblox through Verdra on every platform without administrator rights.
   Switch to Hosts-file routing in Settings › Routing."
 - M-LAUNCH-03 (Dialog) "Restart Roblox now? Unsaved progress in your game may be lost." Buttons
   "Restart Roblox", "Cancel".
-- M-LAUNCH-04 (Notice, new) "Verdra can't route Sober yet: where Sober reads its certificates hasn't
-  been confirmed. Nothing was changed."
+- M-LAUNCH-04 (retired with the paused Linux support, decision record 0018) "Verdra can't route
+  Sober yet: where Sober reads its certificates hasn't been confirmed. Nothing was changed."
 - M-LAUNCH-05 (Notice, new) "Verdra can't route a Roblox installed for all users: that needs
   administrator rights, which routing per app never uses. Install Roblox for your account only,
   then try again. Nothing was changed."
@@ -109,10 +111,9 @@ Start Roblox through Verdra on every platform without administrator rights.
     If Roblox's updater has rewritten the handler since, the old entry is closed and a new
     snapshot is recorded, so turning handling off never puts back a stale command.
 - **Unconfirmed facts block instead of guessing (plan 16.4):** a client that needs one is
-  refused with a plain message. Sober needs L-02 (M-LAUNCH-04). A Roblox installed for all
-  users (W-02) needs administrator rights to change its trust files, which rule 3 forbids
-  (M-LAUNCH-05). Linux doesn't take over `roblox-player:` links until L-02 is confirmed: they
-  would reach Sober unrouted.
+  refused with a plain message. A Roblox installed for all users (W-02) needs administrator
+  rights to change its trust files, which rule 3 forbids (M-LAUNCH-05). (Sober, which needed
+  L-02 with M-LAUNCH-04, left with the paused Linux support: decision record 0018.)
 - **Waiting for facts:** Microsoft Store detection (M-LAUNCH-02, test 7's second half) waits
   until a Store install is observed (W-04: none on the maintainer's PC); cache clearing (test 4)
   waits for the cache file list (W-06, not settled by a listing) and is carried to M2, where

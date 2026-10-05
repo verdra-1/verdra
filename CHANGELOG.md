@@ -33,7 +33,7 @@ All notable changes to Verdra are recorded here. The format follows
 - Project tooling: `pyproject.toml` with dependency floors, `uv.lock`, Python 3.14 pin,
   license allowlist with its gate (`tools/licenses.py`), color-literal gate
   (`tools/check_colors.py`) and pre-commit hooks.
-- CI on Windows and Linux with every gate from the build plan:
+- CI on Windows with every gate from the build plan:
   format, lint, types, layering, tests, coverage floors, licenses, vulnerabilities, secrets,
   colors, translatable strings, US spelling in user-facing text and code, SPDX headers and docs; the license gate
   covers the runtime, dev and build dependency groups; every gate and both runners on every
@@ -45,8 +45,8 @@ All notable changes to Verdra are recorded here. The format follows
   also renders every app and tray icon size; Atkinson Hyperlegible Next, JetBrains Mono and Sora
   with their OFL texts; system identifiers in `soil/terrain.py`.
 - Decision records 0001 to 0013: license, PySide6, clean room, app IDs, data layout, plain disk
-  names, the Python 3.14 wheel check, the values settled at M0, the macOS runner label, the
-  three M0 review rounds and what CI runs.
+  names, the Python 3.14 wheel check, the values settled at M0, the macOS runner label (since
+  superseded: macOS is deferred), the three M0 review rounds and what CI runs.
 - Specs S-01 (app shell), S-02 (settings store), S-03 (activity log) and S-04 (background jobs).
 - Specs for M1, status Agreed: S-10 (local certificate authority), S-11 (proxy core, with
   diagnostic interception from source), S-12 (per-app routing and launching), S-14 (routing
@@ -73,24 +73,24 @@ All notable changes to Verdra are recorded here. The format follows
 - Build check: a PyInstaller one-folder build (`packaging/verdra.spec`) on every system in CI,
   which fails if the built folder holds any Qt library, plugin or QML file outside the allowed
   Qt modules, and starts the built app once.
-- macOS deferred until after 1.0 (decision record 0014): Verdra 1.0 supports Windows and Linux
-  with Sober. The Platform interface (`soil/humus.py`) has a Windows, a macOS and a Linux
-  implementation; the macOS one reports "unsupported on this system", and CI no longer runs on
-  macOS.
-- M0 exit-gate checklist (`docs/m0-exit-gate.md`): the real-machine steps for Windows and Ubuntu
-  (Wayland and X11), including settings surviving a forced kill during a write, a results table,
-  and which M0 item CI or the checklist covers.
+- Windows only (decision records 0014 and 0018): Windows is the only supported system. Linux is
+  paused and macOS is deferred, both planned later. The Platform interface (`soil/humus.py`) has
+  a Windows, a macOS and a Linux implementation; the macOS and Linux ones report "unsupported on
+  this system", and CI runs on Windows only.
+- M0 exit-gate checklist (`docs/m0-exit-gate.md`): the real-machine steps for Windows, including
+  settings surviving a forced kill during a write, a results table, and which M0 item CI or the
+  checklist covers.
 - Platform verification protocol for every "(confirm at M1)" fact, with the exact command, the
   expected result, where to record it and what counts as a fail for each step, and a record
-  template per system in `docs/platforms/` (Windows and Linux; the macOS page is kept as
-  reference only while macOS is deferred).
+  record for Windows in `docs/platforms/` (the Linux and macOS pages are kept as reference only
+  while Linux is paused and macOS deferred).
 - M1 test plan (layers, `tools/fake_roblox.py`, acceptance and negative tests) and the M1
   risk review.
 - Local certificate authority (S-10, first part): the CA and per-host leaf certificates with
   the plan 10.3 profiles, created in memory; Name Constraints limit the CA to `roblox.com` and
   `rbxcdn.com`.
-- Local certificate authority (S-10, second part): the CA key lives in the OS secret store;
-  on Linux without a Secret Service it lives in one file only the user can read.
+- Local certificate authority (S-10, second part): the CA key lives in the OS secret store
+  (Windows Credential Manager), never on disk.
 - System change ledger (`changes.json`): every change outside Verdra's folders is recorded
   before it is made, so Reset everything can undo it, even after a crash. Local certificate
   authority (S-10, third part): the CA block goes into a trust file once and comes out
@@ -105,9 +105,8 @@ All notable changes to Verdra are recorded here. The format follows
 - Proxy core (S-11, second part): connections to Roblox's servers go direct, through the
   system proxy, an HTTP CONNECT proxy or a SOCKS5 proxy, always with verified TLS 1.2 or newer
   and the real host name for SNI and the certificate check.
-- Leaf certificates load into TLS straight from memory (an anonymous memory file on Linux,
-  a one-shot pipe only Verdra's own process may open on Windows), so no leaf or its key ever
-  touches the disk.
+- Leaf certificates load into TLS straight from memory (a one-shot pipe only Verdra's own
+  process may open), so no leaf or its key ever touches the disk.
 - Proxy core (S-11, third part): interception for hosts in the interception set. Verdra answers
   with its own in-memory leaf certificate, reads HTTP/1.1 with keep-alive and chunked bodies, and
   runs the request and response handlers in order. A handler that fails is skipped and logged
@@ -148,8 +147,8 @@ All notable changes to Verdra are recorded here. The format follows
 - Finding and starting Roblox (S-12, first part). On Windows Verdra finds your Roblox Player,
   never Roblox Studio, and starts it with Verdra's proxy; its certificate goes into every Player
   version, never Studio's. Verdra can take over Roblox links from the browser and gives the
-  previous handler back exactly. Where a needed fact isn't confirmed yet (Sober's certificates, a
-  Roblox installed for all users), Verdra says so plainly and changes nothing.
+  previous handler back exactly. Where a needed fact isn't confirmed yet (a Roblox installed for
+  all users), Verdra says so plainly and changes nothing.
 - Routing starts with Verdra once setup is done ("Start routing when Verdra opens"), on the
   status popover's "Start routing", or when you launch Roblox: "Launch Roblox" in the Library and
   Roblox links from the browser start Roblox through Verdra. The proxy runs on its own thread.
@@ -184,7 +183,8 @@ All notable changes to Verdra are recorded here. The format follows
   Degraded and offers "Repair certificate", instead of giving up silently.
 - When a Roblox server's certificate can't be verified while Verdra reads traffic, the routing
   status now turns Degraded with the reason, as well as blocking the request.
-- UI tests that failed only sometimes on Linux (main after the diagnostic-interception change,
+- UI tests that failed only sometimes on the Linux CI runner, which CI no longer uses (main after
+  the diagnostic-interception change,
   and #33 before it): a window outlived its test and was deleted during a later one, and a
   Python wrapper of a freed layout item was handed back for a new object at the same address.
   Every test now deletes what it made before it ends, and a guard fails any test that leaves a

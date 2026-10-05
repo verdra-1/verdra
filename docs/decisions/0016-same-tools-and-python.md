@@ -4,6 +4,10 @@
 - **Date:** 2026-10-03
 - **Plan sections:** 12.3, 12.6, 16.2 ("M1 decisions")
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 Two failures on pull request #44 passed every local check and failed in CI:

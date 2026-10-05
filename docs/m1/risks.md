@@ -1,5 +1,9 @@
 # M1 risks
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](../decisions/0018-windows-only.md)). What this document says about Linux
+> describes the time it was written.
+
 The risks from plan section 15 that M1 touches, and what M1 does about each. Reviewed again at
 the M1 exit gate (plan 15: "Reviewed at every milestone gate").
 

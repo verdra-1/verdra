@@ -8,8 +8,8 @@ proxy: when Roblox downloads an asset, Verdra can hand it a different one. Nothi
 Roblox's servers or for other players, and every change Verdra makes to your computer is listed
 and can be undone with one action.
 
-Works with the Roblox Player on Windows and on Linux with Sober.
-macOS isn't supported before 1.0.
+Works with the Roblox Player on Windows. Windows is the only supported system: Linux is paused
+and macOS is deferred, both planned later.
 
 > **Early development.** Verdra is in early development (milestone M0). There are no releases yet
 > (the first public release will be 1.0), and it isn't usable yet: it has its window, settings and

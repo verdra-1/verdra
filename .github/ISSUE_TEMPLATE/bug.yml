@@ -24,7 +24,6 @@ body:
       options:
         - Windows 11
         - Windows 10
-        - Linux (Sober)
     validations:
       required: true
   - type: dropdown

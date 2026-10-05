@@ -171,7 +171,7 @@ def test_removing_from_a_file_that_is_gone_or_was_replaced(
 
 @pytest.fixture
 def setup(tmp_path: Path) -> tuple[husk.Husk, scar.Ledger, list[Path], Path]:
-    vault = husk.Husk(MemoryKeyring(), file_fallback=False, key_file=tmp_path / "ca.key")
+    vault = husk.Husk(MemoryKeyring())
     book = scar.Ledger(tmp_path / "changes.json")
     files = []
     for name, data in (("one", FIXTURES["lf"]), ("two", FIXTURES["crlf"])):

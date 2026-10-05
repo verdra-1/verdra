@@ -77,7 +77,7 @@ One logging system for the app, readable in the Activity screen and safe to shar
 8. Every signed-URL parameter, under every separator, spelling and percent-encoding, is redacted
    at every level; lines in the shape of the Stage 2 capture, rewritten with invented values,
    keep no secret in the file, the ring buffer or the bundle, and keep their host and path.
-9. A support bundle holds no user name (Windows path with spaces, JSON-escaped path, Linux path,
+9. A support bundle holds no user name (Windows path with spaces, JSON-escaped path, POSIX path,
    login name) and no long numeric ID; versions, ports and process IDs stay.
 
 ## Lives in

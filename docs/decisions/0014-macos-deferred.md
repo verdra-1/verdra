@@ -5,6 +5,10 @@
 - **Plan sections:** 2, 11.2, 13.5, 13.6, 14 (M0, M1, M7, M8), 15 (R-03, R-13), 16.2 ("macOS
   deferred until after 1.0"), Reference R1, R4
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 The maintainer decided on 3 October 2026 (plan 16.2) that Verdra 1.0 supports Windows (the main

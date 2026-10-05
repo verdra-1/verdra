@@ -51,7 +51,9 @@ def load_jobs(path: Path = CI) -> dict[str, Any]:
 
 
 def system() -> str:
-    """Return this machine's name in the CI matrix ("windows" or "linux")."""
+    """Return this machine's name for the CI matrix: "windows", or "linux" on a contributor's
+    Linux machine, which CI no longer runs (decision record 0018) but which can still run the
+    gates (Windows-only tests skip, and the coverage floor leaves meadow out)."""
     return "windows" if platform.system() == "Windows" else "linux"
 
 

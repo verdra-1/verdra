@@ -90,6 +90,11 @@ def test_the_job_parser_sees_every_job() -> None:
 
 
 @pytest.mark.parametrize("path", WORKFLOWS, ids=lambda path: path.name)
-def test_no_workflow_runs_on_macos(path: Path) -> None:
-    # macOS is deferred until after 1.0 (decision record 0014): Windows and Linux runners only.
-    assert re.search(r"macos-\w", path.read_text(encoding="utf-8")) is None
+def test_every_job_runs_on_windows_only(path: Path) -> None:
+    # Decision record 0018: Windows is the only platform; Linux is paused and macOS is deferred
+    # until after 1.0 (decision record 0014). Every runner label is windows-latest.
+    text = path.read_text(encoding="utf-8")
+    assert re.search(r"macos-\w|ubuntu-\w|ubuntu-latest|runner\.os == 'Linux'", text) is None
+    labels = set(re.findall(r"^\s*runs-on:\s*(\S+)", text, re.MULTILINE))
+    matrix = set(re.findall(r"\brunner:\s*\[?([\w-]+)", text))
+    assert labels <= {"windows-latest", "${{"} and matrix <= {"windows-latest"}, (labels, matrix)

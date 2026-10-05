@@ -41,7 +41,8 @@ only by Roblox.
 
 ## Rules
 
-1. Never add the CA to the Windows, macOS or Linux system trust stores (plan 10.3).
+1. Never add the CA to the system trust store (plan 10.3; on Windows, and on macOS and Linux,
+   deferred and paused, when they return).
 2. Never more than one Verdra block per trust file.
 3. Trust files are edited only through `soil/atomic` (temp file, fsync, rename); a file's
    original read-only flag is restored after the edit.
@@ -49,16 +50,16 @@ only by Roblox.
    removed again.
 5. Code that touches a trust file reads its path from `docs/platforms/<os>.md` facts encoded in
    `soil/*/files.py`; no path is hard-coded before it is confirmed (plan 16.4).
-6. The CA private key is never written to disk, logged, exported or put in a support bundle;
-   the one exception is the Linux fallback (one file, mode 0600, M-CA-03), which Reset
-   everything deletes.
+6. The CA private key is never written to disk, logged, exported or put in a support bundle. (The
+   Linux fallback file, M-CA-03, left with Linux: decision record 0018. Without a secret store,
+   saving the key is refused.)
 
 ## Messages
 
 - M-CA-01 (Notice) "Verdra couldn't add its certificate to Roblox at <path>: <reason>."
 - M-CA-02 (Activity) "Roblox updated. Verdra added its certificate to the new version."
-- M-CA-03 (Notice, new) "Your system has no secure storage. Verdra keeps its certificate key in a
-  file only your user can read."
+- M-CA-03 (retired with the paused Linux support, decision record 0018) "Your system has no
+  secure storage. Verdra keeps its certificate key in a file only your user can read."
 - M-CA-04 (status reason, new) "Verdra couldn't add its certificate to the Roblox version
   <version>, so Roblox isn't routed." Shown as S-14 Degraded (c) with "Repair certificate".
 
@@ -75,9 +76,9 @@ only by Roblox.
 4. Rotation (clock moved to 30 days before expiry) leaves exactly one valid block per file, signed
    by the new CA, and the old key is gone from the secret store.
 5. After creation, a scan of the config, cache, log and temp folders finds no private-key
-   material (PEM, DER or raw scalar of the CA key), except the documented Linux fallback when no
-   Secret Service exists: then exactly one key file, mode 0600, owned by the user, M-CA-03 shown,
-   and the file deleted by Reset everything (plan S-10 test 5, as amended in 16.2).
+   material (PEM, DER or raw scalar of the CA key); without a secret store, saving the key is
+   refused and nothing is written (plan S-10 test 5; its Linux key-file exception left with Linux,
+   decision record 0018).
 6. Leaf certificates for each 10.2 host verify against the CA and carry the leaf profile in 10.3;
    no leaf or leaf key appears on disk.
 7. Every trust-file change has a `ca_roblox_bundle` ledger entry written before the change, and a
@@ -99,10 +100,11 @@ paths per OS).
   files are covered by the manual test 8 and the verification protocol in `docs/platforms/`.
 - Tests 6 and 7 are added: 10.3 requires leaf keys to stay in memory, and 9.4 requires
   write-ahead ledger entries; S-10 in the plan doesn't test either.
-- Test 5 follows the plan's amended wording (16.2): the Linux key file is the one exception.
-  The CA-key part of risk R-10 is built and tested at M1 with it; the accounts part stays at M5.
-- On macOS, the trust-file edit may break the Roblox app's code signature (risk R-03). macOS is
+- Test 5 followed the plan's amended wording (16.2), with the Linux key file as the one
+  exception; that exception left with Linux (decision record 0018). The accounts part of risk
+  R-10 stays at M5.
+- On macOS (deferred), the trust-file edit may break the Roblox app's code signature (risk R-03). macOS is
   deferred until after 1.0 (decision record 0014) and R-03 is inactive: no macOS trust-file code
-  is written and the R-03 test doesn't run. When macOS returns, the R-03 procedure in
+  is written and the R-03 test doesn't run. When macOS returns (it is deferred), the R-03 procedure in
   `docs/platforms/macos.md` runs first; if it fails, this spec changes to the fallback the plan
   names (trust bundle passed through the environment, then Hosts-file routing).

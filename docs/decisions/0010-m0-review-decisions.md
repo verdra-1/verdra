@@ -4,6 +4,10 @@
 - **Date:** 2026-10-02
 - **Plan sections:** 3.2, 4.3, 8.1, 12.3, 13.6, 16.2 ("M0 review decisions"), Reference R4, R5
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 The maintainer's review of the M0 pull requests answered four open points. The plan was updated

@@ -143,7 +143,7 @@ src/verdra/
 │
 ├── bark/                    Trust and protection.
 │   ├── resin.py             CA: create, rotate 30 days before expiry, Name Constraints; leaf certificates in memory.
-│   ├── husk.py              OS secret store through keyring; Linux fallback file (0600) for the CA key only.
+│   ├── husk.py              OS secret store through keyring.
 │   ├── nectar.py            Login tokens: validate against Roblox, store one item per account, never log.
 │   ├── pollinator.py        Roblox web client (httpx): exact-domain cookies, CSRF refresh, timeouts, rate limits.
 │   ├── rain.py              Verified downloads: HTTPS only, size limits per type, SHA-256 cache.
@@ -171,10 +171,10 @@ src/verdra/
 │   ├── lichen.py            Keeper protocol: JSON-lines message types and version (standard library only).
 │   ├── meadow/              Windows.
 │   ├── orchard/             macOS: deferred until after 1.0; every module returns "unsupported on this system".
-│   └── tundra/              Linux and Sober.
+│   └── tundra/              Linux: paused, planned later; every module returns "unsupported on this system".
 │       (each OS package has the same modules:)
 │       ├── launcher.py      Find Roblox, start it with the proxy variables, register the roblox-player: handler.
-│       ├── instances.py     Multi-instance support (Moderation risk). Windows and macOS per S-51; Linux as Sober allows (confirm at M5), otherwise unsupported.
+│       ├── instances.py     Multi-instance support (Moderation risk), per S-51.
 │       ├── keeper.py        The privileged helper's entry point; built separately with packaging/keeper.spec.
 │       ├── keeper_client.py Install, start, stop and talk to the keeper.
 │       ├── watchdog.py      The OS part of roots/owl.

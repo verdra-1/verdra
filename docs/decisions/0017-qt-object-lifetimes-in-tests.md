@@ -5,6 +5,10 @@
 - **Plan sections:** 12.1, 16.2 ("M1 decisions": a test that fails only sometimes is a real bug;
   the Qt lifetime guard has no exceptions), Reference R1
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 After #44 merged, `main` failed on Linux in two UI tests that passed elsewhere

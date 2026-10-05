@@ -5,6 +5,10 @@
 - **Date:** 2026-10-01
 - **Plan sections:** 8.1, 11.1 (ARM64), 15 (R-08), Reference R4
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](0018-windows-only.md)). What this record
+> says about Linux describes the time it was written.
+
 ## Context
 
 Plan R-08: a required wheel may be missing for Python 3.14 on one of the target platforms. At M0

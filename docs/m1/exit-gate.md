@@ -1,5 +1,9 @@
 # M1 exit gate (Root: routing)
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](../decisions/0018-windows-only.md)). What this document says about Linux
+> describes the time it was written.
+
 Each item of plan section 14 (M1) is checked here with its evidence, as of 2026-10-04.
 
 **Result: M1 is done on Windows.** Linux has CI evidence. Its real-machine confirmation is open

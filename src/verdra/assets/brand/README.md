@@ -16,8 +16,8 @@
 | `app-icon.svg` | App icon, favicon, avatars; below 24 px, use this instead of the symbol |
 | `wordmark.svg`, `wordmark-reversed.svg` | "Verdra" outlined from the display face, with the node dot |
 | `lockup-horizontal*.svg`, `lockup-stacked*.svg` | Symbol and wordmark together |
-| `tray-<state>-light.svg`, `tray-<state>-dark.svg` | Windows and Linux tray, for light and dark taskbars |
-| `tray-<state>-template.svg` | macOS menu bar template images (black with alpha) |
+| `tray-<state>-light.svg`, `tray-<state>-dark.svg` | Windows tray, for light and dark taskbars (the Linux sizes are kept for later: Linux is paused) |
+| `tray-<state>-template.svg` | macOS menu bar template images (black with alpha; macOS is deferred, planned later) |
 | `arrow-up-<theme>*.svg`, `arrow-down-<theme>*.svg` | Combo and spin box chevrons (`ink-muted`, or `ink-disabled` when disabled) |
 
 The geometry is a concept until a designer refines it (4.4); a refinement replaces the paths in

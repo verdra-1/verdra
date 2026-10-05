@@ -1,5 +1,9 @@
 # M0 exit gate
 
+> **Current state (5 October 2026):** Windows is the only platform; Linux is paused, planned
+> later, and macOS is deferred ([decision record 0018](decisions/0018-windows-only.md)). What this document says about Linux
+> describes the time it was written.
+
 Master plan 14, M0: "the app starts on Windows and Linux, themes switch live, settings survive a
 forced kill during a write, every CI gate is green." In autopilot mode (plan 16.2) the exit gate
 is judged on CI evidence (see [Coverage](#coverage)); this checklist covers what needs a real

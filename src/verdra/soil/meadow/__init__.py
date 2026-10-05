@@ -39,11 +39,6 @@ class Meadow:
         """The system's name as people read it in messages (M-PLAT-01)."""
         return "Windows"
 
-    @property
-    def key_file_fallback(self) -> bool:
-        """Whether the CA key may live in a user-only file when there is no secret store."""
-        return False
-
     def support(self) -> humus.Unsupported | None:
         """Return None: Windows is Verdra's main platform."""
         return None

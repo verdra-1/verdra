@@ -15,7 +15,6 @@ classifiers = [
   "Environment :: X11 Applications :: Qt",
   "Intended Audience :: End Users/Desktop",
   "Operating System :: Microsoft :: Windows",
-  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3.14",
   "Private :: Do Not Upload",
 ]
@@ -83,8 +82,9 @@ packages = ["src/verdra"]
 
 [tool.uv]
 default-groups = ["dev"]
-# Lock only for the systems Verdra ships on (Master plan 2; macOS is deferred until after 1.0,
-# decision record 0014) ...
+# Lock for Windows, the only system Verdra ships on (decision record 0018), and for Linux, which
+# Verdra doesn't support while it is paused but where contributors still run the gates; macOS is
+# deferred until after 1.0 (decision record 0014) ...
 environments = [
   "sys_platform == 'win32'",
   "sys_platform == 'linux'",
@@ -170,6 +170,7 @@ qt_api = "pyside6"
 markers = [
   "slow: long-running property and fuzz tests, run nightly",
   "spec(spec_id, *numbers): the acceptance tests of a spec in docs/specs/ this test covers",
+  "real_platform: use the real platform's certificate loader even on a non-Windows machine",
 ]
 
 [tool.coverage.run]
@@ -177,7 +178,7 @@ source = ["verdra"]
 branch = true
 
 [tool.coverage.paths]
-# Combine reports from the Windows and Linux runners.
+# Report paths from the Windows runner and from a contributor's machine.
 source = ["src/verdra", "*/src/verdra", "*\\src\\verdra"]
 
 [tool.coverage.report]

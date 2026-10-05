@@ -1,27 +1,27 @@
 # Verification protocol for "(confirm at M1)" facts
 
-**Who runs it:** the maintainer, in the first real-machine test session, on the Windows 11 PC and
-on Ubuntu 24.04 (a virtual machine on that PC), signed in as a normal user. Nothing here needs
-administrator rights. macOS is deferred until after 1.0 (decision record 0014): there are no
-macOS steps, and the former ones are kept as reference in [`macos.md`](macos.md).
+**Who runs it:** the maintainer, in the first real-machine test session, on the Windows 11 PC,
+signed in as a normal user. Nothing here needs administrator rights. Windows is the only
+platform (decision record 0018): Linux is paused, so its steps (L-…) below are kept as reference
+and not run, and macOS is deferred until after 1.0 (decision record 0014), with its former steps
+kept as reference in [`macos.md`](macos.md).
 
 **What it changes:** nothing on the system, except stage 2 (which runs the M1 development
 build). Every step
 that changes a file first makes a byte copy, and checks afterwards that the copy was restored.
 
-**What it never does:** read or patch Roblox's or Sober's program code, or use any third-party
-Roblox tool. Facts come only from what the operating system shows (file listings, hashes,
-registry and package queries, process lists) and from the public documentation of Sober and the
-operating system (clean room, plan 3.1).
+**What it never does:** read or patch Roblox's program code, or use any third-party Roblox tool.
+Facts come only from what the operating system shows (file listings, hashes, registry queries,
+process lists) and from the public documentation of the operating system (clean room, plan 3.1).
 
 ## Facts from CI runners
 
 Facts that need only an installed client may be established on throwaway CI runners instead
 (plan 16.2, "M1 decisions"): the **Platform facts** workflow (`.github/workflows/platform-facts.yml`,
-started by hand) installs Sober from Flathub on Linux (`tools/platforms/facts-linux.sh`: L-01,
-L-02, L-03, L-04, L-05, L-07; Sober itself is never started) and the official Roblox Player on
-Windows (`tools/platforms/install-roblox-windows.ps1`, then the stage 1 script), uninstalls
-Sober, and uploads the findings. No login, no game launch, no contact with Roblox beyond the
+started by hand) installs the official Roblox Player on Windows
+(`tools/platforms/install-roblox-windows.ps1`, then the stage 1 script) and uploads the findings.
+(Its Linux job, which installed Sober to record L-01 to L-07, left with Linux: decision record
+0018.) No login, no game launch, no contact with Roblox beyond the
 installer download and what the installer itself does. A row filled this way says "confirmed on
 CI runner", with the run link, version and date; the maintainer's PC stays the reference for
 Windows.
@@ -33,13 +33,12 @@ Each step below says which row of `docs/platforms/<os>.md` it fills. For every s
 1. **Evidence.** Save the command's full output as `docs/platforms/evidence/<os>/<ID>.txt`, with
    the command itself as the first line. Before committing, replace your user name in paths with
    `<user>` and remove anything that identifies the machine or an account (serial numbers, e-mail
-   addresses, Roblox user IDs, cookies). Never include the contents of Roblox's or Sober's files:
+   addresses, Roblox user IDs, cookies). Never include the contents of Roblox's files:
    names, sizes, hashes and dates only.
 2. **Row.** In the facts table: the value copied from the output (not retyped), the state
    (Observed, Confirmed or Differs, see `README.md`), the date (YYYY-MM-DD) and the evidence file.
 3. **Versions.** Fill the Machine table once per machine: OS version and build, and the Roblox
-   version (Windows: the `version-…` folder name; Linux: Sober's version and commit from
-   `flatpak info`).
+   version (the `version-…` folder name).
 4. **A fail stops that line of work.** If a step fails, set the row to Differs, write what the
    plan says and what you saw under "Differences from the plan", and tell me. Code that needs the
    fact waits for your decision.
@@ -74,16 +73,16 @@ Each step below says which row of `docs/platforms/<os>.md` it fills. For every s
   the trust-file and launcher paths Stage 1 records. So Stage 1 comes first; Stage 2 follows in a
   second session once that code is merged, and this protocol will name the build to use.
 
-## Step 0: the machine (each OS)
+## Step 0: the machine
 
 | | |
 |---|---|
-| Command | Windows (PowerShell): `Get-ComputerInfo -Property OsName,OsVersion,OsBuildNumber,OsArchitecture`; Linux: `cat /etc/os-release; uname -m; echo $XDG_SESSION_TYPE; flatpak --version` |
-| You should see | The OS name, version, build and architecture (Linux: also `wayland` or `x11`, and the Flatpak version). |
+| Command | PowerShell: `Get-ComputerInfo -Property OsName,OsVersion,OsBuildNumber,OsArchitecture` |
+| You should see | The OS name, version, build and architecture. |
 | Record | Machine table; evidence `env.txt`. |
 | Fail | Not one of the M0 test systems: say so in the Machine table and continue. |
 
-## Step V0: Roblox uses the proxy variables (each OS, stage 2)
+## Step V0: Roblox uses the proxy variables (stage 2)
 
 Plan 11 doesn't mark this "(confirm at M1)", but every per-app feature depends on it (S-12 test 1).
 
@@ -193,7 +192,10 @@ Settled in plan 16.2: confirmed at M5 with multi-instance. Not run at M1.
 | You should see | A line count, and no access error. |
 | Record | Row W-10: "readable" and the line count; Confirmed. Evidence `W-10.txt` (the count only, not the file). |
 | Fail | An access error: S-15's hosts-file sign can't be checked per app on Windows; tell me. |
-## Linux (fact IDs L-…)
+## Linux (fact IDs L-…): paused, reference only
+
+> Linux is paused, planned later (decision record 0018). These steps are not run; they are kept
+> so Linux can return without starting over. Verdra doesn't run on Linux.
 
 ### L-01 Sober is installed and launches with the proxy variables
 

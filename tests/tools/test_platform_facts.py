@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Platform facts workflow keeps the limits of plan 16.2 ("M1 decisions").
 
-It installs Sober and the Roblox Player on throwaway CI runners and records facts: no login, no
-game launch, Sober never started, no contact with Roblox beyond the installer download. These
-checks read the workflow and its two scripts and fail if one of them could do more.
+It installs the Roblox Player on a throwaway Windows CI runner and records facts: no login, no
+game launch, no contact with Roblox beyond the installer download. These checks read the
+workflow and its script and fail if one of them could do more. (Its Linux job left with Linux,
+decision record 0018.)
 """
 
 from __future__ import annotations
@@ -16,7 +17,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "platform-facts.yml"
-LINUX = ROOT / "tools" / "platforms" / "facts-linux.sh"
 INSTALL = ROOT / "tools" / "platforms" / "install-roblox-windows.ps1"
 
 #: Anything that would log in, read account data or reach past the installer download.
@@ -42,29 +42,23 @@ def test_the_workflow_starts_only_by_hand_with_read_only_permissions() -> None:
 
 
 def test_nothing_logs_in_launches_a_game_or_reads_account_data() -> None:
-    for path in (WORKFLOW, LINUX, INSTALL):
+    for path in (WORKFLOW, INSTALL):
         found = NEVER.search(code(path))
         assert found is None, (path.name, found)
 
 
-def test_sober_is_never_started() -> None:
-    runs = re.findall(r"flatpak run[^\n]*", code(LINUX))
-    assert runs == ['flatpak run --command=sha256sum "$app" /etc/hosts']
-    assert "flatpak run" not in code(WORKFLOW)
+def test_only_windows_runners_are_used() -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert {job["runs-on"] for job in workflow["jobs"].values()} == {"windows-latest"}
 
 
 def test_the_only_download_is_the_official_installer() -> None:
-    addresses = {
-        path.name: re.findall(r"https?://[^\s'\"]+", code(path)) for path in (LINUX, INSTALL)
-    }
-    assert addresses == {
-        "facts-linux.sh": [],
-        "install-roblox-windows.ps1": ["https://www.roblox.com/download/client?os=win"],
-    }
-    workflow = re.findall(r"https?://[^\s'\"]+", code(WORKFLOW))
-    assert workflow == ["https://dl.flathub.org/repo/flathub.flatpakrepo"]
+    assert re.findall(r"https?://[^\s'\"]+", code(INSTALL)) == [
+        "https://www.roblox.com/download/client?os=win"
+    ]
+    assert re.findall(r"https?://[^\s'\"]+", code(WORKFLOW)) == []
     assert len(re.findall(r"Invoke-WebRequest", code(INSTALL))) == 1
-    assert re.search(r"\b(curl|wget)\b", code(LINUX) + code(WORKFLOW)) is None
+    assert re.search(r"\b(curl|wget)\b", code(WORKFLOW)) is None
 
 
 def test_the_installer_runs_only_when_its_signature_is_valid() -> None:

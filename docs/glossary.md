@@ -72,7 +72,7 @@ brand moments (splash, empty states).
 | terrain | Constants: IDs and paths | — |
 | atomic | Safe file writes | — |
 | lichen | Keeper protocol | — |
-| meadow / orchard / tundra | Windows / macOS (deferred until after 1.0) / Linux adapters | — |
+| meadow / orchard / tundra | Windows / macOS (deferred until after 1.0) / Linux (paused, planned later) adapters | — |
 | keeper | Privileged helper for Hosts-file routing | Helper, Verdra Keeper |
 ## Product terms
 
@@ -98,4 +98,4 @@ brand moments (splash, empty states).
 | Clean room | Building Verdra without access to the old tool's code (3.1). |
 | Spec | A feature specification in the Feature specs tab and docs/specs/. |
 | Exit gate | The conditions a milestone must meet before its version is tagged. |
-| Sober | The Roblox client for Linux, distributed as a Flatpak by VinegarHQ. |
+| Sober | The Roblox client for Linux, distributed as a Flatpak by VinegarHQ (Verdra's Linux support is paused, planned later). |

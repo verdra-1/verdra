@@ -14,7 +14,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/` | Reference R1 (module tree) | Standard library (`importlib.metadata`) | 2026-10-01 |
 | `verdra/__main__.py` | Reference R1, spec S-01 | Standard library | 2026-10-01 |
 | `verdra/bark/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/bark/husk.py` | Master plan 9.1, 10.6, 16.2 (R-10 CA-key fallback), spec S-10, Reference R3; `keyring` documentation (backends, errors); POSIX file-mode documentation | keyring | 2026-10-03 |
+| `verdra/bark/husk.py` | Master plan 9.1, 10.6, spec S-10, Reference R3, decision record 0018 (the Linux key file removed, 2026-10-05); `keyring` documentation (backends, errors) | keyring | 2026-10-03 |
 | `verdra/bark/nectar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/pollinator.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/rain.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -87,7 +87,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/seedbank/vault.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/atomic.py` | Master plan 9.7, decision record 0005, spec S-02; POSIX `rename`/`fsync` and Python `os.replace` documentation | Standard library | 2026-10-01 |
-| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS) and 16.2 (macOS deferred; the Platform interface); spec S-12 (Roblox clients, proxy environment, link handler); Reference R1; Python `typing.Protocol` documentation | Standard library (`subprocess`) | 2026-10-04 |
+| `verdra/soil/humus.py` | Master plan 6.6 (reduced motion per OS) and 16.2 (macOS deferred; Linux paused, decision record 0018; the Platform interface); spec S-12 (Roblox clients, proxy environment, link handler); Reference R1; Python `typing.Protocol` documentation | Standard library (`subprocess`) | 2026-10-04 |
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/` | Reference R1; Master plan 6.6; Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION) documentation; Win32 named pipe documentation (CreateNamedPipeW, ConnectNamedPipe, GetNamedPipeClientProcessId, WriteFile, FlushFileBuffers, DisconnectNamedPipe) | Standard library (`ctypes`) | 2026-10-03 |
 | `verdra/soil/meadow/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
@@ -108,15 +108,15 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/orchard/launcher.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
 | `verdra/soil/orchard/watchdog.py` | Reference R1 (job line; returns "unsupported", decision record 0014) | — | 2026-10-03 |
 | `verdra/soil/terrain.py` | Reference R3 (system identifiers), Master plan 9.1 (folders) | platformdirs | 2026-10-01 |
-| `verdra/soil/tundra/` | Reference R1; Master plan 6.6; GNOME `org.gnome.desktop.interface enable-animations` documentation; Linux memfd_create(2) and proc(5) (/proc/self/fd) manual pages | Standard library | 2026-10-03 |
-| `verdra/soil/tundra/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/hotkeys.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/instances.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/keeper.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/keeper_client.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/tundra/launcher.py` | Spec S-12; Master plan 11.3; docs/platforms/linux.md (L-01, L-02, CI runner 2026-10-03); Flatpak command-line documentation (`flatpak info`, `flatpak run --env`) | stdlib (subprocess, shutil) | 2026-10-04 |
-| `verdra/soil/tundra/watchdog.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/tundra/` | Reference R1; Master plan 16.2 (Windows only, Linux paused, 5 October 2026); decision record 0018; written like `verdra/soil/orchard/` | — | 2026-10-05 |
+| `verdra/soil/tundra/autostart.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/files.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/hotkeys.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/instances.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/keeper.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/keeper_client.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/launcher.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
+| `verdra/soil/tundra/watchdog.py` | Reference R1 (job line; returns "unsupported", decision record 0018) | — | 2026-10-05 |
 | `verdra/strata/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/amber/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/strata/clay/` | Public community descriptions of the Roblox FileMesh format, versions 1.00 to 5.00 (headers, vertex and face layouts, levels of detail, skinning, bones and subsets sizes); Wavefront OBJ format description; plan 10.7 (64 MB); spec S-33 | — | 2026-10-04 |
@@ -165,10 +165,11 @@ Not part of the app, but written under the same clean-room rules (review finding
 | `tools/coverage_floors.py` | Master plan 12.1 | coverage.py JSON report format | 2026-10-01 |
 | `tools/i18n.py` | Master plan 12.3, Reference R5; `pyside6-lupdate` documentation | PySide6 tools | 2026-10-01 |
 | `tools/fake_roblox.py` | Master plan 10.2, 12.1, spec S-11 (test 1), docs/m1/test-plan.md; RFC 9112 (HTTP/1.1 messages, chunked coding); Python `ssl` (SNI callback), `asyncio`, `gzip` and `compression.zstd` documentation. Fixtures in `tests/fixtures/roblox/` are hand-written with invented IDs | cryptography (through `bark/resin`) | 2026-10-03 |
-| `tools/platforms/facts-linux.sh` | docs/platforms/protocol.md (L-01 to L-05, L-07), Master plan 16.2 ("M1 decisions"); Flatpak command-line documentation (`flatpak info`, `flatpak run --command`), freedesktop.org xdg-utils documentation | Flatpak, xdg-utils (on the CI runner only) | 2026-10-03 |
 | `tools/platforms/install-roblox-windows.ps1` | Master plan 16.2 ("M1 decisions"); Microsoft's PowerShell documentation (Invoke-WebRequest, Get-AuthenticodeSignature, Start-Process, Get-Process) | PowerShell 7 (on the CI runner only) | 2026-10-03 |
-| `.github/workflows/platform-facts.yml` | Master plan 16.2 ("M1 decisions"); GitHub Actions workflow syntax documentation; Flathub setup documentation | actions/checkout, actions/upload-artifact | 2026-10-03 |
+| `.github/workflows/platform-facts.yml` | Master plan 16.2 ("M1 decisions"; Windows only, 5 October 2026), decision record 0018; GitHub Actions workflow syntax documentation | actions/checkout, actions/upload-artifact | 2026-10-05 |
 | `tools/gates.py` | Master plan 12.3, 16.2 ("M1 decisions"), decision record 0016; GitHub Actions workflow syntax documentation | PyYAML (dev group) | 2026-10-03 |
 | `tools/icons.py` | Master plan 4.4, 4.6, design system logo rules; SVG, ICO and ICNS file format documentation | fontTools, uharfbuzz, PySide6 (QtSvg, QtGui) | 2026-10-01 |
 | `tools/licenses.py` | Master plan 8.1, 12.3, Reference R4, decision record 0010 | pip-licenses, packaging | 2026-10-01 |
 | `packaging/verdra.spec` | Master plan 13.6, Reference R3, decision records 0002 and 0010; PyInstaller spec-file documentation | PyInstaller | 2026-10-02 |
+| `tests/support/dev_machine.py` | Decision record 0018 (the gates on a non-Windows development machine); Python `ssl.SSLContext.load_cert_chain` and `tempfile.mkdtemp` documentation | pytest | 2026-10-05 |
+| `tests/test_platform_claims.py` | Master plan 16.2 (no text may say Verdra runs on Linux or macOS), decision record 0018 | pytest | 2026-10-05 |

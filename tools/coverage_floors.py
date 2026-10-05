@@ -6,13 +6,15 @@ Reads a `coverage json` report and checks:
 
 - trunk, roots, bark, seedbank and strata at least 85% of lines;
 - canopy at least 60%;
-- soil at least 70%, counting only the shared modules and the package for the system the report
-  came from (`--system windows|linux`; omit it for the combined report, which counts all). orchard
-  (macOS, deferred: decision record 0014) has no OS calls and counts on every system;
+- soil at least 70%, counting only the shared modules and, for `--system windows`, the Windows
+  package meadow (omit `--system` for the combined report, which counts all). orchard (macOS,
+  deferred: decision record 0014) and tundra (Linux, paused: decision record 0018) have no OS
+  calls and count on every system. CI runs on Windows only; any other `--system` (a contributor's
+  Linux machine) leaves meadow out;
 - with `--diff-base REF`, at least 80% of the executable lines a pull request adds or changes.
 
 An area with no executable lines yet passes. Usage:
-    python tools/coverage_floors.py coverage.json [--system linux] [--diff-base origin/main]
+    python tools/coverage_floors.py coverage.json [--system windows] [--diff-base origin/main]
 """
 
 from __future__ import annotations
@@ -36,7 +38,8 @@ FLOORS: dict[str, float] = {
     "soil": 70.0,
 }
 CHANGED_LINES_FLOOR = 80.0
-SYSTEM_PACKAGES = {"windows": "meadow", "linux": "tundra"}
+#: The OS packages that make OS calls, by the system whose CI run measures them.
+SYSTEM_PACKAGES = {"windows": "meadow"}
 
 
 def repo_path(name: str) -> PurePosixPath:
@@ -57,7 +60,7 @@ def counted(path: PurePosixPath, system: str | None) -> bool:
     parts = path.parts
     if area_of(path) != "soil" or system is None or len(parts) < 5:
         return True
-    return parts[3] not in SYSTEM_PACKAGES.values() or parts[3] == SYSTEM_PACKAGES[system]
+    return parts[3] not in SYSTEM_PACKAGES.values() or parts[3] == SYSTEM_PACKAGES.get(system)
 
 
 def area_totals(report: dict, system: str | None) -> dict[str, tuple[int, int]]:
@@ -133,7 +136,7 @@ def main() -> int:
     """Run the gate and return a process exit code."""
     parser = argparse.ArgumentParser(description="Coverage floors")
     parser.add_argument("report", type=Path)
-    parser.add_argument("--system", choices=sorted(SYSTEM_PACKAGES))
+    parser.add_argument("--system", choices=["windows", "linux"])
     parser.add_argument("--diff-base")
     arguments = parser.parse_args()
     report = json.loads(arguments.report.read_text(encoding="utf-8"))

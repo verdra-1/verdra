@@ -1,12 +1,14 @@
 # Platform facts and how they are verified
 
-Plan section 11 marks some facts about Roblox and Sober "(confirm at M1)". No code may depend on
+Plan section 11 marks some facts about Roblox "(confirm at M1)". No code may depend on
 such a fact until it is recorded in `docs/platforms/<os>.md` (plan 16.4). This folder holds:
 
 - [`protocol.md`](protocol.md): the verification protocol, the steps the maintainer runs on each
   real machine, and what to record.
-- [`windows.md`](windows.md), [`linux.md`](linux.md): one record per OS, filled in from the
-  protocol. Each starts as a template with every fact `Unconfirmed`.
+- [`windows.md`](windows.md): the record for Windows, the only platform (decision record 0018),
+  filled in from the protocol.
+- [`linux.md`](linux.md): Linux is paused, planned later (decision record 0018); the facts found
+  so far are kept as reference and nothing more is run.
 - [`macos.md`](macos.md): deferred until after 1.0 (decision record 0014); kept as reference and
   not run.
 - Stage 2 checks run Verdra from source with `--diagnose-interception` (plan 16.2, S-11),

@@ -7,8 +7,8 @@ Spec S-12. This part:
 - **Choosing the client.** The platform finds the installed clients (soil, from the facts in
   docs/platforms/). The first one whose facts are all confirmed is used. A client that still
   needs an unconfirmed fact is refused with a plain message instead of a guess (plan 16.4):
-  Sober until L-02 is confirmed (M-LAUNCH-04), a Roblox installed for all users, whose trust
-  files need administrator rights (M-LAUNCH-05). No client at all is M-LAUNCH-01.
+  a Roblox installed for all users, whose trust files need administrator rights (M-LAUNCH-05).
+  No client at all is M-LAUNCH-01.
 - **The certificate.** Verdra's CA goes into the trust file of every Player version folder of
   that client (S-10, `roots/gardener.ensure_ca`), each change a `ca_roblox_bundle` ledger entry
   that keeps the file's mode, read-only flag included. Studio's folders are never in the list.
@@ -67,14 +67,6 @@ def unconfirmed(fact: str) -> Refused:
         KeyError: no message names this fact yet (a test checks every fact soil can report).
     """
     messages: dict[str, Callable[[], Refused]] = {
-        "L-02": lambda: Refused(
-            "M-LAUNCH-04",
-            QCoreApplication.translate(
-                "M-LAUNCH-04",
-                "Verdra can't route Sober yet: where Sober reads its certificates hasn't been "
-                "confirmed. Nothing was changed.",
-            ),
-        ),
         "W-02": lambda: Refused(
             "M-LAUNCH-05",
             QCoreApplication.translate(

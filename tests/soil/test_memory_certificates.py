@@ -4,7 +4,6 @@
 
 import asyncio
 import contextlib
-import os
 import ssl
 import sys
 import tempfile
@@ -19,6 +18,9 @@ from verdra.soil import humus, meadow, orchard, tundra
 
 NOW = datetime.now(UTC)
 HOST = "assetdelivery.roblox.com"
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows only: Linux paused (plan 16.2), macOS deferred"
+)
 
 
 def leaf_pems(authority: resin.Authority) -> tuple[bytes, bytes, resin.Leaf]:
@@ -35,6 +37,7 @@ def files_under(root: Path) -> set[Path]:
     return {path for path in root.rglob("*") if path.is_file()}
 
 
+@windows_only
 @pytest.mark.spec("S-10", 6)
 def test_a_leaf_loaded_from_memory_serves_tls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -72,6 +75,7 @@ def test_a_leaf_loaded_from_memory_serves_tls(
     assert leaf.certificate.subject.rfc4514_string() == f"CN={HOST}"
 
 
+@windows_only
 def test_loading_twice_in_a_row_works() -> None:
     authority = resin.create_authority(NOW)
     for _ in range(3):
@@ -79,6 +83,7 @@ def test_loading_twice_in_a_row_works() -> None:
         humus.current().load_cert_chain(ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), certificate, key)
 
 
+@windows_only
 def test_a_bad_key_raises_and_releases_everything() -> None:
     authority = resin.create_authority(NOW)
     certificate, _key, _leaf = leaf_pems(authority)
@@ -98,32 +103,10 @@ def test_macos_refuses() -> None:
         orchard.PLATFORM.load_cert_chain(ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), b"", b"")
 
 
-@pytest.mark.skipif(not hasattr(os, "memfd_create"), reason="Linux only")
-def test_linux_closes_its_memory_files() -> None:
-    authority = resin.create_authority(NOW)
-    certificate, key, _leaf = leaf_pems(authority)
-    open_before = set(os.listdir("/proc/self/fd"))
-    humus.platform_for("linux").load_cert_chain(
-        ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), certificate, key
-    )
-    assert set(os.listdir("/proc/self/fd")) <= open_before | set()
-
-
-@pytest.mark.skipif(not hasattr(os, "memfd_create"), reason="Linux only")
-def test_linux_closes_a_memory_file_whose_write_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    open_before = set(os.listdir("/proc/self/fd"))
-
-    def failing_write(fd: int, data: object) -> int:
-        raise OSError(28, "No space left on device")
-
-    monkeypatch.setattr(tundra.os, "write", failing_write)
-    with pytest.raises(OSError, match="No space"):
-        tundra.PLATFORM.load_cert_chain(ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), b"c", b"k")
-    monkeypatch.undo()
-    assert set(os.listdir("/proc/self/fd")) <= open_before
-
-
-windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+@pytest.mark.real_platform
+def test_linux_refuses_while_paused() -> None:
+    with pytest.raises(NotImplementedError):
+        tundra.PLATFORM.load_cert_chain(ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER), b"", b"")
 
 
 @windows_only
