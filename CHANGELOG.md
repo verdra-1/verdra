@@ -8,6 +8,10 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Apply now moves Roblox's saved assets (its download cache) aside, so a replacement can't be
+  hidden by a picture Roblox already has. It only moves, never deletes; only while Roblox and
+  Roblox Studio are closed (it says so when they aren't, and never closes Studio or a Roblox it
+  didn't start); it records the move first; and Reset everything puts the assets back.
 - Shortcuts for Replacements: Ctrl+N adds a replacement, Ctrl+Z and Shift+Ctrl+Z undo and redo,
   Ctrl+Enter runs Apply now.
 - The replacement editor takes a local file (dropped on it or chosen), an HTTPS link (its host

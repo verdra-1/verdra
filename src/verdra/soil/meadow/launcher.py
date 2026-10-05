@@ -300,6 +300,26 @@ def running_players(
     return found
 
 
+def roblox_processes(
+    processes: Callable[..., Iterable[Any]] = psutil.process_iter,
+    me: Callable[[], str | None] = _me,
+) -> humus.RobloxProcesses:
+    """Return this user's running Players and Studios, wherever they were installed from."""
+    user = me()
+    players: list[int] = []
+    studio: list[int] = []
+    for process in processes(["pid", "name", "username"]):
+        info = process.info
+        if info.get("username") != user:
+            continue
+        name = str(info.get("name") or "").lower()
+        if name == PLAYER_EXECUTABLE.lower():
+            players.append(info["pid"])
+        elif name == STUDIO_EXECUTABLE.lower():
+            studio.append(info["pid"])
+    return humus.RobloxProcesses(tuple(players), tuple(studio))
+
+
 def quote(argument: str) -> str:
     """Quote one argument of a Windows command line (the handler command)."""
     return '"' + argument.replace('"', '\\"') + '"'

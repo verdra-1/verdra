@@ -40,6 +40,7 @@ Kind = Literal[
     "file_tweak",
     "client_settings_file",
     "frame_rate_setting",
+    "roblox_cache_moved",
 ]
 State = Literal["pending", "done", "removed", "failed"]
 #: States whose change may still be in place, so Reset everything must undo them.

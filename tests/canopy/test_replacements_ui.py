@@ -22,7 +22,7 @@ from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import terrain
-from verdra.trunk.branches import grafts
+from verdra.trunk.branches import grafts, sprout
 from verdra.trunk.sapwood import startup
 from verdra.trunk.sapwood.startup import Services
 
@@ -36,14 +36,35 @@ class StubSprout(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.calls: list[str] = []
+        #: A Player this Verdra started is running.
         self.running = False
+        #: Players Verdra didn't start, and Studios, that are running.
+        self.others: tuple[int, ...] = ()
+        self.studio: tuple[int, ...] = ()
         self.routing = True
+        self.cache: sprout.CacheMove | None = sprout.CacheMove(
+            ("rbx-storage.db", "rbx-storage"), Path("C:/Verdra/Roblox cache backup/1")
+        )
 
     def roblox_running(self) -> bool:
         return self.running
 
-    def restart_roblox(self) -> None:
-        self.calls.append("restart")
+    def roblox_processes(self) -> sprout.RunningRoblox:
+        players = frozenset(((7,) if self.running else ()) + self.others)
+        return sprout.RunningRoblox(players, bool(self.studio))
+
+    def players_started_here(self) -> set[int]:
+        return {7} if self.running else set()
+
+    def close_roblox(self) -> None:
+        self.calls.append("close")
+
+    def clear_cache(self) -> sprout.CacheMove | None:
+        self.calls.append("clear")
+        return self.cache
+
+    def launch(self, link: str | None = None) -> None:
+        self.calls.append("launch")
 
     def start_routing(self) -> None:
         self.calls.append("start")
@@ -261,11 +282,16 @@ def test_apply_now_without_roblox_running_publishes_and_says_next_time(
     assert header.apply_now.isEnabled()
     header.apply_now.click()
     assert service.holder.current.swaps() == {1111111: 2222222}
-    assert stub.calls == []
-    assert toasts(shell)[-1] == "Applied 1 replacement. They'll appear next time Roblox starts."
+    assert stub.calls == ["clear"]  # nothing runs: the cache moves aside, nothing is closed
+    assert toasts(shell)[-2:] == [
+        "Moved Roblox's saved assets (rbx-storage.db, rbx-storage) to "
+        f"{Path('C:/Verdra/Roblox cache backup/1')}. Reset everything puts them back.",
+        "Applied 1 replacement. They'll appear next time Roblox starts.",
+    ]
     stub.routing = False
+    stub.calls.clear()
     header.apply_now.click()
-    assert stub.calls == ["start"]  # S-24 rule 2: routing starts first
+    assert stub.calls == ["clear", "start"]  # S-24 rule 2: routing starts too
 
 
 @pytest.mark.spec("S-24", 4)
@@ -295,7 +321,36 @@ def test_confirming_restarts_only_the_roblox_verdra_launched(
     stub.running = True
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
     shell.window.header.apply_now.click()
-    assert stub.calls == ["restart"]  # Sprout closes only its own launches (S-12 rule 4)
+    # Sprout closes only its own launches (S-12 rule 4), then the cache moves, then Roblox starts.
+    assert stub.calls == ["close", "clear", "launch"]
+    assert toasts(shell)[-1] == "Applied 0 replacements. Roblox is restarting."
+
+
+@pytest.mark.spec("S-24", 7)
+@pytest.mark.parametrize(
+    ("others", "studio", "told"),
+    [
+        ((), (9,), "Roblox Studio is open, so Verdra didn't move Roblox's saved assets aside."),
+        ((9,), (), "A Roblox Player that Verdra didn't start is running, so Verdra didn't move"),
+    ],
+)
+def test_the_cache_stays_while_studio_or_another_player_runs(
+    made: tuple[Shell, StubSprout],
+    monkeypatch: pytest.MonkeyPatch,
+    others: tuple[int, ...],
+    studio: tuple[int, ...],
+    told: str,
+) -> None:
+    shell, stub = made
+    stub.others, stub.studio = others, studio
+    shell.window.header.apply_now.click()  # none of Verdra's own Players runs
+    assert stub.calls == []  # nothing moved, nothing closed: Studio and others are never closed
+    assert toasts(shell)[-2].startswith(told)
+    assert toasts(shell)[-1] == "Applied 0 replacements. They'll appear next time Roblox starts."
+    stub.running = True  # with Verdra's own Player too: it restarts, the cache still stays
+    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
+    shell.window.header.apply_now.click()
+    assert stub.calls == ["close", "launch"]
     assert toasts(shell)[-1].startswith("Applied 0 replacements. Assets Roblox already saved")
 
 
@@ -387,7 +442,7 @@ def test_replacement_shortcuts_add_undo_redo_and_apply(
 
     keys["Ctrl+Return"].activated.emit()
     assert service.holder.current.swaps() == {1111111: 2222222}
-    assert stub.calls == []  # Roblox isn't running: nothing to restart
+    assert stub.calls == ["clear"]  # Roblox isn't running: nothing to restart, the cache moves
 
 
 @pytest.mark.spec("S-22", 3)
@@ -423,7 +478,7 @@ def test_the_first_texture_swap_guide_steps_6_to_9_with_real_size_ids(
     assert service.holder.current.swaps() == {ABOVE_UINT32: ABOVE_INT32}
     assert service.holder.current.hosts() == {rules.ASSET_BATCH_HOST}
     assert toasts(shell)[-1] == "Applied 1 replacement. They'll appear next time Roblox starts."
-    assert stub.calls == []
+    assert stub.calls == ["clear"]
     # Steps 8 and 9: the Player's asset batch asks for the target; the answer comes back under
     # the original's ID, in both the number and the text form.
     grafter = Grafter(service.holder)

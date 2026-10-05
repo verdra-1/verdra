@@ -21,8 +21,10 @@ Spec S-12. This part:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
+import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -162,6 +164,132 @@ def restore_handler(
     """Undo a `uri_handler` entry: put the recorded handler back exactly (S-12, S-16)."""
     _handler(platform or humus.current()).restore(dict(entry.details["snapshot"]))
     ledger.mark(entry.id, "removed")
+
+
+# --- Roblox's download cache (S-24 step 5) --------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class RunningRoblox:
+    """This user's running Roblox Players and Studios, for Apply now (S-24 rule 4)."""
+
+    players: frozenset[int]
+    studio: bool
+
+
+class RobloxRunningError(RuntimeError):
+    """A Roblox Player or Studio is running, so the cache stays where it is."""
+
+    def __init__(self, processes: humus.RobloxProcesses) -> None:
+        super().__init__("Roblox is running")
+        self.processes = processes
+
+
+class CacheKeptError(RuntimeError):
+    """Roblox made new cache files since the move, so the backup stays where it is."""
+
+
+@dataclass(frozen=True, slots=True)
+class CacheMove:
+    """What Apply now moved aside: the names, and the folder they went to."""
+
+    names: tuple[str, ...]
+    backup: Path
+
+
+def cache_backup_root() -> Path:
+    """Return the folder that holds the moved caches, one subfolder per move."""
+    return terrain.config_dir() / terrain.ROBLOX_CACHE_BACKUP_FOLDER
+
+
+def move_cache(
+    platform: humus.Platform, ledger: scar.Ledger, now: datetime, root: Path | None = None
+) -> CacheMove | None:
+    """Move Roblox's download cache into a new backup folder (S-24 step 5); None if none.
+
+    Only the names soil records as cache (W-06), only while no Roblox Player or Studio of this
+    user runs, and never deleting anything: each file or folder is renamed into the backup, so
+    after a crash every one is either still in place or in the backup, and the ledger entry,
+    written first, lets Reset everything put back what moved. If a move fails, what already
+    moved is put back at once.
+
+    Raises:
+        RobloxRunningError: a Player or Studio is running; nothing was moved.
+        OSError: a file couldn't be moved; everything is back in place.
+    """
+    files = platform.roblox_cache_files()
+    if isinstance(files, humus.Unsupported) or not files:
+        return None
+    running = platform.roblox_processes()
+    if isinstance(running, humus.Unsupported):
+        return None
+    if running.any:
+        raise RobloxRunningError(running)
+    base = root or cache_backup_root()
+    backup = base / now.strftime("%Y-%m-%d %H.%M.%S")
+    suffix = 1
+    while backup.exists():
+        suffix += 1
+        backup = base / f"{now.strftime('%Y-%m-%d %H.%M.%S')} ({suffix})"
+    items = [{"name": path.name, "path": str(path)} for path in files]
+    entry = ledger.begin(
+        "roblox_cache_moved", str(files[0].parent), {"backup": str(backup), "items": items}
+    )
+    backup.mkdir(parents=True)
+    moved: list[Path] = []
+    try:
+        for path in files:
+            shutil.move(path, backup / path.name)
+            moved.append(path)
+    except OSError:
+        for path in reversed(moved):
+            shutil.move(backup / path.name, path)
+        _remove_if_empty(backup)
+        ledger.mark(entry.id, "removed")
+        raise
+    ledger.mark(entry.id, "done")
+    return CacheMove(tuple(path.name for path in files), backup)
+
+
+def restore_cache(entry: scar.Entry, ledger: scar.Ledger) -> None:
+    """Undo a `roblox_cache_moved` entry: put the moved cache back (S-16).
+
+    Everything goes back, or nothing: if Roblox made any of the same files since, the backup
+    stays where it is (a database and its write-ahead files only belong together).
+
+    Raises:
+        CacheKeptError: Roblox made new cache files since; the backup is kept, its folder named.
+    """
+    backup = Path(entry.details["backup"])
+    items = [(backup / item["name"], Path(item["path"])) for item in entry.details["items"]]
+    waiting = [(saved, original) for saved, original in items if saved.exists()]
+    if any(original.exists() for _saved, original in waiting):
+        raise CacheKeptError(
+            QCoreApplication.translate(
+                "M-CACHE-05",
+                "Roblox has made new saved assets since, so Verdra kept the old ones in "
+                "{folder}. You can delete that folder.",
+            ).format(folder=backup)
+        )
+    for saved, original in reversed(waiting):
+        shutil.move(saved, original)
+    _remove_if_empty(backup)
+    ledger.mark(entry.id, "removed")
+
+
+def cache_moved_text(moved: CacheMove) -> str:
+    """M-CACHE-01: what Apply now moved and where."""
+    return QCoreApplication.translate(
+        "M-CACHE-01",
+        "Moved Roblox's saved assets ({names}) to {folder}. Reset everything puts them back.",
+    ).format(names=", ".join(moved.names), folder=moved.backup)
+
+
+def _remove_if_empty(folder: Path) -> None:
+    with contextlib.suppress(OSError):
+        folder.rmdir()
+    with contextlib.suppress(OSError):
+        folder.parent.rmdir()
 
 
 # --- Launching ------------------------------------------------------------------------------------
@@ -451,6 +579,45 @@ class Sprout(QObject):
     def roblox_running(self) -> bool:
         """Whether a Roblox Verdra launched is still running (M-SHELL-02)."""
         return bool(self.launches.running())
+
+    def roblox_processes(self) -> RunningRoblox | None:
+        """Return this user's running Players and Studios, or None where that can't be read."""
+        found = self.platform.roblox_processes()
+        if isinstance(found, humus.Unsupported):
+            return None
+        return RunningRoblox(frozenset(found.players), bool(found.studio))
+
+    def players_started_here(self) -> set[int]:
+        """Return the process IDs of the Players this Verdra started that still run."""
+        return {process.pid for process in self.launches.running()}
+
+    def close_roblox(self) -> None:
+        """Close the Roblox Verdra launched, never any other (S-12 rule 4)."""
+        self.launches.close_all()
+
+    def clear_cache(self) -> CacheMove | None:
+        """Move Roblox's download cache aside (S-24 step 5); None if nothing moved.
+
+        Only while no Player or Studio runs; the move is in the ledger first, and Reset
+        everything puts it back. Every outcome goes to Activity.
+        """
+        try:
+            moved = move_cache(self.platform, self.ledger(), self.clock())
+        except RobloxRunningError:
+            return None
+        except OSError as error:
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-CACHE-04",
+                    "Verdra couldn't move Roblox's saved assets aside ({reason}). Nothing was "
+                    "changed.",
+                ).format(reason=error.strerror or type(error).__name__),
+            )
+            return None
+        if moved is not None:
+            log.info("%s", cache_moved_text(moved))
+        return moved
 
     def quit(self) -> None:
         """Shutdown's routing steps: close Roblox if the setting says so, then stop routing."""

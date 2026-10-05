@@ -91,7 +91,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/soil/lichen.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/` | Reference R1; Master plan 6.6; Windows `SystemParametersInfo` (SPI_GETCLIENTAREAANIMATION) documentation; Win32 named pipe documentation (CreateNamedPipeW, ConnectNamedPipe, GetNamedPipeClientProcessId, WriteFile, FlushFileBuffers, DisconnectNamedPipe) | Standard library (`ctypes`) | 2026-10-03 |
 | `verdra/soil/meadow/autostart.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/soil/meadow/files.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/soil/meadow/files.py` | Reference R1; spec S-24 (cache clearing); docs/platforms/windows.md (W-06, the maintainer's PC); Master plan 11.1 ("the asset cache database"); SQLite documentation (write-ahead log files `-wal` and `-shm`) | — | 2026-10-05 |
 | `verdra/soil/meadow/hotkeys.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/instances.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/soil/meadow/keeper.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

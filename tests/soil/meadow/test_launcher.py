@@ -13,7 +13,7 @@ import os
 import sys
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import pytest
@@ -289,7 +289,8 @@ def test_the_platform_answers_for_windows(tmp_path: Path) -> None:
 
 class FakeProcess:
     def __init__(self, pid: int, exe: str, username: str, environ: dict[str, str] | None) -> None:
-        self.info = {"pid": pid, "name": Path(exe).name, "exe": exe, "username": username}
+        name = PureWindowsPath(exe).name
+        self.info = {"pid": pid, "name": name, "exe": exe, "username": username}
         self._environ = environ
 
     def environ(self) -> dict[str, str]:
@@ -345,3 +346,20 @@ def test_a_link_reaches_roblox_byte_for_byte(link: str) -> None:
     [(arguments, _options)] = spawn.calls
     assert arguments[1] == link
     assert arguments[1].encode("utf-8", "surrogatepass") == link.encode("utf-8", "surrogatepass")
+
+
+@pytest.mark.spec("S-24", 7)
+def test_every_player_and_studio_of_this_user_counts_as_running() -> None:
+    processes = [
+        FakeProcess(
+            1, r"C:\Users\me\AppData\Local\Roblox\Versions\v1\RobloxPlayerBeta.exe", "me", {}
+        ),
+        FakeProcess(2, r"D:\Elsewhere\RobloxPlayerBeta.exe", "me", {}),  # any install counts
+        FakeProcess(3, r"C:\Roblox\Versions\v2\RobloxStudioBeta.exe", "me", {}),
+        FakeProcess(4, r"C:\Roblox\RobloxPlayerBeta.exe", "someone else", {}),  # not this user
+        FakeProcess(5, r"C:\Windows\notepad.exe", "me", {}),
+    ]
+    found = launcher.roblox_processes(lambda _attrs: processes, lambda: "me")
+    assert found == humus.RobloxProcesses(players=(1, 2), studio=(3,))
+    assert found.any
+    assert not humus.RobloxProcesses().any

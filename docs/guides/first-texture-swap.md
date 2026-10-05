@@ -1,134 +1,106 @@
 # Your first texture swap
 
 A beginner's guide to seeing a Verdra replacement in a real Roblox game on Windows, through the
-**Roblox Player** started by Verdra. It takes about 25 minutes.
+**Roblox Player** started by Verdra.
 
-You'll make a tiny place with one picture on a wall, using two pictures that already exist in
-Roblox's public library (nothing to upload or wait for). Then you tell Verdra to show the second
-picture instead of the first, and join the place in the Roblox Player. If the wall shows the
-second picture, the swap works. Only your screen changes; the place stays as you published it.
+This is the **second attempt**. The first one (5 October 2026) showed only the original picture;
+the most likely reason is that Roblox had the picture saved already. Verdra can now move Roblox's
+saved assets aside before the test, and its log now names every picture Roblox asks for. You
+keep the place, the two pictures and the replacement you made last time.
 
-**Why a place of your own and not a public game:** this needs the number of a picture you can
-see on screen. In a public game nobody can tell which picture is which number without tools,
-and the game can change at any time. Two pictures from the Toolbox give you both numbers in
-Studio's Properties panel, and nothing else in the place can get in the way.
-
-**What it costs:** nothing. Publishing a place and using Toolbox pictures are free; the place
-stays private (only you can join it).
-
-**Roblox Studio is only used to build the place.** Pressing Play inside Studio would not go
-through Verdra and would prove nothing; the test is the Roblox Player in steps 7 and 8.
+**Before you start:** you need the place you published last time, with the first picture on the
+wall, and the replacement in Verdra's **My replacements** profile (original → replacement). Your
+replacement profiles and settings live in `%LOCALAPPDATA%\Verdra`, so updating Verdra keeps them.
 
 ## Steps
 
-1. **Replace your Verdra folder with the new version.** Your settings, the replacement profiles
-   and the list of system changes live in `%LOCALAPPDATA%\Verdra`, not in the folder you
-   downloaded, so this keeps them (that's intended).
-   - Stage 2 ended with **Reset everything**, so nothing on your PC points at the old folder. If
-     you skipped it, start the old Verdra once and run Settings › System changes › Reset
-     everything first.
-   - Quit Verdra if it's running (tray icon › Quit Verdra).
-   - Rename your old folder (for example `verdra-main`) to `verdra-old`. Delete it after the
-     test.
-   - Download the new version: <https://github.com/verdra-1/verdra/archive/refs/heads/main.zip>.
-     Right-click the ZIP › **Extract All…**, and extract it where the old folder was. Windows
-     makes a folder `verdra-main` with another `verdra-main` inside; use the inner one, the one
-     that holds `pyproject.toml`.
-   - Open **PowerShell** in that folder (in File Explorer, open it, click the address bar, type
-     `powershell`, press Enter), then run:
+1. **Close everything Roblox.** Close the Roblox Player and **Roblox Studio** (both must be
+   closed: Verdra moves Roblox's saved assets only then). Quit Verdra (tray icon › Quit Verdra).
+   In Task Manager (Ctrl+Shift+Esc), check that no **Roblox** or **RobloxStudioBeta** is left.
 
-     ```powershell
-     uv sync --locked
-     uv run python -m verdra
-     ```
+2. **Update Verdra.** In PowerShell:
 
-   - In Verdra, open Settings › Advanced and turn on **Detailed logging**. Check that Settings ›
-     Routing › **Open games started from the Roblox website through Verdra** is on (it is by
-     default).
+   ```powershell
+   cd "$env:USERPROFILE\Downloads\verdra-src"
+   Remove-Item verdra-old -Recurse -Force -ErrorAction SilentlyContinue; Rename-Item verdra-main verdra-old
+   Invoke-WebRequest https://github.com/verdra-1/verdra/archive/refs/heads/main.zip -OutFile verdra-main.zip
+   Expand-Archive verdra-main.zip -DestinationPath . -Force
+   cd verdra-main; uv sync --locked
+   ```
 
-2. **Make a place.** Open Roblox Studio, choose **Baseplate**. Insert a **Part** (Home › Part)
-   and make it big and upright like a wall (Scale tool, or Properties › Size `20, 12, 1`).
+3. **Look at Roblox's saved assets (read only).** In the same PowerShell window, run this; it
+   only reads names, sizes and dates, and changes nothing. Copy what it prints into a text file
+   called `before.txt`:
 
-3. **Put the first picture on the wall.** Open the Toolbox (View › Toolbox), choose **Decals**,
-   search for something easy to recognize (for example `red apple`), and drag one onto the Part.
-   Click the decal in the Explorer (Part › Decal). In Properties, **Texture** reads like
-   `rbxassetid://1234567890`. Write down the number: this is the **original**.
+   ```powershell
+   Get-ChildItem "$env:LOCALAPPDATA\Roblox" -Force -Filter 'rbx-storage*' | ForEach-Object { $size = if ($_.PSIsContainer) { (Get-ChildItem $_.FullName -Recurse -File -Force | Measure-Object Length -Sum).Sum } else { $_.Length }; '{0} | {1} bytes | {2:yyyy-MM-dd HH:mm}' -f $_.Name, $size, $_.LastWriteTime }
+   ```
 
-4. **Get the second picture's number.** Drag a clearly different decal (for example `blue
-   circle`) onto the Part, write down its Texture number the same way (the **replacement**),
-   then delete that second decal (select it in the Explorer, press Delete). Only the first
-   picture is left on the wall.
+4. **Start Verdra.** Run `uv run python -m verdra`. Check that Settings › Advanced › **Detailed
+   logging** is on. In **Replacements**, check that **My replacements** is ticked and shows your
+   row (the original number and the replacement number).
 
-5. **Publish and close Studio.** File › **Publish to Roblox**, give it any name, keep the
-   defaults, and publish. Close Studio. Don't play the place in the Player yet, so the Player
-   has never seen the first picture.
+5. **Apply now.** With Roblox and Studio still closed, click **Apply now** at the top. You should
+   see two messages: "Moved Roblox's saved assets (…) to …\Roblox cache backup\…. Reset everything
+   puts them back." and "Applied 1 replacement. They'll appear next time Roblox starts." If you
+   see "Roblox Studio is open…" or "A Roblox Player that Verdra didn't start is running…", close
+   it in Task Manager and click Apply now again.
 
-6. **Add the replacement in Verdra.** In Verdra, open **Replacements** and click **Add
-   replacement**. Put the original number in **Original asset ID** and the replacement number in
-   the field under **Replace with** (Asset ID is already chosen), then press **Save**. The row
-   appears in the table.
+6. **Join your place.** In your web browser, open your place (create.roblox.com › Creations ›
+   your place › View on Roblox) and press the green **Play** button. Roblox starts through
+   Verdra. Don't open Studio during the test.
 
-7. **Apply.** Make sure Roblox isn't open, then click **Apply now** at the top. You should see:
-   "Applied 1 replacement. They'll appear next time Roblox starts." If routing was off, Verdra
-   starts it now (the status pill at the top turns to Routing).
+7. **Look at the wall** and write down which picture you see: the first (original) or the second
+   (replacement).
 
-8. **Join the place in the Roblox Player, through Verdra.** In your web browser, open
-   <https://create.roblox.com/dashboard/creations>, click your new place, then **View on
-   Roblox** (or the three dots › Copy URL, and open it), and press the green **Play** button.
-   Because Verdra opens games started from the Roblox website, the Player starts through Verdra; Verdra's Activity
-   shows "Another launch of Verdra brought this window to the front."
+8. **Close the Player**, then run the command from step 3 again and copy what it prints into
+   `after.txt`.
 
-9. **Look at the wall.** You should see the **second** picture. Write down which one you see.
-   - **If you see the first picture, that may be Roblox's cache, not a Verdra failure. Send the
-     log anyway.** Roblox keeps pictures it has already downloaded, and Studio showed the first
-     picture before the Player did. Verdra doesn't clear that cache yet (see below), and the log
-     tells which of the two it was.
-   - Optional check that it switches back: close the Roblox Player, then in Verdra untick the
-     profile **My replacements**, click **Apply now**, and join again from the browser as in
-     step 8. Write down which picture you see this time. (Roblox may keep pictures it already downloaded,
-     so the first picture coming back late or not at all is useful information, not a fail.)
+9. **Send the results.** Quit Verdra (tray icon › Quit Verdra), then send me:
+   - which picture you saw (step 7);
+   - `before.txt` and `after.txt`;
+   - the file `%LOCALAPPDATA%\Verdra\Logs\verdra.log` (paste that path into File Explorer's
+     address bar).
 
-10. **Send the results.** Quit Verdra (tray icon › Quit Verdra), then send me:
-    - the file `%LOCALAPPDATA%\Verdra\Logs\verdra.log` (paste that path into File Explorer's
-      address bar);
-    - which picture you saw in step 9, and in the optional check if you did it (first or
-      second);
-    - any Roblox error text, exactly as shown.
+10. **Optional: undo.** Settings › System changes › **Reset everything** puts Roblox's saved
+    assets back from the backup, along with every other change Verdra made (as in Stage 2).
 
 ## What Apply now changes on your PC
 
-Nothing in Roblox's own folders. In this version, Apply now:
+1. It makes the proxy use your replacements (in memory).
+2. If routing is off, it starts it: Verdra's certificate block in the Roblox **Player**'s
+   `ssl\cacert.pem` and the Roblox link handler, each in the list of system changes first.
+3. Only if no Roblox Player and no Roblox Studio is running, it **moves** (never deletes) these
+   four items from `%LOCALAPPDATA%\Roblox` into a new folder under
+   `%LOCALAPPDATA%\Verdra\Roblox cache backup`: `rbx-storage.db`, `rbx-storage.db-wal`,
+   `rbx-storage.db-shm` and the `rbx-storage` folder. The move is in the list of system changes
+   first. Nothing else is touched: not `rbx-storage.id`, `rbx-storage-sc`, `LocalStorage`,
+   `logs`, `GlobalBasicSettings_13.xml`, `frm.cfg`, any other settings file, or anything of
+   Roblox Studio. Roblox downloads what it needs again.
+4. If a Roblox that Verdra started is running, it asks first, closes only that one, moves the
+   saved assets, and starts it again. It never closes Studio or a Roblox it didn't start.
 
-1. makes the proxy use your current replacements (in memory; your profile files were already
-   saved when you pressed Save);
-2. if routing is off, starts it, which is the same routing as in Stage 2: Verdra's certificate
-   block in the Roblox **Player**'s `ssl\cacert.pem`, and the Roblox link handler, each written
-   to the list of system changes first and removed by Reset everything;
-3. if Roblox is running, asks first, then closes only the Roblox that Verdra started and starts
-   it again through Verdra.
-
-It does **not** delete or change `rbx-storage.db`, `rbx-storage.db-shm`, `rbx-storage.db-wal`,
-the `rbx-storage` folder, `LocalStorage`, `logs`, `GlobalBasicSettings_13.xml`, `frm.cfg`,
-`Downloads`, or anything of Roblox Studio. Clearing Roblox's cache is **not built yet**, on
-purpose: which files are only cache isn't known, and a wrong deletion could lose your settings or
-local data and can't be undone. Until a design you approve exists, Apply now deletes nothing and says so ("Assets Roblox already saved may
-change only after it refreshes them"). Details: `docs/m2/notes.md`.
+**What is proven and what isn't:** those four items are the only database and storage folder
+in Roblox's folder, and the plan calls them "the asset cache database". That they hold only
+downloaded assets is probable, not proven (Roblox doesn't document it); steps 3 and 8 show
+whether the Player writes to them while you play. Reset everything puts them back exactly; if
+Roblox has made new ones in the meantime, Verdra keeps the old ones in the backup folder and
+tells you where it is.
 
 ## What the log contains
 
-The log has times, what Verdra did, the Roblox hosts it saw, and, while replacements are on, the
-address of each picture request (`POST assetdelivery.roblox.com /v1/assets/batch`) with a line
-like `Asset batch: 1 of 12 items replaced`. Login tokens and signed links are always removed.
+Times, what Verdra did, the Roblox hosts it saw, and, while replacements are on, one line per
+picture request: which asset numbers Roblox asked for, which ones were replaced, and the names
+(not the values) of the fields in the request. Asset numbers are public. Login tokens and signed
+links are always removed.
 
 - Your **Windows user name** may appear inside folder paths. That's fine to send me; it's never
   committed to the repository.
-- Your **Roblox user ID and Roblox user name** shouldn't appear: Verdra reads only the picture
-  requests, doesn't read who you are, and doesn't write the Roblox link from your browser to the
-  log. I can't check that on your machine before you send it; if you do see either, it's still
+- Your **Roblox user ID and Roblox user name** shouldn't appear. If you do see either, it's still
   fine to send me, and I'll fix the log so it never happens again.
 
 ## Undoing everything
 
 Untick the profile and click **Apply now** to stop the swap. Settings › System changes ›
-**Reset everything** removes everything Verdra changed on your PC, as in Stage 2. Delete the
-place in Studio or on create.roblox.com if you like; it costs nothing to keep.
+**Reset everything** removes everything Verdra changed on your PC and puts Roblox's saved assets
+back.

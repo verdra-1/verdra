@@ -42,11 +42,13 @@ from verdra.canopy.screens.rings import ActivityScreen
 from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
+from verdra.trunk.branches.sprout import cache_moved_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from verdra.trunk.almanac.store import Notice as SettingsNotice
+    from verdra.trunk.branches.sprout import CacheMove, RunningRoblox
     from verdra.trunk.sapwood.startup import Services
     from verdra.trunk.tendrils import Job
 
@@ -231,6 +233,9 @@ class ApplyText(QObject):
         )
 
     def restarted(self, count: int) -> str:
+        return self.tr("Applied %n replacements. Roblox is restarting.", "M-APPLY-01", count)
+
+    def restarted_cached(self, count: int) -> str:
         return self.tr(
             "Applied %n replacements. Assets Roblox already saved may change only after it "
             "refreshes them.",
@@ -427,12 +432,23 @@ class Shell:
             getattr(screen, name).click()  # a disabled button ignores the click
 
     def apply_now(self) -> None:
-        """Apply now (spec S-24): publish the replacements, then restart Roblox if it runs."""
+        """Apply now (spec S-24): publish, move Roblox's cache aside, restart Roblox if it runs.
+
+        The cache moves only while no Player or Studio runs (S-24 rule 4): Studio, or a Player
+        Verdra didn't start, is never closed; Apply now then says why the cache stayed. A Player
+        Verdra started is closed after M-LAUNCH-03 and started again once the cache has moved.
+        """
         grafts, sprout = self.services.grafts, self.services.sprout
         if grafts is None:
             return
         count = grafts.publish()
-        if sprout is not None and sprout.roblox_running():
+        if sprout is None:
+            self.window.dew.show(ApplyText().next_time(count))
+            return
+        running = sprout.roblox_processes()
+        ours = sprout.players_started_here()
+        clear = self._cache_can_move(running, ours)
+        if ours:
             dialog = DestructiveConfirmation(
                 QCoreApplication.translate(
                     "M-LAUNCH-03", "Restart Roblox now? Unsaved progress in your game may be lost."
@@ -440,14 +456,51 @@ class Shell:
                 QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
                 parent=self.window,
             )
-            if dialog.exec() == DestructiveConfirmation.DialogCode.Accepted:
-                sprout.restart_roblox()
-                # Roblox's cache isn't cleared until its files are recorded (W-06, S-24 rule 4).
-                self.window.dew.show(ApplyText().restarted(count))
+            if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
+                self.window.dew.show(ApplyText().next_time(count))  # S-24 rule 3
                 return
-        elif sprout is not None and not sprout.routing:
+            sprout.close_roblox()
+            moved = sprout.clear_cache() if clear else None
+            self._show_moved(moved)
+            sprout.launch()
+            text = ApplyText()
+            self.window.dew.show(text.restarted(count) if moved else text.restarted_cached(count))
+            return
+        moved = sprout.clear_cache() if clear else None
+        self._show_moved(moved)
+        if not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
         self.window.dew.show(ApplyText().next_time(count))
+
+    def _cache_can_move(self, running: RunningRoblox | None, ours: set[int]) -> bool:
+        """Whether nothing but Verdra's own Players runs; else say why the cache stays."""
+        if running is None:
+            return False
+        if running.studio:
+            self.window.dew.show(
+                QCoreApplication.translate(
+                    "M-CACHE-02",
+                    "Roblox Studio is open, so Verdra didn't move Roblox's saved assets aside. "
+                    "Close Studio, then click Apply now again.",
+                ),
+                Kind.WARNING,
+            )
+            return False
+        if running.players - ours:
+            self.window.dew.show(
+                QCoreApplication.translate(
+                    "M-CACHE-03",
+                    "A Roblox Player that Verdra didn't start is running, so Verdra didn't move "
+                    "Roblox's saved assets aside. Close it, then click Apply now again.",
+                ),
+                Kind.WARNING,
+            )
+            return False
+        return True
+
+    def _show_moved(self, moved: CacheMove | None) -> None:
+        if moved is not None:
+            self.window.dew.show(cache_moved_text(moved))
 
     def show_error(self) -> None:
         """M-ERR-01: an unhandled error was logged; say so, with a way to the details."""
