@@ -81,6 +81,9 @@ def kind_names() -> dict[str, str]:
         "file_tweak": QCoreApplication.translate("Settings", "File tweak"),
         "client_settings_file": QCoreApplication.translate("Settings", "Client settings file"),
         "frame_rate_setting": QCoreApplication.translate("Settings", "Frame-rate cap"),
+        "roblox_cache_moved": QCoreApplication.translate(
+            "Settings", "Roblox's saved assets, moved aside"
+        ),
     }
 
 
@@ -120,7 +123,11 @@ def _reason(entry: scar.Entry) -> str | None:
 
 def undo_actions() -> dict[str, Undo]:
     """Return the undo action of each kind this version can make (S-16 "Undo per kind")."""
-    return {"ca_roblox_bundle": gardener.remove_ca, "uri_handler": sprout.restore_handler}
+    return {
+        "ca_roblox_bundle": gardener.remove_ca,
+        "uri_handler": sprout.restore_handler,
+        "roblox_cache_moved": sprout.restore_cache,
+    }
 
 
 @dataclass(frozen=True, slots=True)

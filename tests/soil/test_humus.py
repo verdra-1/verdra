@@ -57,6 +57,8 @@ def test_the_paused_and_deferred_adapters_report_unsupported(
     assert platform.prefers_reduced_motion() is None
     assert platform.roblox_clients() == expected
     assert platform.link_handler() == expected
+    assert platform.roblox_processes() == expected
+    assert platform.roblox_cache_files() == expected
     modules = [info.name for info in pkgutil.iter_modules(package.__path__)]  # type: ignore[attr-defined]
     assert sorted(modules) == sorted(
         [

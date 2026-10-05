@@ -85,6 +85,19 @@ class RobloxClient:
 
 
 @dataclass(frozen=True, slots=True)
+class RobloxProcesses:
+    """This user's running Roblox programs (spec S-24, cache clearing): process IDs only."""
+
+    players: tuple[int, ...] = ()
+    studio: tuple[int, ...] = ()
+
+    @property
+    def any(self) -> bool:
+        """Whether any Player or Studio is running."""
+        return bool(self.players or self.studio)
+
+
+@dataclass(frozen=True, slots=True)
 class RunningClient:
     """A Roblox client of this user that is running (spec S-15, sign 1)."""
 
@@ -200,6 +213,18 @@ class Platform(Protocol):
 
     def running_clients(self, client: RobloxClient) -> list[RunningClient] | Unsupported:
         """Return this user's running processes of `client`, or why they can't be listed."""
+        ...
+
+    def roblox_processes(self) -> RobloxProcesses | Unsupported:
+        """Return this user's running Roblox Players and Studios (any install, any launcher)."""
+        ...
+
+    def roblox_cache_files(self) -> list[Path] | Unsupported:
+        """Return the files and folders of Roblox's download cache that exist now (S-24).
+
+        Only the names recorded as cache in docs/platforms/<os>.md; never settings, logs,
+        LocalStorage or Studio's own files.
+        """
         ...
 
 

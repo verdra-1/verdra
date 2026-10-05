@@ -124,6 +124,14 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>Applied %n replacements. Roblox is restarting.</source>
+        <comment>M-APPLY-01</comment>
+        <translation>
+            <numerusform>Applied %n replacement. Roblox is restarting.</numerusform>
+            <numerusform>Applied %n replacements. Roblox is restarting.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Applied %n replacements. Assets Roblox already saved may change only after it refreshes them.</source>
         <comment>M-APPLY-03</comment>
         <translation>
@@ -272,6 +280,41 @@
     <name>M-CA-04</name>
     <message>
         <source>Verdra couldn&apos;t add its certificate to the Roblox version {version}, so Roblox isn&apos;t routed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-01</name>
+    <message>
+        <source>Moved Roblox&apos;s saved assets ({names}) to {folder}. Reset everything puts them back.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-02</name>
+    <message>
+        <source>Roblox Studio is open, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close Studio, then click Apply now again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-03</name>
+    <message>
+        <source>A Roblox Player that Verdra didn&apos;t start is running, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close it, then click Apply now again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-04</name>
+    <message>
+        <source>Verdra couldn&apos;t move Roblox&apos;s saved assets aside ({reason}). Nothing was changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-05</name>
+    <message>
+        <source>Roblox has made new saved assets since, so Verdra kept the old ones in {folder}. You can delete that folder.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1498,6 +1541,10 @@
     </message>
     <message>
         <source>Frame-rate cap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Roblox&apos;s saved assets, moved aside</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
 from verdra.soil import humus
-from verdra.soil.meadow import launcher
+from verdra.soil.meadow import files, launcher
 
 if TYPE_CHECKING:
     import ssl
@@ -108,6 +108,14 @@ class Meadow:
     ) -> list[humus.RunningClient] | humus.Unsupported:
         """Return this user's running Players of `client` (S-15)."""
         return launcher.running_players(client)
+
+    def roblox_processes(self) -> humus.RobloxProcesses | humus.Unsupported:
+        """Return this user's running Players and Studios (S-24)."""
+        return launcher.roblox_processes()
+
+    def roblox_cache_files(self) -> list[Path] | humus.Unsupported:
+        """Return Roblox's download cache files that exist now (W-06, S-24)."""
+        return files.cache_files(launcher.local_appdata(os.environ))
 
 
 # Win32 constants (CreateNamedPipeW, winbase.h).

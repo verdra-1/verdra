@@ -82,5 +82,13 @@ class Orchard:
         """Return why not: macOS is deferred."""
         return UNSUPPORTED
 
+    def roblox_processes(self) -> humus.RobloxProcesses | humus.Unsupported:
+        """Return why not: this system is not supported."""
+        return UNSUPPORTED
+
+    def roblox_cache_files(self) -> list[Path] | humus.Unsupported:
+        """Return why not: this system is not supported."""
+        return UNSUPPORTED
+
 
 PLATFORM: Final = Orchard()

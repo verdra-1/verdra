@@ -752,3 +752,257 @@ def test_apply_now_deletes_and_changes_no_roblox_file(
     assert [(e.kind, e.target) for e in ledger.entries()] == recorded  # no new system change
     assert platform.launched[-1] == (None, made.router.port)  # relaunched through Verdra
     service.deleteLater()
+
+
+# --- Roblox's download cache, moved aside by Apply now (S-24 step 5) ---------------------------
+
+#: Every name W-06 recorded in the maintainer's `%LOCALAPPDATA%\Roblox` (one file in each folder),
+#: so the test proves that only the cache names move.
+W06_NAMES = (
+    "123456789/x.dat",  # the numeric folder (likely the user ID), with an invented number
+    "AnalysticsSettings.xml",
+    "AssistantSettings/a.json",
+    "ClientSettings/c.json",
+    "DefaultInstances/d.rbxm",
+    "Downloads/roblox-installer.exe",
+    "frm.cfg",
+    "GlobalBasicSettings_13.xml",
+    "GlobalBasicSettings_13_Studio.xml",
+    "GlobalSettings_13.xml",
+    "LocalStorage/appStorage.json",
+    "logs/0.741_20261004_player.log",
+    "mcp.bat",
+    "notifications/n.json",
+    "OTAPatchBackups/o.bin",
+    "OTAPlugins/p.rbxm",
+    "placeIDEState/s.json",
+    "rbx-storage/ab/cd0123",
+    "rbx-storage/ef/gh4567",
+    "rbx-storage.db",
+    "rbx-storage.db-shm",
+    "rbx-storage.db-wal",
+    "rbx-storage.id",
+    "rbx-storage-sc/k.bin",
+    "RobloxPlayerInstaller/i.exe",
+    "RobloxStudio/settings.json",
+    "RobloxStudioInstaller/i.exe",
+    "tmp-capture-storage/t.bin",
+    "UniversalApp/u.json",
+    "Versions/version-player/RobloxPlayerBeta.exe",
+    "Versions/version-studio/RobloxStudioBeta.exe",
+)
+CACHE = ("rbx-storage.db-shm", "rbx-storage.db-wal", "rbx-storage.db", "rbx-storage")
+
+
+class CachePlatform:
+    """The Windows platform's cache list over a fake `%LOCALAPPDATA%`, with set processes."""
+
+    def __init__(self, local_appdata: Path) -> None:
+        self.local_appdata = local_appdata
+        self.processes = humus.RobloxProcesses()
+
+    def roblox_cache_files(self) -> list[Path]:
+        from verdra.soil.meadow import files  # noqa: PLC0415
+
+        return files.cache_files(self.local_appdata)
+
+    def roblox_processes(self) -> humus.RobloxProcesses:
+        return self.processes
+
+
+@pytest.fixture
+def roblox_folder(tmp_path: Path) -> Path:
+    roblox = tmp_path / "LocalAppData" / "Roblox"
+    for name in W06_NAMES:
+        (roblox / name).parent.mkdir(parents=True, exist_ok=True)
+        (roblox / name).write_bytes(name.encode())
+    return roblox
+
+
+def snapshot(folder: Path) -> dict[str, tuple[bytes, int]]:
+    """Every file under `folder`: its bytes and modification time (nanoseconds)."""
+    return {
+        p.relative_to(folder).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
+        for p in sorted(folder.rglob("*"))
+        if p.is_file()
+    }
+
+
+def is_cache(relative: str) -> bool:
+    return relative.split("/", 1)[0] in CACHE
+
+
+@pytest.mark.spec("S-24", 7)
+def test_only_the_recorded_cache_moves_and_nothing_else_changes(
+    roblox_folder: Path, tmp_path: Path
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    before = snapshot(roblox_folder)
+    moved = sprout.move_cache(platform, ledger, NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    assert moved is not None and moved.names == CACHE
+    after = snapshot(roblox_folder)
+    # Everything else is byte- and date-identical; the cache is gone from Roblox's folder ...
+    assert after == {k: v for k, v in before.items() if not is_cache(k)}
+    # ... and is in the backup, byte- and date-identical.
+    assert snapshot(moved.backup) == {k: v for k, v in before.items() if is_cache(k)}
+    [entry] = ledger.entries()
+    assert (entry.kind, entry.state, entry.target) == (
+        "roblox_cache_moved",
+        "done",
+        str(roblox_folder),
+    )
+    assert entry.details["backup"] == str(moved.backup)
+    assert [item["name"] for item in entry.details["items"]] == list(CACHE)
+    assert sprout.move_cache(platform, ledger, NOW, root=tmp_path / "backup") is None  # type: ignore[arg-type]
+
+
+@pytest.mark.spec("S-24", 7)
+@pytest.mark.parametrize(
+    "running",
+    [humus.RobloxProcesses(players=(41,)), humus.RobloxProcesses(studio=(42,))],
+    ids=["player", "studio"],
+)
+def test_nothing_moves_while_a_player_or_studio_runs(
+    roblox_folder: Path, tmp_path: Path, running: humus.RobloxProcesses
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    platform.processes = running
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    before = snapshot(roblox_folder)
+    with pytest.raises(sprout.RobloxRunningError):
+        sprout.move_cache(platform, ledger, NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    assert snapshot(roblox_folder) == before
+    assert ledger.entries() == []
+    assert not (tmp_path / "backup").exists()
+
+
+@pytest.mark.spec("S-24", 8)
+def test_reset_everything_puts_the_cache_back(roblox_folder: Path, tmp_path: Path) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    before = snapshot(roblox_folder)
+    moved = sprout.move_cache(platform, scar.Ledger(ledger_file), NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    assert moved is not None
+    summary = fallow.reset(
+        ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt"
+    )
+    assert summary.removed == 1 and summary.failed == []
+    assert snapshot(roblox_folder) == before  # every byte and date as it was
+    assert not (tmp_path / "backup").exists()  # the empty backup folders are gone
+    assert [e.state for e in scar.Ledger(ledger_file).entries()] == ["removed"]
+
+
+@pytest.mark.spec("S-24", 8)
+def test_reset_keeps_the_backup_when_roblox_made_new_files(
+    roblox_folder: Path, tmp_path: Path
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    moved = sprout.move_cache(platform, scar.Ledger(ledger_file), NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    assert moved is not None
+    kept = snapshot(moved.backup)
+    (roblox_folder / "rbx-storage.db").write_bytes(b"Roblox's new database")
+    summary = fallow.reset(
+        ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt"
+    )
+    [failed] = summary.failed
+    assert failed.reason == (
+        "Roblox has made new saved assets since, so Verdra kept the old ones in "
+        f"{moved.backup}. You can delete that folder."
+    )
+    assert snapshot(moved.backup) == kept  # nothing put back, nothing lost
+    assert (roblox_folder / "rbx-storage.db").read_bytes() == b"Roblox's new database"
+    assert not (roblox_folder / "rbx-storage.db-wal").exists()  # no half-restored database
+
+
+@pytest.mark.spec("S-24", 9)
+def test_a_crash_mid_move_loses_nothing_and_reset_puts_it_back(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    before = snapshot(roblox_folder)
+    real_move = sprout.shutil.move
+    done: list[str] = []
+
+    def crash_after_two(source: Path, target: Path) -> object:
+        if len(done) == 2:
+            raise KeyboardInterrupt  # the process dies here: nothing after this line runs
+        done.append(Path(source).name)
+        return real_move(source, target)
+
+    monkeypatch.setattr(sprout.shutil, "move", crash_after_two)
+    with pytest.raises(KeyboardInterrupt):
+        sprout.move_cache(platform, scar.Ledger(ledger_file), NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    monkeypatch.undo()
+    # Every file is either in place or in the backup, and the ledger knows about the move.
+    [entry] = scar.Ledger(ledger_file).entries()
+    assert entry.state == "pending"
+    backup = Path(entry.details["backup"])
+    for relative, (data, _mtime) in before.items():
+        place = roblox_folder / relative
+        saved = backup / relative
+        assert (place.exists() and place.read_bytes() == data) or saved.read_bytes() == data
+    fallow.reset(ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt")
+    assert snapshot(roblox_folder) == before
+
+
+@pytest.mark.spec("S-24", 9)
+def test_a_failed_move_puts_back_what_moved(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    before = snapshot(roblox_folder)
+    real_move = sprout.shutil.move
+
+    def locked_database(source: Path, target: Path) -> object:
+        if Path(source).name == "rbx-storage.db" and Path(target).parent.name != "Roblox":
+            raise PermissionError(13, "The file is in use")
+        return real_move(source, target)
+
+    monkeypatch.setattr(sprout.shutil, "move", locked_database)
+    with pytest.raises(PermissionError):
+        sprout.move_cache(platform, ledger, NOW, root=tmp_path / "backup")  # type: ignore[arg-type]
+    assert snapshot(roblox_folder) == before
+    assert [e.state for e in ledger.entries()] == ["removed"]
+    assert not (tmp_path / "backup").exists()
+
+
+def test_sprout_reports_every_cache_outcome_in_activity(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: Any
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),  # type: ignore[arg-type]
+        status,
+        platform=platform,  # type: ignore[arg-type]
+        ledger=lambda: ledger,
+        clock=lambda: NOW,
+    )
+    monkeypatch.setattr(sprout, "cache_backup_root", lambda: tmp_path / "backup")
+    caplog.set_level("INFO", logger="verdra.trunk.branches.sprout")
+    platform.processes = humus.RobloxProcesses(studio=(42,))
+    assert made.clear_cache() is None  # Studio runs: nothing moves (the interface says so)
+    platform.processes = humus.RobloxProcesses()
+    moved = made.clear_cache()
+    assert moved is not None
+    assert caplog.messages[-1] == (
+        "Moved Roblox's saved assets (rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.db, "
+        f"rbx-storage) to {moved.backup}. Reset everything puts them back."
+    )
+    (roblox_folder / "rbx-storage.db").write_bytes(b"new")
+    monkeypatch.setattr(
+        sprout.shutil, "move", lambda *_a: (_ for _ in ()).throw(OSError(5, "Access is denied"))
+    )
+    assert made.clear_cache() is None
+    assert caplog.messages[-1] == (
+        "Verdra couldn't move Roblox's saved assets aside (Access is denied). Nothing was changed."
+    )
+    made.deleteLater()
+    status.deleteLater()

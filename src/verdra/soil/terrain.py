@@ -82,6 +82,9 @@ HOME_OVERRIDE_VARIABLE: Final = "VERDRA_HOME"
 SETTINGS_FILE: Final = "settings.json"
 STATE_FILE: Final = "state.json"
 LEDGER_FILE: Final = "changes.json"
+#: Under the config folder: where Apply now moves Roblox's download cache (spec S-24), one
+#: folder per move, until Reset everything puts it back.
+ROBLOX_CACHE_BACKUP_FOLDER: Final = "Roblox cache backup"
 LOG_FILE: Final = "verdra.log"
 #: Under the config folder (plan 9.1): the CA certificate.
 TRUST_FOLDER: Final = "trust"
