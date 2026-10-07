@@ -22,6 +22,7 @@ Spec S-12. This part:
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import shutil
@@ -37,7 +38,7 @@ from PySide6.QtCore import QCoreApplication, QLocale, QObject, Signal
 from verdra.bark import husk, resin, scar
 from verdra.roots import gardener, hyphae, mycelium, rules, taproot
 from verdra.roots.symbionts.grafter import Grafter
-from verdra.soil import humus, terrain
+from verdra.soil import atomic, humus, terrain
 from verdra.trunk import tendrils
 
 log = logging.getLogger(__name__)
@@ -345,6 +346,14 @@ def cache_moved_text(moved: CacheMove) -> str:
     ).format(names=", ".join(moved.names), folder=moved.backup)
 
 
+def other_player_text() -> str:
+    """M-LAUNCH-08: a Player Verdra didn't start is running (banner and routing status)."""
+    return QCoreApplication.translate(
+        "M-LAUNCH-08",
+        "Roblox is already running without Verdra. Close it completely, then click Apply now.",
+    )
+
+
 def _remove_if_empty(folder: Path) -> None:
     with contextlib.suppress(OSError):
         folder.rmdir()
@@ -357,27 +366,55 @@ def _remove_if_empty(folder: Path) -> None:
 
 @dataclass
 class Launches:
-    """The Roblox processes Verdra started, so only those are ever closed (S-12 rule 4)."""
+    """The Roblox processes Verdra started, so only those are ever closed (S-12 rule 4).
+
+    With `record`, the list is also kept in that file, so a Verdra started again still knows the
+    Players an earlier run started (a Player keeps using Verdra's proxy port after Verdra
+    restarts). Each entry is a process ID with its creation time: a reused ID never matches.
+    Only normal process information is used (psutil); nothing is read from inside a process.
+    """
 
     platform: humus.Platform = field(default_factory=humus.current)
     environment: Callable[[], Mapping[str, str]] = lambda: dict(os.environ)
     spawn: humus.Spawn | None = None
     #: PID → the process's creation time, so a reused PID is never mistaken for Roblox.
     started: dict[int, float] = field(default_factory=dict)
+    #: Where the list is kept between runs of Verdra (None: in memory only).
+    record: Path | None = None
+
+    def __post_init__(self) -> None:
+        if self.record is None:
+            return
+        try:
+            data = json.loads(atomic.read_bytes(self.record))
+        except OSError, ValueError:
+            return
+        if isinstance(data, dict):
+            for pid, created in data.items():
+                with contextlib.suppress(TypeError, ValueError):
+                    if float(created) > 0:  # a time that couldn't be read never matches later
+                        self.started[int(pid)] = float(created)
+        self.running()
 
     def launch(self, client: humus.RobloxClient, link: str | None, proxy_port: int) -> int:
         """Start `client` with the proxy variables and `link` (unchanged); return its PID."""
         options = {} if self.spawn is None else {"spawn": self.spawn}
         pid = self.platform.launch_roblox(client, link, proxy_port, self.environment(), **options)
+        self.adopt(pid)
+        return pid
+
+    def adopt(self, pid: int) -> None:
+        """Count `pid` as a Player Verdra started (one it launched, or one using its proxy)."""
         try:
             self.started[pid] = psutil.Process(pid).create_time()
         except psutil.Error:
             self.started[pid] = 0.0
-        return pid
+        self._save()
 
     def running(self) -> list[psutil.Process]:
         """Return the processes Verdra started that are still running."""
         alive: list[psutil.Process] = []
+        before = len(self.started)
         for pid, created in list(self.started.items()):
             try:
                 process = psutil.Process(pid)
@@ -387,7 +424,18 @@ class Launches:
             except psutil.Error:
                 pass
             del self.started[pid]
+        if len(self.started) != before:
+            self._save()
         return alive
+
+    def _save(self) -> None:
+        if self.record is None:
+            return
+        kept = {str(pid): created for pid, created in self.started.items() if created > 0}
+        try:
+            atomic.write_atomic(self.record, json.dumps(kept).encode("utf-8"))
+        except OSError as error:
+            log.debug("The list of Players Verdra started wasn't saved: %s", error)
 
     def close_all(self, timeout: float = 5.0) -> None:
         """Close the processes Verdra started (S-12 "Closing on quit"), never any other."""
@@ -404,6 +452,7 @@ class Launches:
             except psutil.Error:
                 continue
         self.started.clear()
+        self._save()
 
 
 # --- Routing and launching together ---------------------------------------------------------------
@@ -438,11 +487,24 @@ class Sprout(QObject):
         refused(str): Why routing or a launch didn't happen, as the sentence to show.
         other_tool(str): Another routing tool was found (M-COEX-01); `retry` tries again.
         backups_changed(): Cache backups were deleted, or deleting them failed.
+        others_changed(bool): Whether a Player Verdra didn't start is running changed (M-LAUNCH-08).
+        held_back(str): A launch wasn't started because such a Player runs; the link (or "")
+            waits for the user's choice (`launch(link, despite_others=True)` or `close_others`).
+        handed_off(str): A Player Verdra started closed at once and the other Player runs: the
+            join most likely went there (M-LAUNCH-14).
     """
 
     refused = Signal(str)
     other_tool = Signal(str)
     backups_changed = Signal()
+    others_changed = Signal(bool)
+    held_back = Signal(str)
+    handed_off = Signal(str)
+
+    #: How often Verdra looks again while a Player it didn't start runs, until it closes.
+    OTHERS_WATCH_SECONDS = 3.0
+    #: How long after a launch Verdra checks whether the Player it started is still running.
+    HANDOFF_SECONDS = 10.0
 
     def __init__(
         self,
@@ -458,9 +520,18 @@ class Sprout(QObject):
         pool: tendrils.Tendrils | None = None,
         diagnose: bool = False,
         snapshots: rules.SnapshotHolder | None = None,
+        schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        self._schedule = schedule if schedule is not None else gardener.qt_schedule(self)
+        #: Players this user runs that Verdra didn't start (M-LAUNCH-08), as last seen.
+        self.others: frozenset[int] = frozenset()
+        self._watch: gardener.Cancel | None = None
+        self._handoff: gardener.Cancel | None = None
+        #: Players already looked at that aren't Verdra's (no Verdra proxy, or unreadable),
+        #: so the watch every few seconds doesn't read every process again.
+        self._not_ours: set[int] = set()
         #: The replacements the proxy applies (S-21), published by trunk/branches/grafts.
         self.snapshots = snapshots or rules.SnapshotHolder()
         self.settings = settings
@@ -488,8 +559,24 @@ class Sprout(QObject):
         """Start routing (S-12); a refusal goes to `refused`, another tool to `other_tool`."""
         self._request(None, launch=False)
 
-    def launch(self, link: str | None = None) -> None:
-        """Start routing if needed, then Roblox with `link` (unchanged)."""
+    def launch(self, link: str | None = None, *, despite_others: bool = False) -> None:
+        """Start routing if needed, then Roblox with `link` (unchanged).
+
+        While a Player Verdra didn't start runs, a new launch would most likely hand its join to
+        that Player, which never uses Verdra: unless `despite_others`, the launch waits and
+        `held_back` asks the user (close that Roblox, join anyway, or cancel).
+        """
+        if not despite_others and self.refresh_others():
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-LAUNCH-09",
+                    "Verdra didn't start Roblox yet: Roblox is already running without Verdra, "
+                    "so the game would open there without your replacements.",
+                ),
+            )
+            self.held_back.emit(link or "")
+            return
         self._request(link, launch=True)
 
     def retry(self) -> None:
@@ -573,9 +660,147 @@ class Sprout(QObject):
             return
         link, launch = self._last
         if launch:
-            assert self.client is not None and self.router.port is not None  # noqa: S101 - running
-            self.launches.launch(self.client, link, self.router.port)
-            self.status.launched()
+            self._launch_now(link)
+
+    def _launch_now(self, link: str | None) -> None:
+        """Start the Player and say what happened (M-LAUNCH-12, M-LAUNCH-13)."""
+        assert self.client is not None and self.router.port is not None  # noqa: S101 - running
+        try:
+            pid = self.launches.launch(self.client, link, self.router.port)
+        except OSError as error:
+            self._refuse(
+                Refused(
+                    "M-LAUNCH-12",
+                    QCoreApplication.translate(
+                        "M-LAUNCH-12", "Verdra couldn't start Roblox: {reason}."
+                    ).format(reason=error.strerror or type(error).__name__),
+                )
+            )
+            return
+        log.info(
+            "%s",
+            QCoreApplication.translate(
+                "M-LAUNCH-13", "Started Roblox through Verdra (process {pid})."
+            ).format(pid=pid),
+        )
+        self.status.launched()
+        if self._handoff is not None:
+            self._handoff()
+        self._handoff = self._schedule(self.HANDOFF_SECONDS, lambda: self._check_handoff(pid))
+
+    def _check_handoff(self, pid: int) -> None:
+        """Ten seconds after a launch: is the Player still running? If not, say where it went."""
+        self._handoff = None
+        if pid in {process.pid for process in self.launches.running()}:
+            return
+        others = self.refresh_others()
+        if others:
+            text = QCoreApplication.translate(
+                "M-LAUNCH-14",
+                "Roblox handed this game to the Roblox that was already running without Verdra "
+                "(process {pid}), so your replacements don't show there. Close Roblox completely, "
+                "then join again.",
+            ).format(pid=min(others))
+            log.warning("%s", text)
+            self.handed_off.emit(text)
+            return
+        log.info(
+            "%s",
+            QCoreApplication.translate(
+                "M-LAUNCH-15", "The Roblox Verdra started closed right away (process {pid})."
+            ).format(pid=pid),
+        )
+
+    # --- Players Verdra didn't start (M-LAUNCH-08) ---------------------------------------------
+
+    def other_players(self) -> frozenset[int]:
+        """Return this user's running Players that Verdra didn't start, as far as it can tell.
+
+        Verdra's own record decides (`launches`). A Player not in it whose environment Windows
+        shows, with Verdra's proxy in it, was started by an earlier run of Verdra and is taken
+        into the record; when Windows refuses to show it ("AccessDenied"), the record alone
+        decides. Nothing else is ever tried to read a process (S-15 rule 2).
+        """
+        running = self.roblox_processes()
+        if running is None:
+            return frozenset()
+        others = running.players - self.players_started_here()
+        return others - self._routed_here(others) if others else others
+
+    def _routed_here(self, pids: frozenset[int]) -> set[int]:
+        if self.client is None or self.router.port is None or pids <= self._not_ours:
+            return set()
+        found = self.platform.running_clients(self.client)
+        if isinstance(found, humus.Unsupported):
+            return set()
+        ours = humus.proxy_environment({}, self.router.port)
+        routed = {
+            client.pid
+            for client in found
+            if client.pid in pids
+            and client.proxies is not None
+            and all(client.proxies.get(name.upper()) == value for name, value in ours.items())
+        }
+        for pid in routed:
+            self.launches.adopt(pid)
+        self._not_ours = set(pids - routed)
+        return routed
+
+    def refresh_others(self) -> frozenset[int]:
+        """Look again for Players Verdra didn't start; update the status and `others_changed`.
+
+        While one runs, Verdra looks again every few seconds, so the status and the banner go
+        away by themselves once it is closed.
+        """
+        others = self.other_players()
+        if bool(others) != bool(self.others):
+            if others:
+                self.status.other_player(other_player_text())
+            else:
+                self.status.other_player_closed()
+            self.others = others
+            self.others_changed.emit(bool(others))
+        self.others = others
+        if self._watch is not None:
+            self._watch()
+            self._watch = None
+        if others:
+            self._watch = self._schedule(self.OTHERS_WATCH_SECONDS, self._watch_tick)
+        return others
+
+    def _watch_tick(self) -> None:
+        self._watch = None
+        self.refresh_others()
+
+    def close_others(self) -> None:
+        """Close the Players Verdra didn't start, after the user confirmed it (M-LAUNCH-10).
+
+        Only Players this user runs that Verdra's record doesn't hold, looked up again now;
+        never Studio, never anything else. A Player that won't close is left as it is.
+        """
+        others = self.other_players()
+        processes: list[psutil.Process] = []
+        for pid in others:
+            with contextlib.suppress(psutil.Error):
+                processes.append(psutil.Process(pid))
+        for process in processes:
+            with contextlib.suppress(psutil.Error):
+                process.terminate()
+        _gone, left = psutil.wait_procs(processes, timeout=5)
+        if processes:
+            log.info(
+                "%s",
+                QCoreApplication.translate(
+                    "M-LAUNCH-11", "Closed the Roblox that was running without Verdra."
+                )
+                if not left
+                else QCoreApplication.translate(
+                    "M-LAUNCH-16",
+                    "Verdra couldn't close the Roblox that is running without Verdra. Close it "
+                    "from Task Manager, then try again.",
+                ),
+            )
+        self.refresh_others()
 
     def _start(self, choice: humus.RobloxClient) -> Refused | None:
         """Add the CA, start the proxy, take over links and watch for new versions."""
@@ -625,6 +850,13 @@ class Sprout(QObject):
                 "isn't routed.",
             ).format(version=Path(version).name)
         )
+
+    def stop_watching(self) -> None:
+        """Stop looking for other Players and for the last launch's hand-off (on quit)."""
+        for cancel in (self._watch, self._handoff):
+            if cancel is not None:
+                cancel()
+        self._watch = self._handoff = None
 
     def stop_routing(self) -> None:
         """Stop the proxy; routing is Idle. Changes stay recorded for Reset everything."""
@@ -735,6 +967,7 @@ class Sprout(QObject):
 
     def quit(self) -> None:
         """Shutdown's routing steps: close Roblox if the setting says so, then stop routing."""
+        self.stop_watching()
         if self.settings.value("routing.close_roblox_on_quit"):
             self.launches.close_all()
         self.stop_routing()

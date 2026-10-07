@@ -142,3 +142,41 @@ class DestructiveConfirmation(_Dialog):
         if not body:
             self.body.hide()
         self._finish(QPushButton(verb, self), cancel_first=True)
+
+
+class Choice(_Dialog):
+    """A question with two actions besides Cancel: `choice` is "primary", "secondary" or ""."""
+
+    def __init__(
+        self,
+        question: str,
+        body: str,
+        primary: str,
+        secondary: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(question, body, parent)
+        self.choice = ""
+        go = QPushButton(primary, self)
+        go.setProperty("primary", True)
+        go.clicked.connect(lambda: self._chosen("primary"))
+        self._finish(go, cancel_first=True)  # the primary action may close something
+        self.secondary = QPushButton(secondary, self)
+        self.secondary.clicked.connect(lambda: self._chosen("secondary"))
+        self.buttons.insertWidget(self.buttons.indexOf(go), self.secondary)
+
+    def _chosen(self, which: str) -> None:
+        self.choice = which
+        self.accept()
+
+
+class Information(_Dialog):
+    """A short explanation with one "Close" button (help, steps to follow)."""
+
+    def __init__(self, title: str, body: str, parent: QWidget | None = None) -> None:
+        super().__init__(title, body, parent)
+        self.body.setTextFormat(Qt.TextFormat.PlainText)
+        self.cancel.setText(QCoreApplication.translate("Dialogs", "Close"))
+        self.cancel.setDefault(True)
+        self.buttons.addWidget(self.cancel)
+        self.layout_.addLayout(self.buttons)

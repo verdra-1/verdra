@@ -8,6 +8,10 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- When Roblox is already running without Verdra, a banner and the routing status say so, with
+  help on closing it and a "Close Roblox…" button that asks first. Starting a game while it runs
+  asks whether to close it first, because the game would open there without your replacements.
+  Activity says how every start of Roblox went.
 - The replacement editor checks with Roblox what the asset you replace is, a moment after you
   stop typing, and won't save a replacement of another kind (a picture for a sound). If Roblox
   can't be reached, you can still save, and the editor says the ID wasn't checked.

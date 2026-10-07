@@ -62,6 +62,8 @@ def fix_for(view: StatusView) -> tuple[str, str] | None:
         return "restart_roblox", QCoreApplication.translate(
             "M-STATUS-04", "Restart Roblox through Verdra"
         )
+    if status is Status.DEGRADED and trigger == "other_player":
+        return "close_others", QCoreApplication.translate("M-LAUNCH-10", "Close Roblox…")
     if status is Status.DEGRADED and trigger == "ca_missing":
         return "repair_certificate", QCoreApplication.translate("M-STATUS-04", "Repair certificate")
     return None

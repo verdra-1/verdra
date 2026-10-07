@@ -34,6 +34,9 @@ class StubSprout(QObject):
     refused = Signal(str)
     other_tool = Signal(str)
     backups_changed = Signal()
+    others_changed = Signal(bool)
+    held_back = Signal(str)
+    handed_off = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -57,6 +60,10 @@ class StubSprout(QObject):
 
     def players_started_here(self) -> set[int]:
         return {7} if self.running else set()
+
+    def refresh_others(self) -> frozenset[int]:
+        self.others_changed.emit(bool(self.others))
+        return frozenset(self.others)
 
     def close_roblox(self) -> None:
         self.calls.append("close")

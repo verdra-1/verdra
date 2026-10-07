@@ -25,5 +25,6 @@ new record that supersedes the old one; the old record stays, with its status up
 | [0017](0017-qt-object-lifetimes-in-tests.md) | No Qt object outlives the test that made it; the lifetime guard has no exceptions; failure 2 of run 37110221102 is a probable cause, not reproduced | Accepted |
 | [0018](0018-windows-only.md) | Windows only: Linux paused like macOS; tundra reports "unsupported", Windows-only CI, no text claims Linux or macOS support | Accepted |
 | [0019](0019-windows-test-build.md) | A Windows test build (Verdra-windows-test.zip) as a workflow artifact on every push to main; the build check runs on that exact ZIP; no release or installer | Accepted |
+| [0020](0020-roblox-running-without-verdra.md) | A Roblox Player Verdra didn't start is shown (banner, Degraded (e)); a launch asks first; it is closed only on the user's yes; a record of the Players Verdra started | Accepted |
 
 New records copy [template.md](template.md).

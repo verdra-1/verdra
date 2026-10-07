@@ -10,6 +10,7 @@ shown.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum
 
 from PySide6.QtCore import QCoreApplication, Qt
@@ -73,6 +74,16 @@ class Notice(QFrame):
         self._restyle()
         level = {Tone.DANGER: logging.ERROR, Tone.WARNING: logging.WARNING}.get(tone, logging.INFO)
         log.log(level, "%s", text)
+
+    def add_action(self, text: str, slot: Callable[[], object]) -> QPushButton:
+        """Add a button that does something about what the notice reports."""
+        button = QPushButton(text, self)
+        button.setAccessibleName(text)
+        button.clicked.connect(slot)
+        layout = self.layout()
+        assert isinstance(layout, QHBoxLayout)  # noqa: S101 - built in __init__
+        layout.insertWidget(layout.count() - (1 if self.dismiss else 0), button, 0)
+        return button
 
     def _dismissed(self) -> None:
         self.hide()
