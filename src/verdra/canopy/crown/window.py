@@ -297,6 +297,18 @@ class Shell:
         if services.grafts is not None:
             self.window.header.enable_apply()
             self.window.header.apply_now.clicked.connect(self.apply_now)
+            grafts = services.grafts
+            grafts.changed.connect(lambda: self.window.header.show_profiles(grafts.profiles))
+            self.window.header.show_profiles(grafts.profiles)
+        replacements = self.window.screens["replacements"]
+        if isinstance(replacements, ReplacementsScreen):
+            replacements.deleted.connect(
+                lambda text: self.window.dew.show(
+                    text,
+                    Kind.INFO,
+                    (QCoreApplication.translate("M-PROF-09", "Undo"), replacements.undo_delete),
+                )
+            )
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))

@@ -244,7 +244,7 @@
 <context>
     <name>Header</name>
     <message>
-        <source>No profiles</source>
+        <source>No profile yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -980,7 +980,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Delete</source>
+        <source>Delete profile</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1021,6 +1021,28 @@
     <name>M-PROF-07</name>
     <message>
         <source>My replacements</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-09</name>
+    <message>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deleted profile {name}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-10</name>
+    <message>
+        <source>You deleted your last profile, so no replacements are left. Undo brings it back with its replacements; Add replacement starts a new one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undo</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1509,15 +1531,19 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Profile options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete this profile…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>New profile name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>New profile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Delete profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1571,6 +1597,14 @@
     <message>
         <source>URL</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Its %n replacements are deleted with it. Undo brings them back.</source>
+        <comment>M-PROF-08</comment>
+        <translation>
+            <numerusform>Its %n replacement is deleted with it. Undo brings it back.</numerusform>
+            <numerusform>Its %n replacements are deleted with it. Undo brings them back.</numerusform>
+        </translation>
     </message>
 </context>
 <context>

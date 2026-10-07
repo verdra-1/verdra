@@ -11,7 +11,7 @@ plan 5.4, rule 5).
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from typing import Protocol
 
 from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
@@ -178,7 +178,7 @@ class Header(QFrame):
         not_yet = soon()
         self.profiles = QComboBox(self)
         self.profiles.setMinimumWidth(180)
-        self.profiles.setPlaceholderText(self.tr("No profiles"))
+        self.profiles.setPlaceholderText(self.tr("No profile yet"))
         self.profiles.setAccessibleName(self.tr("Active profile"))
         self.profiles.setEnabled(False)
         self.profiles.setToolTip(not_yet)
@@ -190,6 +190,13 @@ class Header(QFrame):
         self.apply_now.setEnabled(False)
         self.apply_now.setToolTip(not_yet)
         layout.addWidget(self.apply_now)
+
+    def show_profiles(self, profiles: Sequence[object]) -> None:
+        """List the profiles that apply (switching from here comes later, M-SOON-01)."""
+        names = [str(getattr(p, "name", "")) for p in profiles if getattr(p, "enabled", True)]
+        self.profiles.clear()
+        self.profiles.addItems(names)
+        self.profiles.setCurrentIndex(0 if names else -1)
 
     def enable_apply(self) -> None:
         """Replacements exist (M2): "Apply now" works (spec S-24)."""

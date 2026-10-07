@@ -46,12 +46,19 @@ Organize replacements into named profiles that can be switched on and off.
 ## Messages
 
 - M-PROF-01 (inline) "A profile named <name> already exists."
-- M-PROF-02 (Dialog) "Delete profile <name>?" Buttons "Delete", "Cancel".
+- M-PROF-02 (Dialog) "Delete profile <name>?" Buttons "Delete profile", "Cancel" (with
+  M-PROF-08 as its body).
 - M-PROF-03 (Notice) "<name> was changed outside Verdra." Buttons "Keep mine", "Use the file".
 - M-PROF-04 (inline, new) The reason a name can't be used: "Enter a name for the profile.",
   "A profile name can't contain < > : " / \ | ? or *.", "This name can't be used for a file.",
   "A profile name can be at most <n> characters."
 - M-PROF-05 (inline, new) "A profile can hold at most <n> replacements."
+- M-PROF-08 (Dialog body, new) "Its <n> replacements are deleted with it. Undo brings them
+  back." (singular: "Its 1 replacement is deleted with it. Undo brings it back.")
+- M-PROF-09 (Toast, new) "Deleted profile <name>." Button "Undo".
+- M-PROF-10 (Replacements empty state, new) "You deleted your last profile, so no replacements
+  are left. Undo brings it back with its replacements; Add replacement starts a new one." Button
+  "Undo".
 - M-PROF-07 (name, new) "My replacements": the first profile, made by the empty state's "Add
   replacement".
 - M-PROF-06 (Activity error, new) "The profile file <file> couldn't be read, so Verdra set it
@@ -82,3 +89,13 @@ Organize replacements into named profiles that can be switched on and off.
   profile IDs; a profile not in the list goes last, by name. The plan doesn't say where the
   order lives, and a profile file can't hold it without every reorder rewriting every file.
 - "Within one profile, the later replacement wins" settles a case the plan leaves open.
+- **Deleting a profile, 2026-10-08 (after Guide B on the maintainer's PC, where "Delete
+  profile" was pressed twice when a row was meant).** Delete sits in a "Profile options" menu
+  beside the Profiles heading, away from "New profile" and the table's buttons, as "Delete this
+  profile…". The question names the profile and says how many replacements go with it
+  (M-PROF-08). After deleting, a toast offers Undo (M-PROF-09), which puts the profile back as
+  it was, in its place, even after other edits (unless a profile with its name was made since:
+  M-PROF-01). If it was the last profile, the empty state says so and offers Undo too
+  (M-PROF-10). Files in the profile's folder are never deleted with it. The header's profile list
+  shows the profiles that apply, or "No profile yet".
+

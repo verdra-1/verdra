@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QUrl, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication, QDialog, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
@@ -121,7 +121,7 @@ def test_a_first_replacement_from_the_empty_state_with_the_keyboard(
 ) -> None:
     shell, _stub = made
     screen = screen_of(shell)
-    assert screen.stack.currentWidget() is screen.empty
+    assert screen.stack.currentWidget() is screen.empty_page
     add, presets = screen.empty.buttons
     assert add.isEnabled() and not presets.isEnabled()
     add.click()  # makes "My replacements" and opens the editor with the cursor in it
@@ -274,8 +274,78 @@ def test_profiles_switch_undo_and_delete_from_the_screen(
     screen.redo.click()
     assert not service.profiles[0].enabled
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    screen.delete_profile.click()
+    screen.delete_action.trigger()
     assert [p.name for p in service.profiles] == ["My replacements"]
+
+
+def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shell = made[0]
+    service = shell.services.grafts
+    assert service is not None
+    screen = screen_of(shell)
+    profile = service.edit("create", "My replacements")
+    for target in ("2222222", "3333333"):
+        service.edit(
+            "add_replacement",
+            profile.id,
+            grafts.Original(asset_id=ABOVE_UINT32),
+            grafts.Target(kind="asset_id", value=target),
+        )
+    before = service.store.get(profile.id)
+    buttons = [b.text() for b in screen.findChildren(QPushButton)]
+    assert not any("Delete" in text for text in buttons)  # only in "Profile options"
+    assert screen.delete_action in screen.profile_menu.menu().actions()
+    asked: list[tuple[str, str, str]] = []
+
+    def answer(self: DestructiveConfirmation) -> int:
+        asked.append((self.windowTitle(), self.body.text(), self.confirm.text()))
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(DestructiveConfirmation, "exec", answer)
+    screen.delete_action.trigger()
+    assert asked == [
+        (
+            "Delete profile My replacements?",
+            "Its 2 replacements are deleted with it. Undo brings them back.",
+            "Delete profile",
+        )
+    ]
+    assert len(service.profiles) == 1  # canceled: nothing deleted
+    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
+    screen.delete_action.trigger()
+    assert service.profiles == []
+    # The empty state says what happened and offers Undo; the header says there's no profile.
+    assert screen.stack.currentWidget() is screen.empty_page
+    assert screen.restore.isVisibleTo(screen)
+    assert "You deleted your last profile" in screen.restore_note.text()
+    assert shell.window.header.profiles.placeholderText() == "No profile yet"
+    [toast] = [t for t in shell.window.findChildren(Toast) if t.text.startswith("Deleted")]
+    assert toast.text == "Deleted profile My replacements."
+    assert toast.action_button is not None and toast.action_button.text() == "Undo"
+    toast.action_button.click()
+    assert [p.id for p in service.profiles] == [profile.id]
+    assert service.store.get(profile.id).replacements == before.replacements
+    assert shell.window.header.profiles.currentText() == "My replacements"
+    screen.restore.click()  # a second Undo changes nothing
+    assert len(service.profiles) == 1
+
+
+def test_undo_from_the_empty_state_brings_the_profile_back(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shell = made[0]
+    service = shell.services.grafts
+    assert service is not None
+    screen = screen_of(shell)
+    assert not screen.restore.isVisibleTo(screen)  # never had a profile: nothing to undo
+    service.edit("create", "Night")
+    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
+    screen.delete_action.trigger()
+    screen.restore.click()
+    assert [p.name for p in service.profiles] == ["Night"]
+    assert screen.stack.currentWidget() is screen.main
 
 
 @pytest.mark.spec("S-24", 3)

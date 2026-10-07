@@ -11,9 +11,11 @@ disabled with M-SOON-01.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -22,10 +24,12 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QPushButton,
     QStackedLayout,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -38,11 +42,19 @@ from verdra.trunk.branches import grafts
 
 
 class ReplacementsScreen(QWidget):
-    """The Replacements screen."""
+    """The Replacements screen.
+
+    Signals:
+        deleted(str): A profile was deleted (M-PROF-09); the window shows it with "Undo".
+    """
+
+    deleted = Signal(str)
 
     def __init__(self, parent: QWidget | None = None, service: grafts.Grafts | None = None) -> None:
         super().__init__(parent)
         self.service = service
+        #: The profile deleted last and where it was, for "Undo" (M-PROF-09, M-PROF-10).
+        self._deleted: tuple[grafts.Profile, int] | None = None
         self.stack = QStackedLayout(self)
         not_yet = soon()
         self.empty = EmptyState(
@@ -62,7 +74,7 @@ class ReplacementsScreen(QWidget):
         if service is None:
             self.empty.buttons[0].setEnabled(False)
             self.empty.buttons[0].setToolTip(not_yet)
-        self.stack.addWidget(self.empty)
+        self.stack.addWidget(self._empty_page())
         self.main = QWidget(self)
         self.stack.addWidget(self.main)
         self._build(self.main)
@@ -71,6 +83,29 @@ class ReplacementsScreen(QWidget):
         self.refresh()
 
     # --- Layout -----------------------------------------------------------------------------
+
+    def _empty_page(self) -> QWidget:
+        """The empty state, and under it "Undo" while the last profile was just deleted."""
+        page = QWidget(self)
+        column = QVBoxLayout(page)
+        column.addWidget(self.empty, 1)
+        self.restore_note = QLabel(
+            QCoreApplication.translate(
+                "M-PROF-10",
+                "You deleted your last profile, so no replacements are left. Undo brings it "
+                "back with its replacements; Add replacement starts a new one.",
+            ),
+            page,
+        )
+        self.restore_note.setWordWrap(True)
+        self.restore_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        column.addWidget(self.restore_note)
+        self.restore = QPushButton(QCoreApplication.translate("M-PROF-10", "Undo"), page)
+        self.restore.clicked.connect(self.undo_delete)
+        column.addWidget(self.restore, 0, Qt.AlignmentFlag.AlignHCenter)
+        column.addStretch(1)
+        self.empty_page = page
+        return page
 
     def _build(self, host: QWidget) -> None:
         row = QHBoxLayout(host)
@@ -84,7 +119,21 @@ class ReplacementsScreen(QWidget):
 
     def _build_profiles(self, host: QWidget) -> QVBoxLayout:
         side = QVBoxLayout()
-        side.addWidget(QLabel(self.tr("Profiles"), host))
+        heading = QHBoxLayout()
+        heading.addWidget(QLabel(self.tr("Profiles"), host), 1)
+        # Deleting a profile sits in a menu, apart from the buttons used every day (a profile
+        # was deleted by accident when a row was meant, Guide B on the maintainer's PC).
+        self.profile_menu = QToolButton(host)
+        self.profile_menu.setText(self.tr("Profile options"))
+        self.profile_menu.setAccessibleName(self.tr("Profile options"))
+        self.profile_menu.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(self.profile_menu)
+        self.delete_action = QAction(self.tr("Delete this profile…"), menu)
+        self.delete_action.triggered.connect(self._delete)
+        menu.addAction(self.delete_action)
+        self.profile_menu.setMenu(menu)
+        heading.addWidget(self.profile_menu)
+        side.addLayout(heading)
         self.profiles = QListWidget(host)
         self.profiles.setAccessibleName(self.tr("Profiles"))
         self.profiles.currentRowChanged.connect(lambda _row: self._show_replacements())
@@ -99,14 +148,9 @@ class ReplacementsScreen(QWidget):
         self.name_problem.setWordWrap(True)
         self.name_problem.hide()
         side.addWidget(self.name_problem)
-        buttons = QHBoxLayout()
         self.add_profile = QPushButton(self.tr("New profile"), host)
         self.add_profile.clicked.connect(self._create)
-        self.delete_profile = QPushButton(self.tr("Delete profile"), host)
-        self.delete_profile.clicked.connect(self._delete)
-        buttons.addWidget(self.add_profile)
-        buttons.addWidget(self.delete_profile)
-        side.addLayout(buttons)
+        side.addWidget(self.add_profile)
         return side
 
     def _build_table(self, host: QWidget) -> QVBoxLayout:
@@ -145,7 +189,9 @@ class ReplacementsScreen(QWidget):
         """Show the service's profiles (after any edit, undo or redo)."""
         service = self.service
         if service is None or not service.profiles:
-            self.stack.setCurrentWidget(self.empty)
+            self.restore_note.setVisible(self._deleted is not None)
+            self.restore.setVisible(self._deleted is not None)
+            self.stack.setCurrentWidget(self.empty_page)
             return
         self.stack.setCurrentWidget(self.main)
         current = self.selected_id()
@@ -234,14 +280,43 @@ class ReplacementsScreen(QWidget):
         profile_id = self.selected_id()
         if profile_id is None or self.service is None:
             return
-        name = self.service.store.get(profile_id).name
+        profile = self.service.store.get(profile_id)
+        count = self.tr(
+            "Its %n replacements are deleted with it. Undo brings them back.",
+            "M-PROF-08",
+            len(profile.replacements),
+        )
         dialog = DestructiveConfirmation(
-            QCoreApplication.translate("M-PROF-02", "Delete profile {name}?").format(name=name),
-            QCoreApplication.translate("M-PROF-02", "Delete"),
+            QCoreApplication.translate("M-PROF-02", "Delete profile {name}?").format(
+                name=profile.name
+            ),
+            QCoreApplication.translate("M-PROF-02", "Delete profile"),
+            count,
             parent=self,
         )
-        if dialog.exec() == DestructiveConfirmation.DialogCode.Accepted:
-            self._edit("delete", profile_id)
+        if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
+            return
+        index = [p.id for p in self.service.profiles].index(profile_id)
+        self._deleted = (copy.deepcopy(profile), index)
+        self._edit("delete", profile_id)
+        self.deleted.emit(
+            QCoreApplication.translate("M-PROF-09", "Deleted profile {name}.").format(
+                name=profile.name
+            )
+        )
+
+    def undo_delete(self) -> None:
+        """Bring back the profile deleted last, as it was ("Undo" on M-PROF-09 and M-PROF-10)."""
+        if self._deleted is None or self.service is None:
+            return
+        profile, index = self._deleted
+        try:
+            self._edit("restore_profile", profile, index)
+        except grafts.ProfileError as error:
+            self.restore_note.setText(str(error))
+            return
+        self._deleted = None
+        self.refresh()
 
     def _profile_switched(self, item: QListWidgetItem) -> None:
         enabled = item.checkState() == Qt.CheckState.Checked

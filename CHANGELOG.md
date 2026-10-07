@@ -8,6 +8,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Deleting a profile is now in a "Profile options" menu, says how many replacements go with it,
+  and can be undone from the message that follows (or from the empty Replacements screen if it
+  was the last profile).
 - When Roblox is already running without Verdra, a banner and the routing status say so, with
   help on closing it and a "Close Roblox…" button that asks first. Starting a game while it runs
   asks whether to close it first, because the game would open there without your replacements.
