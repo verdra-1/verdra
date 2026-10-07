@@ -676,6 +676,21 @@ class ProfileStore:
         """Delete a profile (after M-PROF-02 in the interface)."""
         self._edit(lambda profiles: profiles.remove(_find(profiles, profile_id)))
 
+    def restore_profile(self, profile: Profile, index: int) -> None:
+        """Put a deleted profile back where it was, as it was (its "Undo"; an edit itself).
+
+        Raises:
+            ProfileError: a profile with its name was made since (M-PROF-01).
+        """
+        self._check_name(profile.name, ignore=profile.id)
+        if any(p.id == profile.id for p in self.profiles):
+            return  # already back (Undo was used first)
+
+        def change(profiles: list[Profile]) -> None:
+            profiles.insert(min(max(index, 0), len(profiles)), copy.deepcopy(profile))
+
+        self._edit(change)
+
     def set_enabled(self, profile_id: str, enabled: bool) -> None:  # noqa: FBT001
         """Turn a profile on or off."""
 

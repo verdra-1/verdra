@@ -604,3 +604,23 @@ def test_a_lookup_runs_on_a_worker_and_answers_on_the_qt_thread(
         service.deleteLater()
     assert got == [("Mesh", threading.main_thread())]
     assert threads != [threading.main_thread()]
+
+
+def test_a_deleted_profile_comes_back_as_it_was_where_it_was(tmp_path: Path) -> None:
+    made = store(tmp_path)
+    first, second = made.create("A"), made.create("B")
+    made.add_replacement(second.id, *swap(ABOVE_INT32, ABOVE_UINT32))
+    kept = made.get(second.id)
+    index = [p.id for p in made.profiles].index(second.id)
+    made.delete(second.id)
+    made.restore_profile(kept, index)
+    assert made.profiles[index].id == second.id  # back in its place
+    assert {p.id for p in made.profiles} == {first.id, second.id}
+    assert made.get(second.id).replacements == kept.replacements
+    assert (tmp_path / "B.json").is_file()
+    made.restore_profile(kept, index)  # already back: nothing changes
+    assert len(made.profiles) == 2
+    made.delete(second.id)
+    made.create("b")  # a profile with that name was made since
+    with pytest.raises(grafts.ProfileError, match="already exists"):
+        made.restore_profile(kept, index)
