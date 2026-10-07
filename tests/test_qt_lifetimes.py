@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 from tests.support import qt_lifetimes
@@ -114,3 +116,28 @@ def test_the_guard_has_no_way_to_exempt_a_test() -> None:
         and re.search(r"^\s*def qt_lifetimes\(", path.read_text(encoding="utf-8"), re.MULTILINE)
     ]
     assert overrides == []
+
+
+def test_a_timer_left_running_is_named_and_stopped(
+    qapp: QApplication,  # noqa: ARG001
+    tmp_path: Path,
+) -> None:
+    """Guard 4: the settings save timer that broke tests/soil/test_atomic.py (7 October 2026)."""
+    from verdra.trunk.almanac.store import SettingsStore
+
+    before = set(qt_lifetimes.windows())
+    timers_before = set(qt_lifetimes.running_timers())
+    store = SettingsStore(tmp_path / "settings.json")
+    store.load()
+    store.set("appearance.theme", "dark")  # starts the 300 ms save timer
+    problems = qt_lifetimes.problems_after(before, timers_before)
+    assert len(problems) == 1
+    assert (
+        "Qt timers still running after the test that started them: SettingsStore (300 ms)"
+        in (problems[0])
+    )
+    assert qt_lifetimes.running_timers().keys() <= timers_before  # stopped, so it can't fire later
+    # Finishing what owns it, as the shared fixtures now do, leaves nothing running.
+    store.set("appearance.theme", "light")
+    store.flush(final=True)
+    assert qt_lifetimes.problems_after(before, timers_before) == []

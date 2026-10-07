@@ -357,3 +357,7 @@ def test_shutdown_after_reset_with_the_option_saves_nothing_and_deletes_the_fold
     services.erase_own_data = True
     shutdown.run(services)
     assert not any(folder.exists() for folder in fallow.own_folders())
+    # The pending save's timer is gone too: nothing is written back into the erased folders.
+    time.sleep(0.35)
+    qapp.processEvents()
+    assert not any(folder.exists() for folder in fallow.own_folders())

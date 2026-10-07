@@ -381,6 +381,12 @@ class DetailedLogging(QObject):
             remaining = since + timedelta(hours=DETAILED_LOGGING_HOURS) - datetime.now(UTC)
             self._timer.start(max(0, int(remaining.total_seconds() * 1000)))
 
+    def stop(self) -> None:
+        """Stop following the setting, and the 24-hour timer with it (on quit)."""
+        self._timer.stop()
+        with contextlib.suppress(RuntimeError):  # already disconnected
+            self._settings.changed.disconnect(self._changed)
+
     def _changed(self, key: str, value: object) -> None:
         if key != "advanced.detailed_logging" or self._settings.read_only:
             return

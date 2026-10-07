@@ -226,7 +226,12 @@ class Tendrils(QObject):
         with self._lock:
             self._jobs.add(job)
         job.finished.connect(lambda: self._forget(job))
-        QTimer.singleShot(SLOW_AFTER_MS, self, lambda: self._check_slow(job))
+        # A timer this executor owns, so `shutdown` stops it rather than leaving it to fire later.
+        slow = QTimer(self)
+        slow.setSingleShot(True)
+        slow.timeout.connect(lambda: self._check_slow(job))
+        slow.timeout.connect(slow.deleteLater)
+        slow.start(SLOW_AFTER_MS)
         self.submitted.emit(job)
         self._queue.put(job)
         return job
@@ -251,6 +256,9 @@ class Tendrils(QObject):
             threads are daemons, so they don't hold up the process's exit.
         """
         self._closed = True
+        for slow in self.findChildren(QTimer):  # no "taking longer" notice after shutdown
+            slow.stop()
+            slow.deleteLater()
         with self._lock:
             jobs = list(self._jobs)
         for job in jobs:

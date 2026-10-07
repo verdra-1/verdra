@@ -41,7 +41,10 @@ def services(home: Path, qapp: QApplication) -> Iterator[Services]:
         single=SingleInstance(f"verdra-test-{home.name}"),
     )
     yield made
+    # What shutdown does (trunk/sapwood/shutdown): a pending save is written now, so its timer
+    # can't fire in a later test (tests/support/qt_lifetimes, guard 4).
     made.tendrils.shutdown(grace=0.5)
+    settings.flush(final=True)
     logs.stop()
 
 

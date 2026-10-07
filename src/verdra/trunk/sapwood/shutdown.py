@@ -35,7 +35,11 @@ def run(services: Services) -> None:
     if services.sprout is not None:
         services.sprout.quit()
     services.tendrils.shutdown()
-    if not services.erase_own_data:
+    if services.detailed_logging is not None:
+        services.detailed_logging.stop()
+    if services.erase_own_data:
+        services.settings.discard_pending()  # nothing may be written back into erased folders
+    else:
         services.settings.flush(final=True)
         services.state.save()
     services.single.release()

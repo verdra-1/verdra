@@ -15,7 +15,13 @@ address. After every test this guard:
    for `itemAt()` and when a filled layout is added with `addLayout()`, and keeps them
    registered by address after Qt frees the item. (A wrapper whose item is still in its layout
    is harmless.) `QLayout.indexOf(item)` compares addresses only, so the check never reads a
-   freed item.
+   freed item;
+4. fails if a Qt timer the test started is still running. It would fire in a later test and
+   run its code there: on 7 October 2026 a settings store's 300 ms save timer, left running by
+   one test, wrote its file during `tests/soil/test_atomic.py`, whose `os.replace` was made to
+   fail on purpose, and that test failed only in some shuffled orders (nightly run
+   37567058303). pytest-qt processes events after every test while its monkeypatches are
+   still in place, so a stray timer can break any test.
 
 A failure names the leftover and the fix; the leftover is then closed and deleted so it can't
 spill into the next test. The guard has no exceptions (plan 16.2, "M1 decisions"): it checks every
@@ -29,7 +35,7 @@ from collections.abc import Iterator
 
 import pytest
 import shiboken6
-from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtCore import QCoreApplication, QEvent, QTimer
 from PySide6.QtWidgets import QApplication, QLayout, QLayoutItem, QWidget
 
 
@@ -73,12 +79,28 @@ def stale_item_wrappers() -> list[QLayoutItem]:
     return [item for item in items if all(layout.indexOf(item) < 0 for layout in layouts)]
 
 
+def running_timers() -> dict[int, QTimer]:
+    """Return the running Qt timers that Python knows of, by C++ address."""
+    return {
+        shiboken6.getCppPointer(timer)[0]: timer
+        for timer in shiboken6.getAllValidWrappers()
+        if isinstance(timer, QTimer) and shiboken6.isValid(timer) and timer.isActive()
+    }
+
+
+def describe_timer(timer: QTimer) -> str:
+    owner = timer.parent()
+    return f"{type(owner).__name__ if owner is not None else 'a timer with no owner'} " + (
+        f"({timer.interval()} ms)"
+    )
+
+
 def describe(widget: QWidget) -> str:
     name = widget.objectName()
     return f"{type(widget).__name__}{f' {name!r}' if name else ''}"
 
 
-def problems_after(before: set[int]) -> list[str]:
+def problems_after(before: set[int], timers_before: set[int] | None = None) -> list[str]:
     """Return what this test left behind, then clean it up.
 
     Stale layout-item wrappers are looked for first, while the test's windows are still alive:
@@ -107,16 +129,27 @@ def problems_after(before: set[int]) -> list[str]:
             widget.close()
             widget.deleteLater()
         flush_deletions()
+    timers = [t for a, t in running_timers().items() if a not in (timers_before or set())]
+    if timers:
+        names = ", ".join(sorted(describe_timer(timer) for timer in timers))
+        problems.append(
+            f"Qt timers still running after the test that started them: {names}. One would "
+            "fire in a later test and run its code there. Stop it, or finish what owns it "
+            "(SettingsStore.flush(final=True), Tendrils.shutdown()), before the test ends."
+        )
+        for timer in timers:
+            timer.stop()
     return problems
 
 
 @pytest.fixture(autouse=True)
 def qt_lifetimes() -> Iterator[None]:
-    """Fail a test that leaves Qt windows or layout-item wrappers behind."""
+    """Fail a test that leaves Qt windows, layout-item wrappers or running timers behind."""
     before = set(windows())
+    timers_before = set(running_timers()) if QCoreApplication.instance() is not None else set()
     yield
     if QCoreApplication.instance() is None:
         return
-    problems = problems_after(before)
+    problems = problems_after(before, timers_before)
     if problems:
         pytest.fail("Qt objects outlived the test:\n- " + "\n- ".join(problems), pytrace=False)
