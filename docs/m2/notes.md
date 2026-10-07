@@ -181,3 +181,21 @@ the original (15553230204). Evidence: `docs/platforms/evidence/windows/first-swa
 
 The first attempts' causes, in order: the original already in Roblox's cache (now moved aside by
 Apply now), then gzip-compressed batches passed on unread (verdra-1/verdra#91).
+
+## Items asked for by hash (2026-10-07)
+
+Two items per run in the log asked for content by `hash` (fields: hash,
+contentRepresentationPriorityList, doNotFallbackToBaselineRepresentation, assetType, accept,
+requestId); their values weren't logged then.
+
+- **Proven:** every request for the replaced picture by asset ID was replaced (3 per run), in
+  every variant seen, and the picture stayed replaced for the whole video.
+- **Reasoned, not proven:** a hash names content the client already knows the hash of. Once
+  Apply now has moved Roblox's saved assets, the original's hash can only reach the client from
+  something that names that content by hash directly; the replaced picture is named by ID.
+- **Not known:** what the two hash items are. The log now names each one's hash (hex digits
+  only), asset type, and the asset ID its response names; a response naming a replaced asset
+  gives a warning (M-GRAFT-05) and the status Degraded.
+- **Not done, and why:** turning a hash into an asset ID ahead of time would need a lookup at
+  Roblox that plan 10.2 doesn't list. If the next log shows a replaced asset asked for by hash,
+  that is a decision for the owner.

@@ -659,3 +659,120 @@ def test_the_maintainers_scenario_end_to_end(tmp_path: Path, qapp: object) -> No
     assert items[0]["requestId"] == "0" and items[0]["assetId"] == ABOVE_UINT32  # as asked
     assert picture == b"the replacement's picture"
     assert reasons == []
+
+
+# --- Items asked for by hash, and representation variants (first swap that works, 2026-10-07) ----
+# The log showed two items per run asked for by "hash" instead of "assetId", and the replaced
+# picture asked for in three variants (with and without serverPlaceId and
+# doNotFallbackToBaselineRepresentation). Field names are as seen; every value is invented.
+
+HASH = "0123456789abcdef0123456789abcdef"
+HASH_ITEM = {
+    "hash": HASH,
+    "contentRepresentationPriorityList": "W3siZm9ybWF0IjoiaW52ZW50ZWQifV0=",
+    "doNotFallbackToBaselineRepresentation": "false",
+    "assetType": "Image",
+    "accept": "image/webp",
+    "requestId": "h-0",
+}
+
+
+def test_an_item_asked_for_by_hash_is_logged_with_its_hash_and_type_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    grafter = Grafter(holder({ABOVE_UINT32: REPLACEMENT}))
+    odd = {**HASH_ITEM, "hash": "not a hash: secret=1", "requestId": "h-1", "assetType": "<b>"}
+    body = json.dumps([HASH_ITEM, odd]).encode()
+    assert grafter.on_request(hyphae.Request(HOST, b"POST", BATCH, (), body)) is None
+    lines = debug_lines(caplog)
+    assert f"Asset batch item asked for by hash: {HASH} (asset type: Image)" in lines
+    assert "Asset batch item asked for by hash: (not a hex hash) (asset type: unknown)" in lines
+    assert "secret" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize(
+    ("named", "warned"), [(ABOVE_UINT32, True), (1111111, False), (None, False)]
+)
+def test_a_hash_answered_with_a_replaced_asset_is_never_silent(
+    caplog: pytest.LogCaptureFixture,
+    named: int | None,
+    warned: bool,  # noqa: FBT001
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots.symbionts.grafter")
+    reasons: list[str] = []
+    grafter = Grafter(holder({ABOVE_UINT32: REPLACEMENT}), on_unreadable=reasons.append)
+    request = hyphae.Request(HOST, b"POST", BATCH, (), json.dumps([HASH_ITEM]).encode())
+    assert grafter.on_request(request) is None  # nothing to change in the request ...
+    response = hyphae.Response(200, (), body=b"")
+    assert grafter.wants_response_body(request, response)  # ... but its answer is read
+    answer: dict[str, Any] = {"requestId": "h-0", "location": "https://fts.rbxcdn.com/x"}
+    if named is not None:
+        answer["assetId"] = named
+    body = json.dumps([answer]).encode()
+    assert grafter.on_response(request, hyphae.Response(200, (), body=body)) is None
+    expected = f"asset {named}" if named is not None else "names no asset ID"
+    assert f"Asset batch response for hash {HASH}: {expected}" in "\n".join(debug_lines(caplog))
+    if warned:
+        assert warnings_logged(caplog) == [
+            f"Roblox asked for the replaced asset {ABOVE_UINT32} by its content hash, which Verdra "
+            "can't replace yet, so the original may show."
+        ]
+        assert reasons == [f"asset {ABOVE_UINT32} asked for by hash"]
+    else:
+        assert warnings_logged(caplog) == []
+        assert reasons == []
+    assert grafter._pending == {}  # noqa: SLF001
+
+
+#: The three ways the log showed the replaced picture asked for, and two more representations.
+VARIANTS = [
+    {"serverPlaceId": 4242, "contentRepresentationPriorityList": "W3sxfV0=",
+     "doNotFallbackToBaselineRepresentation": "true"},
+    {"contentRepresentationPriorityList": "W3sxfV0="},
+    {"contentRepresentationPriorityList": "W3syfV0=",
+     "doNotFallbackToBaselineRepresentation": "false"},
+    {"contentRepresentationPriorityList": "W3szfSx7NH1d"},
+    {},
+]  # fmt: skip
+
+
+def test_every_representation_variant_of_a_replaced_asset_gets_the_replacement(
+    tmp_path: Path,
+) -> None:
+    items = [
+        {"assetId": ABOVE_UINT32, "assetType": "Image", "requestId": f"v-{n}", **variant}
+        for n, variant in enumerate(VARIANTS)
+    ]
+    upstream = [{**item, "assetId": REPLACEMENT} for item in items]
+    answer = [
+        {"requestId": item["requestId"], "location": f"https://fts.rbxcdn.com/{n}",
+         "assetTypeId": 1, "assetId": REPLACEMENT,
+         "contentRepresentationSpecifier": {"format": "invented", "n": n}}
+        for n, item in enumerate(items)
+    ]  # fmt: skip
+    server = FakeServer(
+        tmp_path,
+        {
+            BATCH: http(
+                gzip.compress(json.dumps(answer).encode()), extra=b"Content-Encoding: gzip\r\n"
+            )
+        },
+        host=HOST,
+    )
+    grafter = Grafter(holder({ABOVE_UINT32: REPLACEMENT}))
+    pipeline = hyphae.Pipeline(request=[grafter], response=[grafter])
+
+    async def body() -> list[object]:
+        async with Proxy(server, pipeline) as proxy:
+            client = await proxy.connect()
+            _raw, events = await client.send(fake_roblox.batch_request(items), method=b"POST")
+            return events
+
+    received = json.loads(body_of(run(body)))
+    assert json.loads(server.received[0].body) == upstream  # every variant asks for it ...
+    assert [item["assetId"] for item in received] == [ABOVE_UINT32] * len(VARIANTS)
+    # ... and every other field, the representation chosen included, is untouched.
+    assert [{k: v for k, v in i.items() if k != "assetId"} for i in received] == [
+        {k: v for k, v in a.items() if k != "assetId"} for a in answer
+    ]
