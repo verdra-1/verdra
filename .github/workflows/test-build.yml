@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 q0f7
+# SPDX-License-Identifier: Apache-2.0
+# The Windows test build (plan 16.2, "Next steps", item 2; decision record 0019): on every push to
+# main, and by hand, the portable app is built with the same PyInstaller setup as CI's build job,
+# packed as Verdra-windows-test.zip, checked as that exact ZIP (Qt allowlist, legal texts, one
+# start of the unpacked app), and kept as a workflow artifact for 30 days. No release, no
+# installer, no tag; the artifact is the only output.
+name: Windows test build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# No permissions unless a job asks for them.
+permissions: {}
+
+concurrency:
+  # A newer push to main replaces a test build still being made.
+  group: test-build
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  PYTHONUTF8: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test-build:
+    name: Windows test build
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Install
+        run: uv sync --group build
+      - name: PyInstaller
+        run: uv run pyinstaller packaging/verdra.spec --noconfirm
+      - name: Pack Verdra-windows-test.zip
+        env:
+          COMMIT: ${{ github.sha }}
+        run: uv run python tools/pack_test_build.py dist/Verdra out/Verdra-windows-test.zip --commit "$COMMIT"
+      - name: Check the ZIP itself (Qt modules, legal texts, the app starts)
+        run: |
+          uv run python tools/pack_test_build.py --unpack out/Verdra-windows-test.zip unpacked
+          uv run python tools/check_build.py unpacked/Verdra --launch
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # One file, not zipped again: the artifact is Verdra-windows-test.zip itself.
+          path: out/Verdra-windows-test.zip
+          archive: false
+          retention-days: 30
+          if-no-files-found: error
