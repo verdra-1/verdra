@@ -65,9 +65,17 @@ _LOGIN_COOKIE = re.compile(r"(?i)(\.ROBLOSECURITY['\"]?\s*(?:=|:|%3[Dd])\s*['\"]
 
 #: Query parameters that sign a URL or identify a person or device (plan 16.2), as seen in
 #: Roblox's CDN URLs: Akamai tokens (`__token__`, `hdnts`, `hmac`), CloudFront signatures
-#: (`Signature`, `Policy`, `Key-Pair-Id`), S3 signatures, tickets and tracker IDs.
+#: (`Signature`, `Policy`, `Key-Pair-Id`), S3 signatures, tickets and tracker IDs; and in links
+#: people use for replacements: Discord's attachment links (`ex` expiry, `is` issue time, `hm`
+#: signature) and Google Cloud's signed links (`X-Goog-Signature`, `X-Goog-Credential`). An
+#: expiry alone (`Expires`) signs nothing and stays, for diagnosing links that ran out.
 SECRET_QUERY_NAMES = frozenset(
     {
+        "ex",
+        "is",
+        "hm",
+        "x-goog-signature",
+        "x-goog-credential",
         "__token__",
         "hdnts",
         "hmac",
