@@ -38,7 +38,9 @@ One logging system for the app, readable in the Activity screen and safe to shar
    `•••• (redacted)`. Matching is case-insensitive for header names. So do the secret parts of
    signed URLs (plan 16.2): the values of the query parameters `__token__`, `hdnts`, `hmac`,
    `sig`, `signature`, `token`, `ticket`, `Policy`, `Key-Pair-Id`, the S3 signature parameters
-   and browser-tracker IDs, after `?`, `&`, `;` or `~`, also percent-encoded.
+   and browser-tracker IDs, and in links people use for replacements Discord's `ex`, `is` and
+   `hm` and Google Cloud's `X-Goog-Signature` and `X-Goog-Credential`, after `?`, `&`, `;` or
+   `~`, also percent-encoded.
 3. Everything in the support bundle passes through the same filter, including settings and the
    ledger. The bundle also replaces the user's name (the folder after `Users` or `home` in any
    path, and the account's login and home-folder names anywhere) with `<user>`, and numbers of
@@ -99,3 +101,8 @@ One logging system for the app, readable in the Activity screen and safe to shar
   "Open Activity". M-ERR-01 can't name the action that failed, because the hook doesn't know it;
   refusals the user can act on (a full profile) are caught where they happen and shown in place.
   Found by the first-texture-swap test, where Save failed with a console-only traceback.
+- **Links for replacements (2026-10-08, after Guide B used a Discord attachment link).** Verdra's
+  own messages about a link name only its host (M-EDIT-11, M-GRAFT-09 to -11); the query
+  parameters that sign such links are redacted anyway, in case a link reaches a message some
+  other way. `Expires` alone signs nothing and stays readable.
+

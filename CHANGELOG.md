@@ -203,6 +203,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- The signature of a Discord attachment link (`ex`, `is`, `hm`) or a Google Cloud signed link is
+  never written to Activity, log files or support bundles. Verdra's own messages about a link
+  name only its host.
 - Button labels on the Replacements screen are no longer cut off when the window is at its
   smallest and the editor is open.
 - Quitting after Reset everything with "Also delete my profiles, library and settings" could

@@ -624,3 +624,51 @@ def test_a_deleted_profile_comes_back_as_it_was_where_it_was(tmp_path: Path) -> 
     made.create("b")  # a profile with that name was made since
     with pytest.raises(grafts.ProfileError, match="already exists"):
         made.restore_profile(kept, index)
+
+
+SIGNED_LINK = (
+    "https://cdn.discordapp.com/attachments/1/2/wall.png"
+    "?ex=6705f1a2&is=6704a022&hm=c0ffee1234abcdef0123456789&"
+)
+
+
+def test_a_signed_link_is_never_written_out_only_its_host(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    from verdra.bark import rain  # noqa: PLC0415
+
+    answers: list[bytes | rain.RainError] = [
+        rain.RainError("the server answered 403"),
+        ochre.to_png(ochre.Pixels(1, 1, b"\1\2\3\xff")),
+    ]
+
+    def fetch(url: str, folder: Path, **_kwargs: object) -> bytes:
+        answer = answers.pop(0)
+        if isinstance(answer, rain.RainError):
+            raise answer
+        rain.cache_path(url, folder).parent.mkdir(parents=True, exist_ok=True)
+        rain.cache_path(url, folder).write_bytes(answer)
+        return answer
+
+    monkeypatch.setattr(rain, "fetch", fetch)
+    service = grafts.Grafts(tmp_path / "profiles", FakeSettings())
+    profile = service.edit("create", "Links")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        Original(asset_id=ABOVE_UINT32),
+        Target(kind="url", value=SIGNED_LINK),
+        "Image",
+    )
+    with caplog.at_level("DEBUG", logger="verdra"):
+        service.publish()  # fails: the reason names the host only
+        reasons = list(service.warnings.values())
+        service.publish()  # downloads
+    written = "\n".join([r.getMessage() for r in caplog.records] + reasons)
+    assert "cdn.discordapp.com" in written
+    for part in ("ex=", "is=", "hm=", "c0ffee", "/attachments/"):
+        assert part not in written
+    service.deleteLater()

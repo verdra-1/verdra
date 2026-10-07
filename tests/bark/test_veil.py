@@ -37,6 +37,11 @@ SECRETS = [
     ('{"name": ".ROBLOSECURITY", "value": "HAR4"}', "HAR4"),
     (str([("Cookie", "TUPLE1")]), "TUPLE1"),
     ("https://x.example/?t=" + quote(TOKEN), "0123456789ABCDEF"),
+    (
+        "Downloading https://cdn.discordapp.com/attachments/1/2/wall.png"
+        "?ex=6705f1a2&is=6704a022&hm=c0ffee1234abcdef&",
+        "c0ffee1234abcdef",
+    ),
     ("https://x.example/?t=" + quote(quote(TOKEN)), "0123456789ABCDEF"),
     ('{".ROBLOSECURITY": "JSON1"}', "JSON1"),
     ("{'.ROBLOSECURITY': 'JSON2'}", "JSON2"),
@@ -128,6 +133,12 @@ SIGNED = [
     ("X-Amz-Signature", "abcdef0123456789abcdef"),
     ("X-Amz-Security-Token", "FwoGZXIvYXdzEXAMPLE"),
     ("suggestedBrowserTrackerId", "424242424242"),
+    # Links people paste as replacements (Guide B used a Discord attachment link).
+    ("ex", "6705f1a2"),
+    ("is", "6704a022"),
+    ("hm", "3f9d2c1b0a99887766554433221100ffeeddccbbaa99887766554433221100ff"),
+    ("X-Goog-Signature", "5a4b3c2d1e0f"),
+    ("X-Goog-Credential", "verdra-test%40example.iam.gserviceaccount.com"),
 ]
 #: How a parameter can be introduced: plain, inside an Akamai token, or percent-encoded.
 SEPARATORS = ["?", "&", ";", "~", "%26", "%3F", "%2526"]
