@@ -571,6 +571,27 @@
     </message>
 </context>
 <context>
+    <name>M-GRAFT-06</name>
+    <message>
+        <source>This file couldn&apos;t be used: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-07</name>
+    <message>
+        <source>Roblox was told to download asset {asset} from {host}, which Verdra doesn&apos;t serve replacements on, so the original may show.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-08</name>
+    <message>
+        <source>Roblox downloaded asset {asset} in a format Verdra can&apos;t make yet ({format}), so the original shows.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-JOB-01</name>
     <message>
         <source>{task} canceled.</source>

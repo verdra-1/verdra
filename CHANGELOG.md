@@ -8,6 +8,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- A picture from your PC can replace one in game: choose Local file in the replacement editor.
+  Verdra prepares it when you click Apply now and sends it when Roblox downloads the original.
 - If Roblox asks for a replaced asset by its content hash, which Verdra can't replace yet,
   Activity says so and the status turns Degraded, instead of the original showing silently.
 - Apply now keeps only the newest backup of Roblox's saved assets and deletes older ones, and

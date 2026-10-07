@@ -158,6 +158,20 @@ class Graft:
 
 
 @dataclass(frozen=True, slots=True)
+class Content:
+    """A replacement's content, ready to serve in each image format the CDN may send (S-21).
+
+    Prepared when the snapshot is built (rule 2: the proxy only picks bytes, it converts
+    nothing): `png` and `ktx2` hold the same pixels.
+    """
+
+    png: bytes
+    ktx2: bytes
+    #: Where it came from, for the log: "file", "url" or "remove".
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
 class GraftSnapshot:
     """The winning replacement for each original, and the ones each winner overrides (S-23).
 
@@ -169,6 +183,9 @@ class GraftSnapshot:
     overridden: Mapping[Original, tuple[Graft, ...]] = field(
         default_factory=lambda: MappingProxyType({})
     )
+    #: Original asset ID -> the content to serve instead, for whole-asset content replacements
+    #: (a local file, a link or Remove) whose content is ready.
+    content: Mapping[int, Content] = field(default_factory=lambda: MappingProxyType({}))
 
     def swaps(self) -> dict[int, int]:
         """Return {original asset ID: target asset ID} for the whole-asset ID swaps."""

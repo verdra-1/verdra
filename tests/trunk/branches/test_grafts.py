@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.roots import rules
+from verdra.strata import ochre
 from verdra.trunk.almanac import schema
 from verdra.trunk.branches import grafts
 from verdra.trunk.branches.grafts import Original, Target
@@ -285,7 +286,8 @@ def test_unusable_replacements_are_left_out_with_their_reason(tmp_path: Path) ->
 def test_content_targets_stay_out_of_the_snapshot_until_the_grafter_serves_them(
     tmp_path: Path,
 ) -> None:
-    # Routing must decrypt no more than it does for Asset ID swaps (S-24 deviation).
+    # Routing must decrypt no more than the snapshot needs: links and Remove aren't served yet,
+    # and a Local file that can't be read is left out with its reason.
     made = store(tmp_path)
     profile = made.create("A")
     left = [
@@ -301,7 +303,8 @@ def test_content_targets_stay_out_of_the_snapshot_until_the_grafter_serves_them(
     assert compiled.snapshot.swaps() == {4: 5}
     assert compiled.snapshot.hosts() == {rules.ASSET_BATCH_HOST}
     soon = "This part of Verdra isn't built yet. It will arrive in a later version."
-    assert dict(compiled.left_out) == {r.id: soon for r in left}
+    missing = f"The file for this replacement is missing: {tmp_path / 'A' / 'a.png'}."
+    assert dict(compiled.left_out) == {left[0].id: missing, left[1].id: soon, left[2].id: soon}
     everything = grafts.compile_snapshot(made.profiles, grafts.ALL_KINDS).snapshot
     assert len(everything.grafts) == 4
 
@@ -440,3 +443,65 @@ def test_the_preview_is_the_snapshot_with_its_conflicts(tmp_path: Path) -> None:
     # Three originals change; one of them has a conflict (counted once, not twice).
     assert (shown.changes, shown.conflicts) == (3, 1)
     assert grafts.preview(rules.GraftSnapshot()) == grafts.Preview({}, 0, 0)
+
+
+# --- Local file content, prepared when the snapshot is built (S-21 rule 2) --------------------
+
+
+def file_graft(value: str, slot: str | None = None) -> rules.Graft:
+    return rules.Graft(ABOVE_UINT32, slot, "file", value, "A", "r", "Image")  # type: ignore[arg-type]
+
+
+def test_a_local_picture_is_prepared_as_png_and_ktx2_with_the_same_pixels(tmp_path: Path) -> None:
+    pixels = ochre.Pixels(2, 2, bytes(range(16)))
+    (tmp_path / "wall.png").write_bytes(ochre.to_png(pixels))
+    content = grafts.prepare_content(file_graft("./wall.png"), tmp_path)
+    assert isinstance(content, rules.Content)
+    assert content.source == "file"
+    assert ochre.read_image(content.png) == pixels
+    assert ochre.read_ktx2(content.ktx2) == pixels
+
+
+@pytest.mark.parametrize(
+    ("name", "data", "reason"),
+    [
+        ("gone.png", None, "The file for this replacement is missing: {path}."),
+        (
+            "broken.png",
+            b"\x89PNG\r\n\x1a\nnot really",
+            "This file couldn't be used: the image data",
+        ),
+        ("model.mesh", b"version 2.00\n", "This part of Verdra isn't built yet."),
+        ("sound.ogg", b"OggS\0\x02", "This part of Verdra isn't built yet."),
+    ],
+)
+def test_a_file_that_cant_be_served_is_left_out_with_its_reason(
+    tmp_path: Path, name: str, data: bytes | None, reason: str
+) -> None:
+    if data is not None:
+        (tmp_path / name).write_bytes(data)
+    problem = grafts.prepare_content(file_graft(f"./{name}"), tmp_path)
+    assert isinstance(problem, str)
+    assert problem.startswith(reason.format(path=tmp_path / name).split(" {")[0])
+
+
+def test_a_slot_with_a_file_isnt_served_yet(tmp_path: Path) -> None:
+    problem = grafts.prepare_content(file_graft("./a.png", "normal"), tmp_path)
+    assert problem == "This part of Verdra isn't built yet. It will arrive in a later version."
+
+
+def test_a_later_asset_id_replacement_wins_over_a_file_and_drops_its_content(
+    tmp_path: Path,
+) -> None:
+    made = store(tmp_path)
+    low, high = made.create("Low"), made.create("High")
+    (tmp_path / "Low").mkdir()
+    (tmp_path / "Low" / "a.png").write_bytes(ochre.to_png(ochre.Pixels(1, 1, b"\0\0\0\xff")))
+    made.add_replacement(
+        low.id, Original(asset_id=ABOVE_UINT32), Target(kind="file", value="./a.png")
+    )
+    assert ABOVE_UINT32 in made.compile().snapshot.content
+    made.add_replacement(high.id, *swap(ABOVE_UINT32, ABOVE_INT32))
+    compiled = grafts.compile_snapshot([made.get(high.id), made.get(low.id)], folder=tmp_path)
+    assert compiled.snapshot.swaps() == {ABOVE_UINT32: ABOVE_INT32}
+    assert ABOVE_UINT32 not in compiled.snapshot.content

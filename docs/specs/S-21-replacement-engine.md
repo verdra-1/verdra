@@ -62,6 +62,11 @@ Make Roblox receive the replacement instead of the original asset.
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
   apply."
+- M-GRAFT-06 (Replacement warning, new) "This file couldn't be used: <reason>."
+- M-GRAFT-07 (Activity, new) "Roblox was told to download asset <asset> from <host>, which Verdra
+  doesn't serve replacements on, so the original may show."
+- M-GRAFT-08 (Activity, new) "Roblox downloaded asset <asset> in a format Verdra can't make yet
+  (<format>), so the original shows."
 - M-GRAFT-05 (Activity, new) "Roblox asked for the replaced asset <asset> by its content hash,
   which Verdra can't replace yet, so the original may show."
 - M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so
@@ -97,6 +102,11 @@ Make Roblox receive the replacement instead of the original asset.
 14. Every representation variant of a replaced asset (with or without `serverPlaceId`,
     `contentRepresentationPriorityList`, `doNotFallbackToBaselineRepresentation`) asks for the
     replacement, and every other field of the item and of its response stays as it was.
+15. A Local file picture saved in a profile is served when the Player downloads the original
+    from the address a gzip batch response gave: as PNG or KTX2, whichever the CDN sent (also
+    when the CDN's answer is compressed), with the file's own pixels; other downloads pass byte
+    for byte; a format Verdra can't make and a host it doesn't decrypt pass the original with a
+    warning and Degraded.
 
 ## Lives in
 
@@ -120,7 +130,19 @@ Make Roblox receive the replacement instead of the original asset.
   the snapshot with M-SOON-01 (`grafts.SERVED`), so the interception set stays
   `assetdelivery.roblox.com` and real traffic is unchanged while the first real-machine test of
   Asset ID swaps runs (maintainer, 2026-10-04: "Keep the grafter's real-traffic behaviour as it
-  is until my test result is in").
+  is until my test result is in"). Lifted for Local file images on 2026-10-07, after the first
+  swap worked (plan 16.2, "Next steps", item 3); links and Remove follow.
+- **Local file images (2026-10-07).** When the snapshot is built, the file is read and decoded
+  once (strata/ochre, plan 10.7 limits) and written as PNG and as uncompressed RGBA8 KTX2, the
+  two formats an image download can come in (`grafts.prepare_content`, rule 2). The batch item is
+  asked for unchanged; the response's `location` on `fts.rbxcdn.com` is remembered (its path and
+  query, never logged with the query); when the Player downloads it, Verdra sends the prepared
+  bytes in the format the CDN answered with, drops headers about the original's bytes
+  (Content-MD5, ETag, Last-Modified) and sends a correct length. Never silent: content on a
+  host Verdra doesn't decrypt (M-GRAFT-07), a download format Verdra can't make (M-GRAFT-08, for
+  example WebP), and a file that can't be used (M-GRAFT-06, left out). Meshes, sounds and slots
+  stay M-SOON-01 until their steps. Not verified yet: that the Player accepts an uncompressed
+  KTX2 in place of the CDN's own; the owner's test session for files, links and Remove shows it.
 - **After the first swap test (2026-10-05).** The Asset ID kind also covers single-asset
   requests: `GET /v1/asset/?id=…` and `/v2/asset/?id=…` (seen in the test's log) and
   `/v1/assetId/<id>` and `/v2/assetId/<id>` (from the service's public API description) ask for

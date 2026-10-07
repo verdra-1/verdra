@@ -22,6 +22,7 @@ from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import terrain
+from verdra.strata import ochre
 from verdra.trunk.branches import grafts, sprout
 from verdra.trunk.sapwood import startup
 from verdra.trunk.sapwood.startup import Services
@@ -176,7 +177,13 @@ def test_a_local_file_dropped_on_the_drawer_is_saved_relative_to_the_profile(
     assert saved["replacements"][0]["target"] == {"kind": "file", "value": "./sky/top.png"}
     assert saved["replacements"][0]["asset_type"] == "Image"
     note = screen.table.item(0, 3)
-    assert note is not None and note.text().startswith("This part of Verdra isn't built yet.")
+    # Only a PNG signature, not a picture: it is saved, but can't be used in game, and says why.
+    assert note is not None and note.text().startswith("This file couldn't be used:")
+    picture.write_bytes(ochre.to_png(ochre.Pixels(1, 1, b"\0\0\0\xff")))
+    service.publish()
+    screen.refresh()
+    note = screen.table.item(0, 3)
+    assert note is None or note.text() == ""  # a real picture: used in game, nothing to say
 
 
 @pytest.mark.spec("S-22", 1)
