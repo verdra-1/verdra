@@ -127,3 +127,43 @@ another and saw only the original, through several Apply now restarts and joins.
   (spec S-24, the cache-clearing design approved in principle on 2026-10-05), which also removes
   the "Player kept running" case: Apply now asks for every Player to be closed first.
 
+
+## Second texture swap test (2026-10-07): not seen; cause found
+
+Same place, pictures and replacement as the first attempt, after verdra-1/verdra#87 and #88.
+Evidence: `docs/platforms/evidence/windows/second-swap-2026-10-07.txt` (counts and anonymised
+names only).
+
+**What the log proves**
+
+- Apply now moved the four cache items, and the maintainer's listing shows the Player made them
+  again during the join (2.47 GB before, 11 MB after), so the old cache wasn't in play.
+- 15 batch requests passed through Verdra. 14 were gzip-compressed, and the grafter passed each
+  of them on unread ("An asset batch request was compressed (gzip); passed on unchanged"). The
+  one uncompressed batch asked for a single other asset. So the original was almost certainly
+  in a compressed batch, which the grafter never looked into: **the cause**.
+- The fake Roblox server used by the tests only sent uncompressed batches, so no test could see
+  it.
+
+**What changes (verdra-1/verdra fix/compressed-asset-batches)**
+
+- roots/hyphae decodes request bodies for the symbionts (gzip, deflate, zstd), within plan
+  10.7's limits (100:1 and the 64 MB buffer, checked while decoding). A changed batch goes on
+  uncompressed with a correct length; an unchanged one goes on byte for byte.
+- A batch that can't be read while a replacement is active is never silent: a warning with the
+  reason (M-GRAFT-04) and the status Degraded (M-GRAFT-03).
+- Each Debug line names the asset IDs asked for, the ones replaced, and how the batch was
+  compressed.
+- The fake Roblox server sends compressed batches by default, and a test runs the maintainer's
+  scenario end to end (saved profile, Apply now, a gzip batch, the replacement's content).
+
+**The items Apply now leaves in place**
+
+- `rbx-storage.id`: 8 bytes, last changed the day before the test and unchanged by the join, so
+  the Player doesn't write it while playing. Eight bytes is the size of one 64-bit number, most
+  likely an identifier for the storage, not downloaded content (probable, not proven). Moving it
+  isn't needed to clear downloaded assets, and moving it could change that identifier, so it
+  stays.
+- `rbx-storage-sc`: a folder that held no files before or after the join (its date changed, so
+  something opened it). An empty folder holds no saved picture, so moving it isn't needed.
+- Not verified: what either is for. Roblox doesn't document them.

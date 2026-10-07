@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -200,3 +201,45 @@ def test_the_qt_timers_fire_and_cancel(qtbot: QtBot) -> None:
     qtbot.wait(50)
     assert fired == ["first"]
     owner.deleteLater()
+
+
+UNREADABLE = "Some asset requests couldn't be read, so replacements may not apply."
+
+
+@pytest.mark.spec("S-14", 1)
+def test_an_unreadable_asset_batch_is_degraded_with_a_plain_reason(
+    source: RoutingStatusSource, clock: FakeClock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """(d), after the second swap test: a batch the grafter couldn't read is never silent."""
+    source.started()
+    with caplog.at_level(logging.INFO, logger="verdra.roots.gardener"):
+        source.assets_unreadable()
+    assert source.current == RoutingStatus(State.DEGRADED, Trigger.ASSETS_UNREADABLE, UNREADABLE)
+    assert [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING] == [
+        f"Routing status changed from Routing to Degraded: {UNREADABLE}"
+    ]
+    clock.advance(100)
+    source.assets_unreadable()  # another one restarts the window
+    clock.advance(100)
+    assert source.current.trigger is Trigger.ASSETS_UNREADABLE
+    clock.advance(21)
+    assert source.current.state is State.ROUTING
+    source.assets_unreadable()
+    source.stopped()  # routing off: nothing left to warn about
+    assert source.current == RoutingStatus(State.IDLE)
+    source.started()
+    assert source.current.state is State.ROUTING
+    assert clock.pending == []
+
+
+def test_the_router_reports_an_unreadable_batch_from_any_thread(
+    source: RoutingStatusSource, qtbot: QtBot
+) -> None:
+    router = gardener.Router(source)
+    source.started()
+    thread = threading.Thread(target=router.report_unreadable_assets, args=("damaged gzip data",))
+    thread.start()
+    thread.join()
+    qtbot.waitUntil(lambda: source.current.trigger is Trigger.ASSETS_UNREADABLE, timeout=2000)
+    assert source.current.reason == UNREADABLE
+    router.deleteLater()

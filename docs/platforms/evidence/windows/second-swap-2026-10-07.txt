@@ -1,0 +1,32 @@
+Second texture swap test, maintainer's PC (Windows 11), 2026-10-07: the Verdra run that held the
+test (one session, about 3 minutes). Counts and anonymised host and path names only: no query
+strings, IDs, timestamps or tokens (plan 16.2). Detailed logging was on.
+
+Requests through Verdra's proxy that Verdra read (count | method host path):
+15 | POST assetdelivery.roblox.com /v1/assets/batch
+(No single-asset request this time, and no other host was read.)
+
+Grafter lines (count | text, asset IDs left out):
+14 | An asset batch request was compressed (gzip); passed on unchanged
+1 | Asset batch: 0 of 1 items replaced (asked for: <one asset ID, not the original>; item fields: assetId, xcachesplit, assetType, requestId)
+
+Lines from Verdra's own modules (count | module | text):
+1 | trunk.rings | Detailed logging turned itself off after 24 hours. (at startup; turned on again before the test)
+1 | sapwood.startup | Verdra 0.0.1 started on Windows.
+1 | gardener | Routing status changed from Idle to Routing.
+1 | branches.sprout | Moved Roblox's saved assets (rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.db, rbx-storage) to <Verdra folder>\Roblox cache backup\<date time>. Reset everything puts them back.
+3 | dew | Applied 1 replacement. They'll appear next time Roblox starts. (the first with the move above)
+1 | dialogs | Quit Verdra while Roblox is running? ... (answered with its action)
+1 | sapwood.shutdown | Verdra is quitting.
+1 | gardener | Routing status changed from Routing to Idle.
+
+The maintainer's read-only listing of %LOCALAPPDATA%\Roblox\rbx-storage* (name | bytes before |
+bytes after | modified during the test?), taken before Apply now and after closing the Player.
+Dates and sizes only (plan 16.2):
+rbx-storage | 2474304866 | 10976297 | yes (moved, then made again by the Player)
+rbx-storage.db | 96829440 | 413696 | yes (moved, then made again by the Player)
+rbx-storage.db-shm | 32768 | 32768 | yes (moved, then made again by the Player)
+rbx-storage.db-wal | 0 | 0 | yes (moved, then made again by the Player)
+rbx-storage-sc | no files | no files | yes (a folder, empty before and after; not moved)
+rbx-storage.id | 8 | 8 | no (last changed 2026-10-06, the day before; not moved)
+("no files": the listing's size is the sum of the files inside a folder, and it held none.)

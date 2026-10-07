@@ -293,6 +293,8 @@ class Trigger(StrEnum):
     UPSTREAM_CERTIFICATE = "upstream_certificate"
     #: Degraded (c): an installed Roblox version lacks the CA block (S-10).
     CA_MISSING = "ca_missing"
+    #: Degraded (d): an asset batch couldn't be read while a replacement is active (S-21).
+    ASSETS_UNREADABLE = "assets_unreadable"
     #: Error: the proxy couldn't start (M-PROXY-01).
     PROXY_FAILED = "proxy_failed"
     #: Error: another routing tool was detected (S-15, M-COEX-01).
@@ -306,6 +308,8 @@ ERROR_TRIGGERS: Final = frozenset({Trigger.PROXY_FAILED, Trigger.OTHER_TOOL, Tri
 LAUNCH_WINDOW_SECONDS: Final = 20.0
 #: Degraded (b) clears after this long without another certificate failure.
 CERTIFICATE_WINDOW_SECONDS: Final = 120.0
+#: Degraded (d) clears after this long without another asset batch that couldn't be read.
+UNREADABLE_WINDOW_SECONDS: Final = 120.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -370,6 +374,7 @@ class RoutingStatusSource(QObject):
         self._active: dict[Trigger, str] = {}
         self._launch: Cancel | None = None
         self._certificate: Cancel | None = None
+        self._unreadable: Cancel | None = None
         self.current = RoutingStatus(State.IDLE)
 
     # Events --------------------------------------------------------------------------------
@@ -385,7 +390,13 @@ class RoutingStatusSource(QObject):
         self._running = False
         self._cancel_launch()
         self._cancel_certificate()
-        self._clear(Trigger.NOT_ROUTED, Trigger.UPSTREAM_CERTIFICATE, publish=False)
+        self._cancel_unreadable()
+        self._clear(
+            Trigger.NOT_ROUTED,
+            Trigger.UPSTREAM_CERTIFICATE,
+            Trigger.ASSETS_UNREADABLE,
+            publish=False,
+        )
         self._publish()
 
     def launched(self) -> None:
@@ -405,6 +416,20 @@ class RoutingStatusSource(QObject):
             CERTIFICATE_WINDOW_SECONDS, lambda: self._clear(Trigger.UPSTREAM_CERTIFICATE)
         )
         self._raise(Trigger.UPSTREAM_CERTIFICATE, reason)
+
+    def assets_unreadable(self) -> None:
+        """An asset batch couldn't be read: Degraded (d) for two minutes (S-21, M-GRAFT-03)."""
+        self._cancel_unreadable()
+        self._unreadable = self._schedule(
+            UNREADABLE_WINDOW_SECONDS, lambda: self._clear(Trigger.ASSETS_UNREADABLE)
+        )
+        self._raise(
+            Trigger.ASSETS_UNREADABLE,
+            QCoreApplication.translate(
+                "M-GRAFT-03",
+                "Some asset requests couldn't be read, so replacements may not apply.",
+            ),
+        )
 
     def ca_missing(self, reason: str) -> None:
         """An installed Roblox version lacks the CA block: Degraded (c)."""
@@ -446,6 +471,11 @@ class RoutingStatusSource(QObject):
         if self._certificate is not None:
             self._certificate()
             self._certificate = None
+
+    def _cancel_unreadable(self) -> None:
+        if self._unreadable is not None:
+            self._unreadable()
+            self._unreadable = None
 
     def _raise(self, trigger: Trigger, reason: str) -> None:
         self._active.pop(trigger, None)  # most recent last
@@ -512,10 +542,13 @@ class Router(QObject):
         connected(str): The proxy saw a CONNECT to this host (on the Qt thread).
         certificate_failed(str): A server's certificate for this host couldn't be verified;
             the status turns Degraded (b) on the Qt thread (S-11 test 3, plan 12.2).
+        assets_unreadable(str): An asset batch couldn't be read while a replacement is active;
+            the status turns Degraded (d) on the Qt thread (S-21).
     """
 
     connected = Signal(str)
     certificate_failed = Signal(str)
+    assets_unreadable = Signal(str)
 
     #: How long `start` and `stop` wait for the proxy's thread.
     WAIT_SECONDS = 10.0
@@ -531,6 +564,7 @@ class Router(QObject):
         # the proxy's thread, is queued to it.
         self.connected.connect(self._traffic)
         self.certificate_failed.connect(self._certificate)
+        self.assets_unreadable.connect(self._unreadable)
 
     @property
     def running(self) -> bool:
@@ -543,6 +577,16 @@ class Router(QObject):
         The reason is technical and already in the debug log; the status shows M-PROXY-02.
         """
         self.certificate_failed.emit(host)
+
+    def report_unreadable_assets(self, reason: str) -> None:
+        """Report an asset batch that couldn't be read; safe to call on the proxy's thread.
+
+        The reason is already in the log (M-GRAFT-04); the status shows M-GRAFT-03.
+        """
+        self.assets_unreadable.emit(reason)
+
+    def _unreadable(self, _reason: str) -> None:
+        self.status.assets_unreadable()
 
     def _certificate(self, host: str) -> None:
         self.status.certificate_failed(

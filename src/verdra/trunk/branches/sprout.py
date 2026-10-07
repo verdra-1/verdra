@@ -665,7 +665,7 @@ class Sprout(QObject):
 
     def _features(self, authority: resin.Authority) -> mycelium.Interceptor:
         """Decrypt only the hosts the current snapshot needs (plan 10.1, 10.2; S-21)."""
-        grafter = Grafter(self.snapshots)
+        grafter = Grafter(self.snapshots, on_unreadable=self.router.report_unreadable_assets)
         pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
         return hyphae.Interception(
             hyphae.LeafContexts(authority),

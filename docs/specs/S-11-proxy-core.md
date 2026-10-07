@@ -31,8 +31,11 @@ untouched.
 - **Verification failure.** The request fails with HTTP 502 to the client, M-PROXY-02 is shown,
   the routing status turns Degraded with the reason (S-14), and the event is logged.
 - **Bodies.** A body is buffered only when a symbiont asks for it; otherwise it is streamed.
-  Unmodified responses are forwarded byte for byte, including their content encoding. Modified
-  responses are sent decoded, with a correct Content-Length.
+  Unmodified requests and responses are forwarded byte for byte, including their content
+  encoding. A symbiont sees the decoded body (gzip, deflate, zstd), decoded within plan 10.7's
+  limits (at most 100 times its size, never over the buffer limit); one that can't be decoded is
+  streamed unchanged and the symbiont is told why. Modified requests and responses are sent
+  decoded, with no Content-Encoding and a correct Content-Length.
 - **Symbiont pipeline.** Request order: trail guard → grafter → forager. Response order: forager →
   grafter → climate → mimicry. The forager always sees the original upstream content and the
   original asset IDs. At M1 no symbiont is active yet (they arrive with S-21, S-30, S-41, S-52,
@@ -126,6 +129,9 @@ untouched.
 
 ## Refinements from the plan
 
+- Request bodies are decoded for the symbionts like response bodies, with plan 10.7's
+  decompression limits on both (2026-10-07: the Roblox Player sends its asset batches
+  gzip-compressed, S-21).
 - Rule 6 and tests 11 and 12 carry out plan 16.2 ("Security endpoints are never touched"); the
   paths are the security-related ones seen in the Stage 2 capture on Windows (2026-10-04).
 - Tests 6, 7 and 8 are added for behaviour the plan states (10.1 listener, S-11 limits, 10.4

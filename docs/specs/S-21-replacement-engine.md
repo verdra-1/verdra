@@ -46,8 +46,11 @@ Make Roblox receive the replacement instead of the original asset.
 3. Unsupported combinations (an image replacing a mesh) are refused in the editor (S-22) and
    left out of the snapshot; they are never sent.
 4. Anything the grafter doesn't recognize (a batch body that isn't the expected JSON, an item
-   without an asset ID, a response it can't map back) passes through byte-identical, and is
-   noted once per session at Debug level.
+   without an asset ID, a response it can't map back) passes through byte-identical. While any
+   replacement is active, a batch it can't read (an encoding Verdra can't decode, damaged or
+   oversized compressed data, a body that isn't a JSON array of objects) is never silent: a
+   warning names the reason (M-GRAFT-04) and the routing status turns Degraded (M-GRAFT-03,
+   S-14 (d)). Other cases are logged at Debug level.
 5. No replacement can touch a protected endpoint (plan 16.2): every rule goes through
    `rules.refuse_protected`, and the proxy never calls a symbiont for one (S-11 rule 6).
 6. A replacement's file is read only from the place the profile names; a missing file shows
@@ -57,6 +60,10 @@ Make Roblox receive the replacement instead of the original asset.
 
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
+- M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
+  apply."
+- M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so
+  replacements may not apply to it." (<part> is "request" or "response".)
 
 ## Acceptance tests
 
@@ -75,6 +82,14 @@ Make Roblox receive the replacement instead of the original asset.
 9. With no replacement, routing decrypts nothing for Replacements; with only Asset ID
    replacements it decrypts `assetdelivery.roblox.com` alone; a snapshot published while
    routing applies from the next connection.
+10. A batch compressed with gzip, deflate or zstd (as the Roblox Player sends most of them)
+    asks for the replacement and is sent on uncompressed with a correct length; one without a
+    match passes byte for byte; a compressed response is mapped back.
+11. Damaged compressed data, an encoding Verdra can't decode, and a body that would decode past
+    plan 10.7's limits (100 times its size, or the 64 MB buffer) pass through byte for byte,
+    with M-GRAFT-04 and the status Degraded (M-GRAFT-03); decoding stops at the limit.
+12. The maintainer's scenario end to end: a profile saved with a real-size original, Apply now,
+    the original asked for in a gzip batch, and the client downloads the replacement's content.
 
 ## Lives in
 
@@ -106,3 +121,14 @@ Make Roblox receive the replacement instead of the original asset.
   whatever the outcome (how many items were replaced, the asset IDs asked for, the items' field
   names, and why a batch was passed on unchanged), and each response's mapping likewise; asset
   IDs are public, and no other value is logged.
+- **After the second swap test (2026-10-07).** The Roblox Player sent 14 of its 15 batches
+  gzip-compressed, and the grafter passed every compressed one on unread, so the original was
+  never swapped (`docs/m2/notes.md`). roots/hyphae now decodes request bodies as it already
+  decoded response bodies (gzip, deflate, zstd; Brotli isn't among the plan's dependencies and
+  is reported as unreadable), within plan 10.7's limits. A changed batch is sent on uncompressed
+  with Content-Encoding removed and a correct Content-Length, rather than compressed again: the
+  same Player sent one batch uncompressed in the same session and the server answered it, and
+  sending the decoded bytes leaves nothing to get wrong in a second encoder. Each Debug line
+  says how the batch was compressed. Rule 4 is tightened and tests 10 to 12 are added at the
+  maintainer's request ("never silent again"); the fake Roblox server sends compressed batches
+  by default.

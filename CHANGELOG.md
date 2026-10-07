@@ -181,6 +181,11 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Replacements now apply to the asset requests Roblox sends compressed, which is most of them:
+  before, every compressed request was passed on without being read, so the original picture
+  stayed. If an asset request can't be read while a replacement is on, Activity says why and the
+  status turns Degraded ("Some asset requests couldn't be read, so replacements may not apply.").
+  Compressed data is never unpacked past 100 times its size or 64 MB.
 - A replaced asset that Roblox fetches on its own (`/v1/asset/?id=…` and the like) rather than in
   a batch is now replaced too. With detailed logging, Activity shows every asset batch: how many
   items were replaced, which asset IDs were asked for, and why a batch was passed on unchanged.

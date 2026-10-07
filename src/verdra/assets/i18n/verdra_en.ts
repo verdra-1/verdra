@@ -507,6 +507,20 @@
     </message>
 </context>
 <context>
+    <name>M-GRAFT-03</name>
+    <message>
+        <source>Some asset requests couldn&apos;t be read, so replacements may not apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-04</name>
+    <message>
+        <source>An asset batch {part} couldn&apos;t be read ({reason}), so replacements may not apply to it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-JOB-01</name>
     <message>
         <source>{task} canceled.</source>

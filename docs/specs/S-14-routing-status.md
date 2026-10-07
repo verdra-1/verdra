@@ -22,7 +22,7 @@ Always show whether routing works, and why not.
   |---|---|---|
   | Idle | Routing is off (never started, paused from the tray, or stopped) | "Start routing" (M-STATUS-03) |
   | Routing | Proxy listening; Roblox traffic seen in the last 2 minutes, or no Roblox running | none |
-  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10) | (a) "Restart Roblox through Verdra"; (b) none, reason only; (c) "Repair certificate" (M-STATUS-04) |
+  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10); (d) an asset batch couldn't be read while a replacement is active (S-21, M-GRAFT-03), for two minutes after the last one | (a) "Restart Roblox through Verdra"; (b) and (d) none, reason only; (c) "Repair certificate" (M-STATUS-04) |
   | Error | The proxy couldn't start (M-PROXY-01); another routing tool was detected (S-15, M-COEX-01); the keeper is unavailable (Hosts-file mode, M6) | One fix specific to the reason (M-STATUS-05) |
 
 - **Priority.** If several triggers hold, Error wins over Degraded, Degraded over Routing. Within
@@ -101,7 +101,11 @@ Always show whether routing works, and why not.
 ## Refinements from the plan
 
 - The one fix for every Error reason is "Try again" (S-15 names it for M-COEX-01; a proxy that
-  couldn't start and an unavailable keeper are retried the same way). Degraded (b) has no fix.
+  couldn't start and an unavailable keeper are retried the same way). Degraded (b) and (d) have
+  no fix.
+- **Degraded (d), after the second swap test (2026-10-07).** An asset batch the grafter couldn't
+  read while a replacement is active (S-21 rule 4) shows M-GRAFT-03. Like (b), it clears two
+  minutes after the last such batch, and when routing stops.
 - The tray status line reads "<state>: <reason>" when the status has a reason, and the state word
   alone otherwise; in Routing it reads M-STATUS-02.
 - The popover lists the other active reasons under the shown one, most recent first.
