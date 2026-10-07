@@ -9,12 +9,14 @@ symbionts, forwards it upstream over roots/taproot's verified TLS, runs the resp
 and answers the client.
 
 - A body is buffered only when a symbiont asks for it, up to 64 MB; beyond that it is streamed
-  and those symbionts are skipped for that message (S-11 rule 1). Response bodies are decoded for
-  the symbionts (identity, gzip, deflate, zstd); an encoding Verdra can't decode is streamed
-  as is.
+  and those symbionts are skipped for that message (S-11 rule 1). Request and response bodies
+  are decoded for the symbionts (identity, gzip, deflate, zstd; RFC 9110 section 8.4), within
+  plan 10.7's limits: at most 100 times the received size and never over the buffer limit.
+  A body that can't be decoded (another encoding, damaged data, over a limit) is streamed as is,
+  and each symbiont that asked for it hears why through its optional `on_unread`.
 - Unmodified messages keep their status, headers (names, case, order) and body bytes, including
   their content encoding; chunked bodies keep their chunk sizes. Modified bodies are sent decoded
-  with a correct Content-Length.
+  (no Content-Encoding) with a correct Content-Length.
 - An exception in a symbiont is logged, redacted, and that symbiont is skipped for that message;
   the request still completes (S-11 rule 3).
 - An upstream certificate that doesn't verify answers the client with HTTP 502, writes M-PROXY-02
@@ -46,6 +48,10 @@ log = logging.getLogger(__name__)
 
 #: S-11 rule 1: the largest body Verdra buffers for a symbiont.
 MAX_BUFFERED_BODY: Final = 64 * 1024 * 1024
+#: Plan 10.7: a compressed body may decode to at most this many times its size,
+MAX_RATIO: Final = 100
+#: and to at most this size (the buffer limit above is lower, so it applies first).
+MAX_DECODED: Final = 1024 * 1024 * 1024
 #: Leaves are issued again this long before they expire.
 LEAF_RENEW_BEFORE: Final = resin.BACKDATE
 _CHUNK: Final = 64 * 1024
@@ -64,13 +70,18 @@ TlsObserver = Callable[[str, Literal["client", "upstream"], ssl.SSLObject], None
 
 @dataclass(frozen=True, slots=True)
 class Request:
-    """An HTTP request as symbionts see it. `body` is None unless a symbiont asked for it."""
+    """An HTTP request as symbionts see it.
+
+    `body` is None unless a symbiont asked for it, and then it is the decoded content;
+    `coding` is the content coding it was sent with ("" for none).
+    """
 
     host: str
     method: bytes
     target: bytes
     headers: Headers
     body: bytes | None = None
+    coding: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +117,24 @@ class Symbiont(Protocol):
     def on_response(self, request: Request, response: Response) -> Response | None:
         """Return a changed response, or None to leave it."""
         ...
+
+
+class Unread(Protocol):
+    """A symbiont that wants to hear when a body it asked for couldn't be read (optional)."""
+
+    def on_unread(self, request: Request, response: Response | None, reason: str) -> None:
+        """The body of `request` (or of `response`, when given) couldn't be read: `reason`."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class Decoded:
+    """A body without its content codings, or why it couldn't be decoded (`body` None)."""
+
+    body: bytes | None
+    #: The content codings as received, outermost last ("" for none).
+    coding: str = ""
+    problem: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,14 +365,16 @@ class Hyphae:
         log.debug("%s %s %s", request.method.decode("latin-1"), self.host, _target_for_log(request))
         body = Body(client)
         buffered: _Buffered | None = None
+        unread = ""
         if self._any_wants(pipeline.request, "wants_request_body", request):
             buffered = await self._buffer(body)
-            if buffered.complete:
-                request = replace(request, body=buffered.data)
+            request, unread = self._decoded(request, buffered)
         original = request
         answer: Response | None = None
         for symbiont in pipeline.request:
             if request.body is None and _wants(symbiont, request):
+                if unread:
+                    _call(symbiont, "on_unread", request, None, unread)
                 continue
             result = _call(symbiont, "on_request", request)
             if isinstance(result, Response):
@@ -441,16 +472,27 @@ class Hyphae:
         has_body = request.method != b"HEAD" and response.status not in _NO_BODY_STATUSES
         buffered: _Buffered | None = None
         decoded: bytes | None = None
+        unread = ""
         if has_body and self._any_wants(
             pipeline.response, "wants_response_body", request, response
         ):
             buffered = await self._buffer(body)
-            decoded = _decode(response.headers, buffered.data) if buffered.complete else None
+            if buffered.complete:
+                read = decode(response.headers, buffered.data, self.interception.max_body)
+                decoded, unread = read.body, read.problem
+            else:
+                unread = "over 64 MB"
             if decoded is None:
-                log.debug("Response from %s streamed without the symbionts that read it", self.host)
+                log.debug(
+                    "Response from %s streamed without the symbionts that read it (%s)",
+                    self.host,
+                    unread,
+                )
         result = replace(response, body=decoded)
         for symbiont in pipeline.response:
             if decoded is None and _wants(symbiont, request, response):
+                if unread:
+                    _call(symbiont, "on_unread", request, response, unread)
                 continue
             changed = _call(symbiont, "on_response", request, result)
             if isinstance(changed, Response):
@@ -469,6 +511,13 @@ class Hyphae:
             upstream.conn.start_next_cycle()
         else:
             await self._close_upstream()
+
+    def _decoded(self, request: Request, buffered: _Buffered) -> tuple[Request, str]:
+        """The request with its decoded body, and why there is none ("" when there is)."""
+        if not buffered.complete:
+            return request, "over 64 MB"
+        decoded = decode(request.headers, buffered.data, self.interception.max_body)
+        return replace(request, body=decoded.body, coding=decoded.coding), decoded.problem
 
     async def _buffer(self, body: Body) -> _Buffered:
         buffered = _Buffered()
@@ -521,9 +570,15 @@ def _wants(symbiont: Symbiont, request: Request, response: Response | None = Non
 
 
 def _call(symbiont: Symbiont, method: str, *args: object) -> object:
-    """Call a symbiont; an exception is logged (redacted) and counts as "no change"."""
+    """Call a symbiont; an exception is logged (redacted) and counts as "no change".
+
+    A symbiont without the method (the optional `on_unread`) is left alone.
+    """
+    function = getattr(symbiont, method, None)
+    if function is None:
+        return None
     try:
-        return getattr(symbiont, method)(*args)
+        return function(*args)
     except Exception as error:  # noqa: BLE001 - S-11 rule 3: a symbiont never fails a request
         host = next((arg.host for arg in args if isinstance(arg, Request)), "")
         log.debug(
@@ -539,34 +594,95 @@ def _call(symbiont: Symbiont, method: str, *args: object) -> object:
         return None
 
 
-def _decode(headers: Headers, data: bytes) -> bytes | None:
-    """Return the body without its content encodings, or None if one isn't supported."""
+def decode(headers: Headers, data: bytes, limit: int = MAX_BUFFERED_BODY) -> Decoded:
+    """Return the body without its content codings (RFC 9110 section 8.4), within the limits.
+
+    gzip (RFC 1952), deflate (zlib, RFC 1950, or raw, RFC 1951, as some servers send it) and
+    zstd (RFC 8878) are decoded, outermost first. The decoded body may be at most `MAX_RATIO`
+    times the received size and at most `limit` (plan 10.7), checked while decoding, so a
+    small compressed body can't grow without bound in memory.
+    """
     codings = [
-        coding.strip().lower()
+        coding.strip().lower().decode("latin-1")
         for name, value in headers
         if name.lower() == b"content-encoding"
         for coding in value.split(b",")
         if coding.strip()
     ]
+    named = ", ".join(codings)
+    ceiling = min(limit, MAX_DECODED, MAX_RATIO * len(data))
+    for coding in reversed(codings):
+        if coding == "identity":
+            continue
+        if coding not in _DECODERS:
+            return Decoded(None, named, f"compressed as {coding}, which Verdra can't read")
+        try:
+            data = _DECODERS[coding](data, ceiling)
+        except _TooLargeError:
+            return Decoded(None, named, f"{coding} data that would be too large once decompressed")
+        except (zlib.error, zstd.ZstdError, EOFError) as error:
+            log.debug("A body couldn't be decoded: %s", error)
+            return Decoded(None, named, f"damaged {coding} data")
+    return Decoded(data, named if any(c != "identity" for c in codings) else "")
+
+
+class _TooLargeError(Exception):
+    """A body would decode to more than its limit."""
+
+
+def _inflate(data: bytes, ceiling: int, wbits: int) -> bytes:
+    """Decode zlib, raw deflate or gzip data (every gzip member), never past `ceiling`."""
+    out = bytearray()
+    while True:
+        inflater = zlib.decompressobj(wbits)
+        out += inflater.decompress(data, ceiling + 1 - len(out))
+        if len(out) > ceiling:
+            raise _TooLargeError
+        if not inflater.eof:
+            # Stopped early: input left over (only when the output reached its cap) or cut short.
+            if inflater.unconsumed_tail:
+                raise _TooLargeError
+            msg = "the compressed data ends early"
+            raise EOFError(msg)
+        data = inflater.unused_data
+        if wbits != 31 or not data:  # gzip allows several members, one after another
+            return bytes(out)
+
+
+def _gunzip(data: bytes, ceiling: int) -> bytes:
+    return _inflate(data, ceiling, 31)
+
+
+def _inflate_deflate(data: bytes, ceiling: int) -> bytes:
     try:
-        for coding in reversed(codings):
-            if coding == b"identity":
-                continue
-            if coding in (b"gzip", b"x-gzip"):
-                data = zlib.decompress(data, wbits=31)
-            elif coding == b"deflate":
-                try:
-                    data = zlib.decompress(data)
-                except zlib.error:
-                    data = zlib.decompress(data, wbits=-15)
-            elif coding == b"zstd":
-                data = zstd.decompress(data)
-            else:
-                return None
-    except (zlib.error, zstd.ZstdError) as error:
-        log.debug("A body couldn't be decoded: %s", error)
-        return None
-    return data
+        return _inflate(data, ceiling, 15)
+    except zlib.error:
+        return _inflate(data, ceiling, -15)
+
+
+def _unzstd(data: bytes, ceiling: int) -> bytes:
+    out = bytearray()
+    while True:
+        decompressor = zstd.ZstdDecompressor()
+        out += decompressor.decompress(data, ceiling + 1 - len(out))
+        if len(out) > ceiling:
+            raise _TooLargeError
+        if not decompressor.eof:
+            if not decompressor.needs_input:
+                raise _TooLargeError
+            msg = "the compressed data ends early"
+            raise EOFError(msg)
+        data = decompressor.unused_data
+        if not data:  # zstd allows several frames, one after another
+            return bytes(out)
+
+
+_DECODERS: Final[dict[str, Callable[[bytes, int], bytes]]] = {
+    "gzip": _gunzip,
+    "x-gzip": _gunzip,
+    "deflate": _inflate_deflate,
+    "zstd": _unzstd,
+}
 
 
 def _with_length(headers: Headers, length: int) -> list[tuple[bytes, bytes]]:

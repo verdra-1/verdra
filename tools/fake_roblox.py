@@ -14,7 +14,10 @@ responses. Each is sent in every framing the fixture allows: identity, gzip and 
 encoding (brotli isn't among the plan's dependencies), with Content-Length or chunked transfer.
 
 A request picks its response with `?replay=<index>` (see `Replay.target`); any other request gets
-404. Modes for the negative tests: `self_signed`, `wrong_host` and `tls11` (TLS 1.1 at most).
+404. The asset batch requests it sends stand in for the Roblox Player's: gzip-compressed by
+default, as the second swap test's log showed (7 October 2026), so no test can pass on
+uncompressed batches alone (`batch_request`). Modes for the negative tests: `self_signed`,
+`wrong_host` and `tls11` (TLS 1.1 at most).
 
     python tools/fake_roblox.py --ca-out ca.pem   serve until Ctrl+C; print the port
 """
@@ -26,10 +29,12 @@ import asyncio
 import contextlib
 import gzip
 import hashlib
+import json
 import random
 import ssl
 import tempfile
 import warnings
+import zlib
 from compression import zstd
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -128,13 +133,50 @@ class Replay:
         return f"{path}{joiner}replay={self.index}".encode()
 
     def request(self) -> bytes:
-        """A request for this response, with a body for POST."""
+        """A request for this response, with a body for POST (a gzip batch for the batch)."""
+        if self.fixture.method == "POST" and self.fixture.path == BATCH_PATH:
+            items = [
+                {"requestId": f"req-{self.index + 1}-{n}", "assetId": int(f"{self.index + 1}1{n}")}
+                for n in range(3)
+            ]
+            return batch_request(items, target=self.target.decode())
         body = b'{"example":true}' if self.fixture.method == "POST" else b""
         length = f"Content-Length: {len(body)}\r\n" if body else ""
         return (
             f"{self.fixture.method} {self.target.decode()} HTTP/1.1\r\nHost: {self.host}\r\n"
             f"Accept-Encoding: gzip, zstd\r\n{length}\r\n"
         ).encode() + body
+
+
+#: Where the Roblox Player asks for asset locations (fact V1).
+BATCH_PATH: Final = "/v1/assets/batch"
+BatchEncoding = Literal["gzip", "deflate", "zstd", "identity"]
+
+
+def batch_request(
+    items: list[dict[str, object]],
+    *,
+    encoding: BatchEncoding = "gzip",
+    target: str = BATCH_PATH,
+) -> bytes:
+    """A raw asset batch request as the Roblox Player sends it: gzip-compressed by default."""
+    body = json.dumps(items, separators=(",", ":")).encode()
+    head = [
+        f"POST {target} HTTP/1.1",
+        "Host: assetdelivery.roblox.com",
+        "Content-Type: application/json",
+        "Accept-Encoding: gzip, deflate",
+    ]
+    if encoding == "gzip":
+        body = gzip.compress(body, mtime=0)
+    elif encoding == "deflate":
+        body = zlib.compress(body)
+    elif encoding == "zstd":
+        body = zstd.compress(body)
+    if encoding != "identity":
+        head.append(f"Content-Encoding: {encoding}")
+    head.append(f"Content-Length: {len(body)}")
+    return ("\r\n".join(head) + "\r\n\r\n").encode() + body
 
 
 def responses(count: int, fixtures: list[Fixture] | None = None) -> list[Replay]:

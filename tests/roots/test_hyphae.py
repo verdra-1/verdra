@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import json
 import logging
 import ssl
 import zlib
@@ -436,12 +437,52 @@ def test_leaves_are_reused_then_renewed_before_they_expire() -> None:
     ],
 )
 def test_supported_encodings_decode(coding: bytes, encoded: bytes) -> None:
-    assert hyphae._decode(((b"Content-Encoding", coding),), encoded) == b"data"  # noqa: SLF001
+    decoded = hyphae.decode(((b"Content-Encoding", coding),), encoded)
+    assert decoded.body == b"data"
+    assert decoded.coding == ("" if coding == b"identity" else coding.decode())
 
 
-@pytest.mark.parametrize(("coding", "encoded"), [(b"br", b"data"), (b"gzip", b"not gzip")])
-def test_unsupported_or_broken_encodings_are_left_alone(coding: bytes, encoded: bytes) -> None:
-    assert hyphae._decode(((b"Content-Encoding", coding),), encoded) is None  # noqa: SLF001
+@pytest.mark.parametrize(
+    ("coding", "encoded", "problem"),
+    [
+        (b"br", b"data", "compressed as br, which Verdra can't read"),
+        (b"gzip", b"not gzip", "damaged gzip data"),
+        (b"gzip", gzip.compress(b"data")[:-3], "damaged gzip data"),  # cut short
+        (b"zstd", zstd.compress(b"data")[:-2], "damaged zstd data"),
+        (
+            b"gzip",
+            gzip.compress(b"d" * 100_000),
+            "gzip data that would be too large once decompressed",
+        ),
+        (
+            b"zstd",
+            zstd.compress(b"d" * 10_000),
+            "zstd data that would be too large once decompressed",
+        ),
+    ],
+)
+def test_unsupported_broken_or_oversized_encodings_are_left_alone(
+    coding: bytes, encoded: bytes, problem: str
+) -> None:
+    decoded = hyphae.decode(((b"Content-Encoding", coding),), encoded)
+    assert decoded.body is None
+    assert decoded.problem == problem
+
+
+def test_decoding_keeps_within_the_ratio_and_the_limit() -> None:
+    """Plan 10.7: at most 100 times the received size, and never over the buffer limit."""
+    gz = ((b"Content-Encoding", b"gzip"),)
+    exactly = gzip.compress(b"x" * 500)
+    assert hyphae.decode(gz, exactly).body == b"x" * 500  # 500 bytes from fewer: within 100:1
+    big = gzip.compress(json.dumps(list(range(2000))).encode())  # about 4:1
+    assert hyphae.decode(gz, big, limit=100).body is None
+    assert hyphae.decode(gz, big).body is not None
+    # Several gzip members and zstd frames, one after another, are one body (RFC 1952, 8878).
+    assert hyphae.decode(gz, gzip.compress(b"ab") + gzip.compress(b"cd")).body == b"abcd"
+    zs = ((b"Content-Encoding", b"zstd"),)
+    assert hyphae.decode(zs, zstd.compress(b"ab") + zstd.compress(b"cd")).body == b"abcd"
+    # An uncompressed body has no ratio to keep.
+    assert hyphae.decode((), b"").body == b""
 
 
 def test_an_upstream_that_closes_is_reopened_for_the_next_request(tmp_path: Path) -> None:

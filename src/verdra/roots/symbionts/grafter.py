@@ -12,14 +12,23 @@ Spec S-21. This part swaps asset IDs on `assetdelivery.roblox.com`:
   test's log, and `/v1/assetId/<id>` and `/v2/assetId/<id>`, from the service's public API
   description) asks for the target ID instead; every other part of the address is kept.
 
-Anything the grafter doesn't recognize (a body that isn't a JSON array of objects, a compressed
-request, a response it can't map back) passes through unchanged (rule 4). Everything it needs is
-in the snapshot it read when the request arrived; it does no disk or network work (rule 2).
+Roblox sends most batches compressed (gzip, seen in the second swap test's log): roots/hyphae
+decodes them first, and a changed batch is sent on uncompressed with a correct length.
+
+Anything the grafter doesn't recognize (a response it can't map back) passes through unchanged
+(rule 4). Everything it needs is in the snapshot it read when the request arrived; it does no
+disk or network work (rule 2).
+
+While any replacement is active, a batch it can't read (an encoding Verdra can't decode,
+damaged or oversized compressed data, a body that isn't a JSON array of objects) is never
+silent: it passes through unchanged, a warning names the reason (M-GRAFT-04) and
+`on_unreadable` turns the routing status Degraded (M-GRAFT-03, spec S-14).
 
 What it saw is logged at Debug level (Settings › Advanced › Detailed logging), one line per
-batch whatever the outcome: how many items were replaced, the asset IDs asked for and the field
-names of the items, and why a batch was passed on unchanged. Asset IDs are public; no other value
-is logged (field names only, never a value such as a download link, which carries a signature).
+batch whatever the outcome: how many items were replaced, the asset IDs asked for (with each
+match), how the body was compressed, and the field names of the items. Asset IDs are public; no
+other value is logged (field names only, never a value such as a download link, which carries a
+signature).
 """
 
 from __future__ import annotations
@@ -28,8 +37,11 @@ import json
 import logging
 import re
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, Final
+
+from PySide6.QtCore import QCoreApplication
 
 from verdra.roots import hyphae, rules
 
@@ -52,11 +64,17 @@ class Grafter:
 
     name = "grafter"
 
-    def __init__(self, holder: rules.SnapshotHolder) -> None:
+    def __init__(
+        self,
+        holder: rules.SnapshotHolder,
+        on_unreadable: Callable[[str], None] | None = None,
+    ) -> None:
         self.holder = holder
+        #: Called (on the proxy's thread) with the reason whenever a batch couldn't be read while
+        #: a replacement is active; the routing status turns Degraded (S-14).
+        self.on_unreadable = on_unreadable
         # id(request) -> (the request, {request ID: the original asset ID as the client sent it})
         self._pending: OrderedDict[int, tuple[hyphae.Request, dict[Any, Any]]] = OrderedDict()
-        self._noted: set[str] = set()
 
     # --- Requests --------------------------------------------------------------------------
 
@@ -77,16 +95,11 @@ class Grafter:
         if not swaps:
             return None
         if request.body is None:
-            log.debug("An asset batch request was too large to read; passed on unchanged")
+            self._unreadable("request", "over 64 MB")
             return None
-        if _encoded(request.headers):
-            log.debug(
-                "An asset batch request was compressed (%s); passed on unchanged",
-                _header(request.headers, b"content-encoding"),
-            )
-            return None
-        items = self._items(request.body, "request")
+        items = _items(request.body)
         if items is None:
+            self._unreadable("request", "not a JSON array of objects")
             return None
         originals: dict[Any, Any] = {}
         asked: list[str] = []
@@ -105,7 +118,8 @@ class Grafter:
             originals[_key(item[_REQUEST_ID])] = sent
             asked[-1] += f"->{target}"
         log.debug(
-            "Asset batch: %d of %d items replaced%s (asked for: %s; item fields: %s)",
+            "Asset batch (%s): %d of %d items replaced%s (asked for: %s; item fields: %s)",
+            f"{request.coding}-compressed" if request.coding else "not compressed",
             len(originals),
             len(items),
             f", {without_request_id} without a request ID left alone" if without_request_id else "",
@@ -163,8 +177,10 @@ class Grafter:
         if pending is None or pending[0] is not request or response.body is None:
             return None
         originals = pending[1]
-        items = self._items(response.body, "response")
+        items = _items(response.body)
         if items is None:
+            if 200 <= response.status < 300:  # noqa: PLR2004 - a success that can't be mapped back
+                self._unreadable("response", "not a JSON array of objects")
             return None
         mapped = 0
         changed = False
@@ -187,19 +203,30 @@ class Grafter:
             return None
         return replace(response, body=json.dumps(items, separators=(",", ":")).encode())
 
-    def _items(self, body: bytes, where: str) -> list[dict[str, Any]] | None:
-        try:
-            items = json.loads(body)
-        except ValueError, UnicodeDecodeError:
-            items = None
-        if isinstance(items, list) and all(isinstance(item, dict) for item in items):
-            return items  # type: ignore[return-value]
-        if where not in self._noted:  # once per session (rule 4)
-            self._noted.add(where)
-            log.debug(
-                "An asset batch %s wasn't a JSON array of objects; passed on unchanged", where
-            )
-        return None
+    def on_unread(
+        self, request: hyphae.Request, response: hyphae.Response | None, reason: str
+    ) -> None:
+        """roots/hyphae couldn't read a body the grafter asked for (see `wants_*_body`)."""
+        if response is None:
+            if _is_batch(request) and self.holder.current.swaps():
+                self._unreadable("request", reason)
+            return
+        pending = self._pending.pop(id(request), None)
+        if pending is not None and pending[0] is request and 200 <= response.status < 300:  # noqa: PLR2004
+            self._unreadable("response", reason)
+
+    def _unreadable(self, where: str, reason: str) -> None:
+        """A batch couldn't be read while a replacement is active: never silent (S-21)."""
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-GRAFT-04",
+                "An asset batch {part} couldn't be read ({reason}), so replacements may not apply "
+                "to it.",
+            ).format(part=where, reason=reason),
+        )
+        if self.on_unreadable is not None:
+            self.on_unreadable(reason)
 
 
 def _is_batch(request: hyphae.Request) -> bool:
@@ -222,11 +249,14 @@ def _is_single(request: hyphae.Request) -> bool:
     return path in _SINGLE_QUERY_PATHS or _PATH_ID.match(path) is not None
 
 
-def _header(headers: hyphae.Headers, name: bytes) -> str:
-    for key, value in headers:
-        if key.lower() == name:
-            return value.decode("latin-1")
-    return ""
+def _items(body: bytes) -> list[dict[str, Any]] | None:
+    try:
+        items = json.loads(body)
+    except ValueError, UnicodeDecodeError:
+        return None
+    if isinstance(items, list) and all(isinstance(item, dict) for item in items):
+        return items  # type: ignore[return-value]
+    return None
 
 
 def _listed(values: list[str]) -> str:
@@ -240,13 +270,6 @@ def _fields(items: list[dict[str, Any]]) -> str:
     for item in items:
         names.update(dict.fromkeys(str(key) for key in item))
     return ", ".join(names) or "none"
-
-
-def _encoded(headers: hyphae.Headers) -> bool:
-    return any(
-        name.lower() == b"content-encoding" and value.strip().lower() not in (b"", b"identity")
-        for name, value in headers
-    )
 
 
 def _as_id(value: object) -> int | None:
