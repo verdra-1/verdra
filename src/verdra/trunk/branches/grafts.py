@@ -30,6 +30,7 @@ from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 from verdra.roots import rules
 from verdra.soil import atomic, terrain
+from verdra.strata import ochre
 
 log = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ SIZE_LIMITS: Final[Mapping[str, int]] = MappingProxyType(
 #: Every target kind, and the ones the grafter serves today: the others stay out of the
 #: snapshot (`compile_snapshot`) until it serves content (S-21 deviation, docs/m2/notes.md).
 ALL_KINDS: Final = frozenset({"asset_id", "file", "url", "remove"})
-SERVED: Final = frozenset({"asset_id"})
+SERVED: Final = frozenset({"asset_id", "file"})
 _HEAD = 64
 _MAGIC: Final = (
     (b"\x89PNG\r\n\x1a\n", "png"),
@@ -332,12 +333,50 @@ class Compiled:
     left_out: tuple[tuple[str, str], ...]
 
 
-def compile_snapshot(profiles: Sequence[Profile], served: frozenset[str] = SERVED) -> Compiled:
+def prepare_content(graft: rules.Graft, folder: Path) -> rules.Content | str:
+    """Read and convert a content replacement's target ahead of time; or say why it can't be used.
+
+    S-21 rule 2: the proxy only picks prepared bytes. A Local file image is decoded once
+    (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2, the formats the CDN sends
+    images in; meshes and sounds follow with their own steps (M-SOON-01 until then).
+    """
+    soon = QCoreApplication.translate(
+        "M-SOON-01", "This part of Verdra isn't built yet. It will arrive in a later version."
+    )
+    if graft.kind != "file" or graft.slot is not None:
+        return soon
+    path = resolve(graft.value, folder)
+    family, problem = file_family(path)
+    if problem is not None:
+        return problem
+    if family != "Image":
+        return soon
+    try:
+        pixels = ochre.read_image(atomic.read_bytes(path))
+        return rules.Content(ochre.to_png(pixels), ochre.write_ktx2(pixels), "file")
+    except OSError:
+        return QCoreApplication.translate(
+            "M-GRAFT-02", "The file for this replacement is missing: {path}."
+        ).format(path=path)
+    except ochre.OchreError as error:
+        return QCoreApplication.translate(
+            "M-GRAFT-06", "This file couldn't be used: {reason}."
+        ).format(reason=error)
+
+
+def compile_snapshot(
+    profiles: Sequence[Profile],
+    served: frozenset[str] = SERVED,
+    folder: Path | None = None,
+) -> Compiled:
     """Compile the enabled replacements of the enabled profiles, `profiles` highest first.
 
-    Replacements whose target kind isn't in `served` are left out with M-SOON-01.
+    Replacements whose target kind isn't in `served` are left out with M-SOON-01. With `folder`
+    (the profiles' folder), content replacements are prepared (`prepare_content`); one that
+    can't be is left out with its reason.
     """
     grafts: dict[rules.Original, rules.Graft] = {}
+    content: dict[int, rules.Content] = {}
     overridden: dict[rules.Original, list[rules.Graft]] = {}
     left_out: list[tuple[str, str]] = []
     # Lowest profile first, each replacement in order: whatever comes later wins (rule 1).
@@ -368,12 +407,21 @@ def compile_snapshot(profiles: Sequence[Profile], served: frozenset[str] = SERVE
                 replacement=replacement.id,
                 asset_type=replacement.asset_type,
             )
+            if graft.kind != "asset_id" and folder is not None:
+                prepared = prepare_content(graft, folder / profile.name)
+                if isinstance(prepared, str):
+                    left_out.append((replacement.id, prepared))
+                    continue
+                content[graft.original] = prepared
+            elif graft.original in content and graft.slot is None:
+                del content[graft.original]  # a later Asset ID replacement wins
             if key in grafts:
                 overridden.setdefault(key, []).insert(0, grafts[key])
             grafts[key] = graft
     snapshot = rules.GraftSnapshot(
         MappingProxyType(grafts),
         MappingProxyType({key: tuple(value) for key, value in overridden.items()}),
+        MappingProxyType(content),
     )
     return Compiled(snapshot, tuple(left_out))
 
@@ -473,8 +521,8 @@ class ProfileStore:
         return copy.deepcopy(_find(self.profiles, profile_id))
 
     def compile(self) -> Compiled:
-        """Compile the current profiles into a snapshot (S-21)."""
-        return compile_snapshot(self.profiles)
+        """Compile the current profiles into a snapshot (S-21), content prepared."""
+        return compile_snapshot(self.profiles, folder=self.folder)
 
     @property
     def can_undo(self) -> bool:

@@ -199,3 +199,11 @@ requestId); their values weren't logged then.
 - **Not done, and why:** turning a hash into an asset ID ahead of time would need a lookup at
   Roblox that plan 10.2 doesn't list. If the next log shows a replaced asset asked for by hash,
   that is a decision for the owner.
+
+## Local file pictures (2026-10-07)
+
+Built and tested against the fake Roblox server (S-21 test 15); the owner's test session for
+files, links and Remove is next. What the tests can't show, and that session will: whether the
+CDN sends the Player PNG or KTX2 for an in-game picture (the log names the format served:
+"Served the replacement for asset … (KTX2, …)"), and whether the Player accepts an uncompressed
+KTX2 where the CDN's own was compressed.

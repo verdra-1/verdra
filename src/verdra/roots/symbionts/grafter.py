@@ -38,8 +38,9 @@ import logging
 import re
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Final
+from urllib.parse import urlsplit
 
 from PySide6.QtCore import QCoreApplication
 
@@ -54,6 +55,13 @@ _REQUEST_ID: Final = "requestId"
 #: An item can name its content by hash instead of by asset ID (seen on 7 October 2026).
 _HASH: Final = "hash"
 _ASSET_TYPE: Final = "assetType"
+_LOCATION: Final = "location"
+#: Content downloads to watch: the CDN addresses the batch responses gave for replaced content.
+_DOWNLOADS_LIMIT: Final = 1024
+_PNG: Final = b"\x89PNG\r\n\x1a\n"
+_KTX2: Final = b"\xabKTX 20\xbb\r\n\x1a\n"
+#: Response headers about the original bytes that don't describe the replacement.
+_STALE_HEADERS: Final = frozenset({b"content-md5", b"etag", b"last-modified"})
 #: What a content hash looks like; anything else is logged as "not a hash", never verbatim.
 _HEX_HASH = re.compile(r"[0-9A-Fa-f]{8,128}")
 #: At most this many asset IDs per log line, so one large batch stays one readable line.
@@ -62,6 +70,49 @@ _LOGGED_IDS: Final = 100
 _SINGLE_QUERY_PATHS: Final = frozenset({"/v1/asset", "/v2/asset"})
 _QUERY_ID = re.compile(r"(?i)(^|&)(id=)(\d+)(?=&|$)")
 _PATH_ID = re.compile(r"(?i)^(/v[12]/assetid/)(\d+)(?=/|$)")
+
+
+@dataclass(slots=True)
+class _Found:
+    """What one batch request holds, item by item (see `_take`)."""
+
+    originals: dict[Any, Any] = field(default_factory=dict[Any, Any])
+    hashed: dict[Any, str] = field(default_factory=dict[Any, str])
+    served: dict[Any, int] = field(default_factory=dict[Any, int])
+    without_request_id: int = 0
+
+
+def _take(
+    item: dict[str, Any],
+    swaps: Mapping[int, int],
+    content: Mapping[int, rules.Content],
+    found: _Found,
+) -> str:
+    """Handle one batch item and return how the log names it.
+
+    An Asset ID replacement asks for the target instead (mapped back by request ID); a content
+    replacement is asked for unchanged, and Verdra serves its content when Roblox downloads it
+    from the address the response gives (S-21); an item asked for by hash is noted.
+    """
+    sent = item.get(_ASSET_ID)
+    asset_id = _as_id(sent)
+    if asset_id is None:
+        _note_hash(item, found.hashed)
+        return "?"
+    label = str(sent)
+    if asset_id not in swaps and asset_id not in content:
+        return label
+    if _REQUEST_ID not in item:
+        found.without_request_id += 1
+        return label
+    key = _key(item[_REQUEST_ID])
+    if asset_id in swaps:
+        target = swaps[asset_id]
+        item[_ASSET_ID] = str(target) if isinstance(sent, str) else target
+        found.originals[key] = sent
+        return f"{label}->{target}"
+    found.served[key] = asset_id
+    return f"{label}=>{content[asset_id].source}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +126,10 @@ class _Pending:
     hashed: dict[Any, str]
     #: The replacements when the batch was sent (S-21 test 8).
     swaps: Mapping[int, int]
+    #: Request ID key -> original asset ID, for items whose content Verdra serves itself.
+    served: dict[Any, int] = field(default_factory=dict[Any, int])
+    #: The prepared content when the batch was sent.
+    content: Mapping[int, rules.Content] = field(default_factory=dict[int, rules.Content])
 
 
 class Grafter:
@@ -93,12 +148,17 @@ class Grafter:
         self.on_unreadable = on_unreadable
         # id(request) -> the batch, waiting for its response
         self._pending: OrderedDict[int, _Pending] = OrderedDict()
+        # CDN target (path and query) -> (original asset ID, its content), from batch responses
+        self._downloads: OrderedDict[bytes, tuple[int, rules.Content]] = OrderedDict()
+        # id(request) -> (the download request, original asset ID, its content)
+        self._fetching: dict[int, tuple[hyphae.Request, int, rules.Content]] = {}
 
     # --- Requests --------------------------------------------------------------------------
 
     def wants_request_body(self, request: hyphae.Request) -> bool:
-        """Only asset batches, and only while some asset ID has a replacement."""
-        return _is_batch(request) and bool(self.holder.current.swaps())
+        """Only asset batches, and only while some asset has a replacement."""
+        snapshot = self.holder.current
+        return _is_batch(request) and bool(snapshot.swaps() or snapshot.content)
 
     def on_request(self, request: hyphae.Request) -> hyphae.Request | None:
         """Ask for each replaced asset's target instead; None if nothing changes."""
@@ -106,11 +166,15 @@ class Grafter:
             return self._batch_request(request)
         if _is_single(request):
             return self._single_request(request)
+        if _is_download(request):
+            self._download_request(request)
         return None
 
     def _batch_request(self, request: hyphae.Request) -> hyphae.Request | None:
-        swaps = self.holder.current.swaps()
-        if not swaps:
+        snapshot = self.holder.current
+        swaps = snapshot.swaps()
+        content = snapshot.content
+        if not swaps and not content:
             return None
         if request.body is None:
             self._unreadable("request", "over 64 MB")
@@ -119,34 +183,14 @@ class Grafter:
         if items is None:
             self._unreadable("request", "not a JSON array of objects")
             return None
-        originals: dict[Any, Any] = {}
-        hashed: dict[Any, str] = {}
-        asked: list[str] = []
-        without_request_id = 0
-        for item in items:
-            sent = item.get(_ASSET_ID)
-            asset_id = _as_id(sent)
-            asked.append(str(sent) if asset_id is not None else "?")
-            if asset_id is None and _HASH in item:
-                hashed[_key(item.get(_REQUEST_ID))] = _hash_text(item[_HASH])
-                log.debug(
-                    "Asset batch item asked for by hash: %s (asset type: %s)",
-                    hashed[_key(item.get(_REQUEST_ID))],
-                    _type_text(item.get(_ASSET_TYPE)),
-                )
-            if asset_id is None or asset_id not in swaps:
-                continue
-            if _REQUEST_ID not in item:
-                without_request_id += 1
-                continue
-            target = swaps[asset_id]
-            item[_ASSET_ID] = str(target) if isinstance(sent, str) else target
-            originals[_key(item[_REQUEST_ID])] = sent
-            asked[-1] += f"->{target}"
+        found = _Found()
+        asked = [_take(item, swaps, content, found) for item in items]
+        originals, hashed, served = found.originals, found.hashed, found.served
+        without_request_id = found.without_request_id
         log.debug(
             "Asset batch (%s): %d of %d items replaced%s (asked for: %s; item fields: %s)",
             f"{request.coding}-compressed" if request.coding else "not compressed",
-            len(originals),
+            len(originals) + len(served),
             len(items),
             f", {without_request_id} without a request ID left alone" if without_request_id else "",
             _listed(asked),
@@ -155,10 +199,12 @@ class Grafter:
         changed = None
         if originals:
             changed = replace(request, body=json.dumps(items, separators=(",", ":")).encode())
-        if originals or hashed:
+        if originals or hashed or served:
             # A batch with hash items is watched too: its response says which asset each was.
             sent_request = changed if changed is not None else request
-            self._pending[id(sent_request)] = _Pending(sent_request, originals, hashed, swaps)
+            self._pending[id(sent_request)] = _Pending(
+                sent_request, originals, hashed, swaps, served, content
+            )
             while len(self._pending) > _PENDING_LIMIT:
                 self._pending.popitem(last=False)
         return changed
@@ -195,14 +241,22 @@ class Grafter:
     # --- Responses -------------------------------------------------------------------------
 
     def wants_response_body(self, request: hyphae.Request, response: hyphae.Response) -> bool:
-        """Only the responses to batches this grafter changed or that asked for a hash."""
+        """Responses to the batches this grafter watches, and the content downloads it serves."""
+        fetching = self._fetching.get(id(request))
+        if fetching is not None:
+            return fetching[0] is request
         pending = self._pending.get(id(request))
         return pending is not None and pending.request is request
 
     def on_response(
         self, request: hyphae.Request, response: hyphae.Response
     ) -> hyphae.Response | None:
-        """Put each replaced item's original asset ID back; None if nothing changes."""
+        """Put each replaced item's original asset ID back; None if nothing changes.
+
+        A content download Verdra serves gets the replacement's bytes instead.
+        """
+        if id(request) in self._fetching:
+            return self._download_response(request, response)
         pending = self._pending.pop(id(request), None)
         if pending is None or pending.request is not request or response.body is None:
             return None
@@ -218,6 +272,8 @@ class Grafter:
             request_id = item.get(_REQUEST_ID)
             if _key(request_id) in pending.hashed:
                 self._hash_answered(pending, item)
+            if _key(request_id) in pending.served:
+                self._content_located(pending, item)
             if request_id is None or _key(request_id) not in originals:
                 continue
             mapped += 1
@@ -245,14 +301,97 @@ class Grafter:
             if _is_batch(request) and self.holder.current.swaps():
                 self._unreadable("request", reason)
             return
+        fetching = self._fetching.pop(id(request), None)
+        if fetching is not None and 200 <= response.status < 300:  # noqa: PLR2004
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-GRAFT-08",
+                    "Roblox downloaded asset {asset} in a format Verdra can't make yet ({format}), "
+                    "so the original shows.",
+                ).format(asset=fetching[1], format=reason),
+            )
+            if self.on_unreadable is not None:
+                self.on_unreadable(reason)
+            return
         pending = self._pending.pop(id(request), None)
         if (
             pending is not None
-            and pending.originals
+            and (pending.originals or pending.served)
             and pending.request is request
             and 200 <= response.status < 300  # noqa: PLR2004
         ):
             self._unreadable("response", reason)
+
+    def _content_located(self, pending: _Pending, item: dict[str, Any]) -> None:
+        """Remember where Roblox will download a replaced asset's content (S-21)."""
+        original = pending.served[_key(item.get(_REQUEST_ID))]
+        location = item.get(_LOCATION)
+        parts = urlsplit(location) if isinstance(location, str) else None
+        if parts is None or rules.host_name(parts.hostname or "") != rules.ASSET_CONTENT_HOST:
+            where = parts.hostname if parts is not None and parts.hostname else "no address"
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-GRAFT-07",
+                    "Roblox was told to download asset {asset} from {host}, which Verdra doesn't "
+                    "serve replacements on, so the original may show.",
+                ).format(asset=original, host=where),
+            )
+            if self.on_unreadable is not None:
+                self.on_unreadable(f"asset {original} downloads from {where}")
+            return
+        target = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        self._downloads[target.encode("latin-1", "replace")] = (
+            original,
+            pending.content[original],
+        )
+        while len(self._downloads) > _DOWNLOADS_LIMIT:
+            self._downloads.popitem(last=False)
+        log.debug(
+            "Asset %d's content will be downloaded from %s%s; Verdra serves its replacement",
+            original,
+            rules.ASSET_CONTENT_HOST,
+            parts.path,
+        )
+
+    def _download_request(self, request: hyphae.Request) -> None:
+        found = self._downloads.get(request.target)
+        if found is not None:
+            self._fetching[id(request)] = (request, *found)
+
+    def _download_response(
+        self, request: hyphae.Request, response: hyphae.Response
+    ) -> hyphae.Response | None:
+        _request, original, content = self._fetching.pop(id(request))
+        body = response.body
+        if not 200 <= response.status < 300 or body is None:  # noqa: PLR2004
+            return None
+        if body.startswith(_KTX2):
+            served, kind = content.ktx2, "KTX2"
+        elif body.startswith(_PNG):
+            served, kind = content.png, "PNG"
+        else:
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-GRAFT-08",
+                    "Roblox downloaded asset {asset} in a format Verdra can't make yet ({format}), "
+                    "so the original shows.",
+                ).format(asset=original, format=_format_name(body)),
+            )
+            if self.on_unreadable is not None:
+                self.on_unreadable(f"asset {original} in an unknown format")
+            return None
+        log.debug(
+            "Served the replacement for asset %d (%s, %d bytes, from its %s)",
+            original,
+            kind,
+            len(served),
+            content.source,
+        )
+        headers = tuple((n, v) for n, v in response.headers if n.lower() not in _STALE_HEADERS)
+        return replace(response, headers=headers, body=served)
 
     def _hash_answered(self, pending: _Pending, item: dict[str, Any]) -> None:
         """Log which asset a hash item turned out to be; never silent if it is a replaced one."""
@@ -309,6 +448,34 @@ def _is_single(request: hyphae.Request) -> bool:
         return False
     path = rules.canonical_path(request.target)
     return path in _SINGLE_QUERY_PATHS or _PATH_ID.match(path) is not None
+
+
+def _note_hash(item: dict[str, Any], hashed: dict[Any, str]) -> None:
+    """Remember and log an item asked for by hash instead of by asset ID."""
+    if _HASH not in item:
+        return
+    hashed[_key(item.get(_REQUEST_ID))] = _hash_text(item[_HASH])
+    log.debug(
+        "Asset batch item asked for by hash: %s (asset type: %s)",
+        hashed[_key(item.get(_REQUEST_ID))],
+        _type_text(item.get(_ASSET_TYPE)),
+    )
+
+
+def _is_download(request: hyphae.Request) -> bool:
+    return (
+        rules.host_name(request.host) == rules.ASSET_CONTENT_HOST
+        and request.method == b"GET"
+        and not rules.is_protected(request.host, request.target)
+    )
+
+
+def _format_name(body: bytes) -> str:
+    """A short, safe name for what a download holds (never its bytes)."""
+    for magic, name in ((b"RIFF", "WebP or RIFF"), (b"\xff\xd8\xff", "JPEG"), (b"DDS ", "DDS")):
+        if body.startswith(magic):
+            return name
+    return "unknown"
 
 
 def _items(body: bytes) -> list[dict[str, Any]] | None:
