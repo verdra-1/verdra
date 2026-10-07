@@ -32,6 +32,7 @@ class StubSprout(QObject):
 
     refused = Signal(str)
     other_tool = Signal(str)
+    backups_changed = Signal()
 
     def __init__(self) -> None:
         super().__init__()

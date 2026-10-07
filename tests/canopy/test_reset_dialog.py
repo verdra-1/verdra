@@ -10,13 +10,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtCore import QLocale, QObject, Qt, Signal
+from PySide6.QtWidgets import QApplication, QDialog, QLabel
 from pytestqt.qtbot import QtBot
 
 from tests.trunk.branches.test_reset import trust_files
 from verdra.bark import husk, scar
 from verdra.canopy.crown.window import Shell
+from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.screens import settings as settings_module
 from verdra.canopy.screens.settings import ResetDialog, SettingsScreen, confirm_reset
 from verdra.roots import gardener
@@ -252,3 +253,56 @@ def test_with_a_moved_library_the_closing_message_says_where_it_stays(
     )
     dialog.accept()
     qtbot.waitUntil(lambda: screen.reset_dialog is None)
+
+
+class BackupRouting(QObject):
+    """The two things Settings needs from routing for the cache backups."""
+
+    backups_changed = Signal()
+
+    def __init__(self, sizes: list[int]) -> None:
+        super().__init__()
+        self.sizes = sizes
+        self.deleted = 0
+
+    def delete_backups(self) -> None:
+        self.deleted += 1
+        self.sizes.append(0)
+        self.backups_changed.emit()
+
+
+@pytest.mark.spec("S-24", 10)
+def test_settings_shows_the_backup_space_and_deletes_them_only_when_asked(
+    services: Services, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sizes = [2_474_304_866]
+    routing = BackupRouting(sizes)
+    screen = SettingsScreen(
+        services.settings,
+        routing=routing,  # type: ignore[arg-type]
+        backups_size=lambda: sizes[-1],
+    )
+    qtbot.addWidget(screen)
+    expected = QLocale().formattedDataSize(2_474_304_866)
+    assert screen.backups_label.text() == f"Backups of Roblox's saved assets use {expected}."
+    assert screen.delete_backups_button.isEnabled()
+    asked: list[str] = []
+
+    def answer(dialog: DestructiveConfirmation, reply: QDialog.DialogCode) -> QDialog.DialogCode:
+        asked.append(dialog.findChildren(QLabel)[0].text())
+        return reply
+
+    monkeypatch.setattr(
+        DestructiveConfirmation, "exec", lambda d: answer(d, QDialog.DialogCode.Rejected)
+    )
+    assert screen.delete_backups() is False  # Cancel: nothing deleted
+    assert routing.deleted == 0
+    monkeypatch.setattr(
+        DestructiveConfirmation, "exec", lambda d: answer(d, QDialog.DialogCode.Accepted)
+    )
+    assert screen.delete_backups() is True
+    assert asked == ["Delete the backups of Roblox's saved assets?"] * 2
+    assert routing.deleted == 1
+    assert screen.backups_label.text() == "There are no backups of Roblox's saved assets."
+    assert not screen.delete_backups_button.isEnabled()
+    routing.deleteLater()
