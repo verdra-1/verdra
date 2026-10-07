@@ -30,7 +30,7 @@ from tools import fake_roblox
 from verdra.bark import rain
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
-from verdra.strata import ochre
+from verdra.strata import clay, ochre
 from verdra.trunk import tendrils
 from verdra.trunk.branches import grafts
 
@@ -338,3 +338,84 @@ def test_a_failed_download_says_why_and_apply_now_tries_again(
     service.publish()  # Apply now again
     assert service.warnings == {}
     assert ABOVE_UINT32 in service.holder.current.content
+
+
+# --- Meshes (S-21, step 3c) ------------------------------------------------------------------
+
+TRIANGLE = clay.Mesh(
+    (
+        clay.Vertex((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0)),
+        clay.Vertex((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0)),
+        clay.Vertex((0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0)),
+    ),
+    ((0, 1, 2),),
+)
+#: What the CDN sends for a mesh: a FileMesh of some version (invented content).
+ORIGINAL_MESH = clay.write_filemesh(clay.Mesh((), ()))
+
+
+@pytest.mark.spec("S-21", 17)
+@pytest.mark.parametrize("name", ["wall.mesh", "wall.obj"])
+def test_a_mesh_from_the_pc_replaces_one_in_game(
+    tmp_path: Path,
+    qapp: QApplication,  # noqa: ARG001
+    name: str,
+) -> None:
+    profiles = tmp_path / "profiles"
+    service = grafts.Grafts(profiles, FakeSettings())
+    profile = service.edit("create", "My replacements")
+    (profiles / profile.name).mkdir(parents=True)
+    data = clay.write_obj(TRIANGLE) if name.endswith(".obj") else clay.write_filemesh(TRIANGLE)
+    (profiles / profile.name / name).write_bytes(data)
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=ABOVE_UINT32),
+        grafts.Target(kind="file", value=f"./{name}"),
+        "Mesh",
+    )
+    service.publish()
+    assert service.warnings == {}
+    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ORIGINAL_MESH))
+    assert downloaded.startswith(b"version 2.00\n")
+    served = clay.read_mesh(downloaded)
+    assert served.faces == TRIANGLE.faces
+    assert [v.position for v in served.vertices] == [v.position for v in TRIANGLE.vertices]
+
+
+@pytest.mark.spec("S-21", 17)
+def test_remove_serves_an_empty_mesh_for_a_mesh(
+    tmp_path: Path,
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    service = service_with(tmp_path, grafts.Target(kind="remove"))
+    service.publish()
+    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ORIGINAL_MESH))
+    assert clay.read_mesh(downloaded) == clay.Mesh((), ())
+
+
+@pytest.mark.spec("S-21", 17)
+@pytest.mark.parametrize(
+    ("content", "download", "kind"),
+    [
+        (CONTENT, ORIGINAL_MESH, "mesh"),  # a picture replacing a mesh
+        (rules.Content(b"", b"", "file", ORIGINAL_MESH), ORIGINAL_PNG, "picture"),
+    ],
+    ids=["picture-for-mesh", "mesh-for-picture"],
+)
+def test_a_replacement_of_another_type_lets_the_original_through_and_says_so(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    content: rules.Content,
+    download: bytes,
+    kind: str,
+) -> None:
+    reasons: list[str] = []
+    grafter = Grafter(snapshot({ABOVE_UINT32: content}), on_unreadable=reasons.append)
+    _items, downloaded, _server = play(tmp_path, grafter, http(download))
+    assert downloaded == download
+    assert warnings_logged(caplog) == [
+        f"Roblox downloaded asset {ABOVE_UINT32} as a {kind}, but its replacement is another "
+        "type of asset, so the original shows."
+    ]
+    assert reasons == [f"asset {ABOVE_UINT32} replaced by another type"]

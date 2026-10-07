@@ -625,6 +625,13 @@
     </message>
 </context>
 <context>
+    <name>M-GRAFT-12</name>
+    <message>
+        <source>Roblox downloaded asset {asset} as a {kind}, but its replacement is another type of asset, so the original shows.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-JOB-01</name>
     <message>
         <source>{task} canceled.</source>

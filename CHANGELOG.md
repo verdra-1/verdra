@@ -12,6 +12,8 @@ All notable changes to Verdra are recorded here. The format follows
   Verdra prepares it when you click Apply now and sends it when Roblox downloads the original.
 - A picture from an HTTPS link can replace one in game, and Remove makes one invisible. A link
   is downloaded once, the first time you click Apply now, and applies as soon as it's ready.
+- A mesh (Roblox mesh file or OBJ) from your PC or a link can replace one in game, and Remove
+  hides one.
 - If Roblox asks for a replaced asset by its content hash, which Verdra can't replace yet,
   Activity says so and the status turns Degraded, instead of the original showing silently.
 - Apply now keeps only the newest backup of Roblox's saved assets and deletes older ones, and
