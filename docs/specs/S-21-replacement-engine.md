@@ -62,6 +62,8 @@ Make Roblox receive the replacement instead of the original asset.
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
   apply."
+- M-GRAFT-05 (Activity, new) "Roblox asked for the replaced asset <asset> by its content hash,
+  which Verdra can't replace yet, so the original may show."
 - M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so
   replacements may not apply to it." (<part> is "request" or "response".)
 
@@ -90,6 +92,11 @@ Make Roblox receive the replacement instead of the original asset.
     with M-GRAFT-04 and the status Degraded (M-GRAFT-03); decoding stops at the limit.
 12. The maintainer's scenario end to end: a profile saved with a real-size original, Apply now,
     the original asked for in a gzip batch, and the client downloads the replacement's content.
+13. An item asked for by hash is logged with its hash (hex digits only) and asset type; its
+    response is read, and one that names a replaced asset gives M-GRAFT-05 and Degraded.
+14. Every representation variant of a replaced asset (with or without `serverPlaceId`,
+    `contentRepresentationPriorityList`, `doNotFallbackToBaselineRepresentation`) asks for the
+    replacement, and every other field of the item and of its response stays as it was.
 
 ## Lives in
 
@@ -132,3 +139,16 @@ Make Roblox receive the replacement instead of the original asset.
   says how the batch was compressed. Rule 4 is tightened and tests 10 to 12 are added at the
   maintainer's request ("never silent again"); the fake Roblox server sends compressed batches
   by default.
+- **Items asked for by hash (2026-10-07).** In the log of the first swap that works, two items
+  per run named a `hash` instead of an `assetId`. A hash names content, not an asset; the
+  client can only ask for content by a hash it already has. For an asset a place names by ID,
+  such as the replaced picture, the only places the original's hash could come from are
+  Roblox's saved assets (moved aside by Apply now) or a response for the original (never sent:
+  every request for it by ID asks for the replacement). So, after Apply now moved the cache,
+  the original can come back by hash only if something names its content by hash directly, or
+  the cache stayed because Studio or another Player was open (M-CACHE-02, M-CACHE-03). Verdra
+  can't tell from a hash which asset it is, and finding out ahead of time would need a lookup
+  at Roblox that plan 10.2 doesn't list, so hash items aren't changed. Instead they are logged,
+  their response is read, and a response that names a replaced asset is never silent
+  (M-GRAFT-05, Degraded); test 13. Test 14 checks every representation variant seen. What the
+  two hash items were isn't known yet: the next log names their hash, type and answer.

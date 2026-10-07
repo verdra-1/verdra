@@ -37,8 +37,8 @@ import json
 import logging
 import re
 from collections import OrderedDict
-from collections.abc import Callable
-from dataclasses import replace
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from PySide6.QtCore import QCoreApplication
@@ -51,12 +51,30 @@ log = logging.getLogger(__name__)
 _PENDING_LIMIT: Final = 1024
 _ASSET_ID: Final = "assetId"
 _REQUEST_ID: Final = "requestId"
+#: An item can name its content by hash instead of by asset ID (seen on 7 October 2026).
+_HASH: Final = "hash"
+_ASSET_TYPE: Final = "assetType"
+#: What a content hash looks like; anything else is logged as "not a hash", never verbatim.
+_HEX_HASH = re.compile(r"[0-9A-Fa-f]{8,128}")
 #: At most this many asset IDs per log line, so one large batch stays one readable line.
 _LOGGED_IDS: Final = 100
 #: Single-asset requests: `/v1/asset/?id=…` (and v2), and `/v1/assetId/<id>` (and v2).
 _SINGLE_QUERY_PATHS: Final = frozenset({"/v1/asset", "/v2/asset"})
 _QUERY_ID = re.compile(r"(?i)(^|&)(id=)(\d+)(?=&|$)")
 _PATH_ID = re.compile(r"(?i)^(/v[12]/assetid/)(\d+)(?=/|$)")
+
+
+@dataclass(frozen=True, slots=True)
+class _Pending:
+    """A batch waiting for its response."""
+
+    request: hyphae.Request
+    #: Request ID key -> the original asset ID as the client sent it (the replaced items).
+    originals: dict[Any, Any]
+    #: Request ID key -> the hash, for items asked for by hash instead of by asset ID.
+    hashed: dict[Any, str]
+    #: The replacements when the batch was sent (S-21 test 8).
+    swaps: Mapping[int, int]
 
 
 class Grafter:
@@ -73,8 +91,8 @@ class Grafter:
         #: Called (on the proxy's thread) with the reason whenever a batch couldn't be read while
         #: a replacement is active; the routing status turns Degraded (S-14).
         self.on_unreadable = on_unreadable
-        # id(request) -> (the request, {request ID: the original asset ID as the client sent it})
-        self._pending: OrderedDict[int, tuple[hyphae.Request, dict[Any, Any]]] = OrderedDict()
+        # id(request) -> the batch, waiting for its response
+        self._pending: OrderedDict[int, _Pending] = OrderedDict()
 
     # --- Requests --------------------------------------------------------------------------
 
@@ -102,12 +120,20 @@ class Grafter:
             self._unreadable("request", "not a JSON array of objects")
             return None
         originals: dict[Any, Any] = {}
+        hashed: dict[Any, str] = {}
         asked: list[str] = []
         without_request_id = 0
         for item in items:
             sent = item.get(_ASSET_ID)
             asset_id = _as_id(sent)
             asked.append(str(sent) if asset_id is not None else "?")
+            if asset_id is None and _HASH in item:
+                hashed[_key(item.get(_REQUEST_ID))] = _hash_text(item[_HASH])
+                log.debug(
+                    "Asset batch item asked for by hash: %s (asset type: %s)",
+                    hashed[_key(item.get(_REQUEST_ID))],
+                    _type_text(item.get(_ASSET_TYPE)),
+                )
             if asset_id is None or asset_id not in swaps:
                 continue
             if _REQUEST_ID not in item:
@@ -126,12 +152,15 @@ class Grafter:
             _listed(asked),
             _fields(items),
         )
-        if not originals:
-            return None
-        changed = replace(request, body=json.dumps(items, separators=(",", ":")).encode())
-        self._pending[id(changed)] = (changed, originals)
-        while len(self._pending) > _PENDING_LIMIT:
-            self._pending.popitem(last=False)
+        changed = None
+        if originals:
+            changed = replace(request, body=json.dumps(items, separators=(",", ":")).encode())
+        if originals or hashed:
+            # A batch with hash items is watched too: its response says which asset each was.
+            sent_request = changed if changed is not None else request
+            self._pending[id(sent_request)] = _Pending(sent_request, originals, hashed, swaps)
+            while len(self._pending) > _PENDING_LIMIT:
+                self._pending.popitem(last=False)
         return changed
 
     def _single_request(self, request: hyphae.Request) -> hyphae.Request | None:
@@ -166,17 +195,18 @@ class Grafter:
     # --- Responses -------------------------------------------------------------------------
 
     def wants_response_body(self, request: hyphae.Request, response: hyphae.Response) -> bool:
-        """Only the responses to batches this grafter changed."""
-        return id(request) in self._pending and self._pending[id(request)][0] is request
+        """Only the responses to batches this grafter changed or that asked for a hash."""
+        pending = self._pending.get(id(request))
+        return pending is not None and pending.request is request
 
     def on_response(
         self, request: hyphae.Request, response: hyphae.Response
     ) -> hyphae.Response | None:
         """Put each replaced item's original asset ID back; None if nothing changes."""
         pending = self._pending.pop(id(request), None)
-        if pending is None or pending[0] is not request or response.body is None:
+        if pending is None or pending.request is not request or response.body is None:
             return None
-        originals = pending[1]
+        originals = pending.originals
         items = _items(response.body)
         if items is None:
             if 200 <= response.status < 300:  # noqa: PLR2004 - a success that can't be mapped back
@@ -186,6 +216,8 @@ class Grafter:
         changed = False
         for item in items:
             request_id = item.get(_REQUEST_ID)
+            if _key(request_id) in pending.hashed:
+                self._hash_answered(pending, item)
             if request_id is None or _key(request_id) not in originals:
                 continue
             mapped += 1
@@ -193,12 +225,14 @@ class Grafter:
                 original = originals[_key(request_id)]
                 item[_ASSET_ID] = _like(original, item[_ASSET_ID])
                 changed = True
-        log.debug(
-            "Asset batch response: %d of %d replaced items found by request ID (item fields: %s)",
-            mapped,
-            len(originals),
-            _fields(items),
-        )
+        if originals:
+            log.debug(
+                "Asset batch response: %d of %d replaced items found by request ID "
+                "(item fields: %s)",
+                mapped,
+                len(originals),
+                _fields(items),
+            )
         if not changed:
             return None
         return replace(response, body=json.dumps(items, separators=(",", ":")).encode())
@@ -212,8 +246,36 @@ class Grafter:
                 self._unreadable("request", reason)
             return
         pending = self._pending.pop(id(request), None)
-        if pending is not None and pending[0] is request and 200 <= response.status < 300:  # noqa: PLR2004
+        if (
+            pending is not None
+            and pending.originals
+            and pending.request is request
+            and 200 <= response.status < 300  # noqa: PLR2004
+        ):
             self._unreadable("response", reason)
+
+    def _hash_answered(self, pending: _Pending, item: dict[str, Any]) -> None:
+        """Log which asset a hash item turned out to be; never silent if it is a replaced one."""
+        named = _as_id(item.get(_ASSET_ID))
+        hash_text = pending.hashed[_key(item.get(_REQUEST_ID))]
+        log.debug(
+            "Asset batch response for hash %s: %s (item fields: %s)",
+            hash_text,
+            f"asset {named}" if named is not None else "names no asset ID",
+            _fields([item]),
+        )
+        if named is None or named not in pending.swaps:
+            return
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-GRAFT-05",
+                "Roblox asked for the replaced asset {asset} by its content hash, which Verdra "
+                "can't replace yet, so the original may show.",
+            ).format(asset=named),
+        )
+        if self.on_unreadable is not None:
+            self.on_unreadable(f"asset {named} asked for by hash")
 
     def _unreadable(self, where: str, reason: str) -> None:
         """A batch couldn't be read while a replacement is active: never silent (S-21)."""
@@ -257,6 +319,20 @@ def _items(body: bytes) -> list[dict[str, Any]] | None:
     if isinstance(items, list) and all(isinstance(item, dict) for item in items):
         return items  # type: ignore[return-value]
     return None
+
+
+def _hash_text(value: object) -> str:
+    """A hash as logged: hex digits only; any other value is never written to the log."""
+    if isinstance(value, str) and _HEX_HASH.fullmatch(value):
+        return value.lower()
+    return "(not a hex hash)"
+
+
+def _type_text(value: object) -> str:
+    """An asset type as logged: a short word or number only."""
+    if isinstance(value, int | str) and re.fullmatch(r"[A-Za-z0-9]{1,40}", str(value)):
+        return str(value)
+    return "unknown"
 
 
 def _listed(values: list[str]) -> str:

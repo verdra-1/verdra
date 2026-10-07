@@ -564,6 +564,13 @@
     </message>
 </context>
 <context>
+    <name>M-GRAFT-05</name>
+    <message>
+        <source>Roblox asked for the replaced asset {asset} by its content hash, which Verdra can&apos;t replace yet, so the original may show.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-JOB-01</name>
     <message>
         <source>{task} canceled.</source>
