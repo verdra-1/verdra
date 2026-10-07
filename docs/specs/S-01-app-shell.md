@@ -195,6 +195,9 @@ offers at most one action. Every toast is also written to Activity (S-03).
     macOS deferred, both planned later).
 15. The window is visible within 1.5 s of launch on a mid-range machine (manual, from the startup
     timestamps in the log).
+16. At the smallest window size (1000 × 640) and every text size, every screen fits: no visible
+    button is narrower than its label needs, Replacements with its editor open and the M-LAUNCH-08
+    banner showing included.
 
 ## Lives in
 
@@ -207,3 +210,10 @@ offers at most one action. Every toast is also written to Activity (S-03).
   matches; decision record 0008).
 - **Features not built yet** (routing, replacements, Reset everything) are shown disabled with a
   reason rather than hidden, so the shell's layout is final from M0.
+- **Labels cut off at the smallest window (2026-10-08, Guide B on the maintainer's PC).** With
+  the replacement editor open, the Replacements screen needed about 1200 px, so Qt squeezed its
+  toolbar to "replacem" and "riew chan" in a 1000 px window. The toolbar now has two rows (Add
+  replacement and Remove; Undo, Redo and Preview changes), the editor's four target kinds sit
+  two by two, and "Profile options" has its own line. Test 16 checks every screen at every text
+  size, so a later screen that doesn't fit fails CI.
+

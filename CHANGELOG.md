@@ -203,6 +203,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Button labels on the Replacements screen are no longer cut off when the window is at its
+  smallest and the editor is open.
 - Quitting after Reset everything with "Also delete my profiles, library and settings" could
   write a settings change made just before back into the deleted folder. Nothing is written
   after the folders are deleted.
