@@ -72,6 +72,8 @@ Make Roblox receive the replacement instead of the original asset.
 - M-GRAFT-10 (Replacement warning and Activity, new) "The replacement from <host> couldn't be
   downloaded: <reason>."
 - M-GRAFT-11 (Activity, new) "Downloaded the replacement from <host>. It applies from now on."
+- M-GRAFT-12 (Activity, new) "Roblox downloaded asset <asset> as a <kind>, but its replacement is
+  another type of asset, so the original shows." (<kind> is "picture" or "mesh".)
 - M-GRAFT-05 (Activity, new) "Roblox asked for the replaced asset <asset> by its content hash,
   which Verdra can't replace yet, so the original may show."
 - M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so
@@ -118,6 +120,9 @@ Make Roblox receive the replacement instead of the original asset.
     tries again; Apply now shows M-GRAFT-01 when a replacement couldn't be prepared. bark/rain
     fetches HTTPS only, refuses a redirect to anything else, stops at its limit and caches by
     the link's SHA-256.
+17. A FileMesh or OBJ from the PC is served as FileMesh 2.00 with the same triangles when the
+    CDN answers with a FileMesh; Remove serves an empty mesh; a picture for a mesh, or a mesh for
+    a picture, lets the original through with M-GRAFT-12 and Degraded.
 
 ## Lives in
 
@@ -196,3 +201,12 @@ Make Roblox receive the replacement instead of the original asset.
   their response is read, and a response that names a replaced asset is never silent
   (M-GRAFT-05, Degraded); test 13. Test 14 checks every representation variant seen. What the
   two hash items were isn't known yet: the next log names their hash, type and answer.
+- **Meshes (2026-10-07).** A Local file or a link that is a FileMesh (versions 1.00 to 5.00)
+  or an OBJ is read by strata/clay (plan 10.7 limits) and written as FileMesh 2.00 when the
+  snapshot is built; when the Player downloads the original and the CDN answers with a FileMesh,
+  Verdra sends that instead. Remove sends an empty mesh (nothing drawn). A replacement of
+  another type than the download (a picture for a mesh, or the other way round) lets the
+  original through with M-GRAFT-12 and Degraded; the asset type check warns before that, in the
+  editor. Bones, skinning and levels of detail beyond the first aren't kept (S-33). Not verified
+  yet: that the Player draws a FileMesh 2.00 where the CDN's own was a newer version; the
+  owner's mesh test session shows it.

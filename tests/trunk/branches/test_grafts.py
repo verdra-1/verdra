@@ -470,7 +470,7 @@ def test_a_local_picture_is_prepared_as_png_and_ktx2_with_the_same_pixels(tmp_pa
             b"\x89PNG\r\n\x1a\nnot really",
             "This file couldn't be used: the image data",
         ),
-        ("model.mesh", b"version 2.00\n", "This part of Verdra isn't built yet."),
+        ("model.mesh", b"version 2.00\n", "This file couldn't be used:"),  # cut short
         ("sound.ogg", b"OggS\0\x02", "This part of Verdra isn't built yet."),
     ],
 )

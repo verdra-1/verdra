@@ -32,7 +32,7 @@ import verdra
 from verdra.bark import rain
 from verdra.roots import rules
 from verdra.soil import atomic, terrain
-from verdra.strata import ochre
+from verdra.strata import clay, ochre
 
 log = logging.getLogger(__name__)
 
@@ -361,7 +361,12 @@ def prepare_content(
     if graft.slot is not None:
         return _soon()
     if graft.kind == "remove":
-        return rules.Content(ochre.to_png(_CLEAR), ochre.write_ktx2(_CLEAR), "remove")
+        return rules.Content(
+            ochre.to_png(_CLEAR),
+            ochre.write_ktx2(_CLEAR),
+            "remove",
+            clay.write_filemesh(clay.Mesh((), ())),  # an empty mesh: nothing drawn
+        )
     if graft.kind == "url":
         data = fetched(graft.value) if fetched is not None else _soon()
         if isinstance(data, str):
@@ -376,7 +381,7 @@ def _file_content(path: Path) -> rules.Content | str:
     family, problem = file_family(path)
     if problem is not None:
         return problem
-    if family != "Image":
+    if family not in {"Image", "Mesh"}:
         return _soon()
     try:
         data = atomic.read_bytes(path)
@@ -388,17 +393,21 @@ def _file_content(path: Path) -> rules.Content | str:
 
 
 def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
-    """Decode a picture once and write it as PNG and KTX2, or say why it can't be used."""
+    """Decode a picture or mesh once and write what the CDN serves, or say why it can't be used.
+
+    A picture becomes PNG and KTX2; a FileMesh (any version clay reads) or an OBJ becomes a
+    FileMesh 2.00 (strata/clay, plan 10.7 limits). Sounds follow later (M-SOON-01).
+    """
     kind = sniff(data[:_HEAD], where)
-    if kind is None or FAMILIES[kind] != "Image":
-        return (
-            _soon()
-            if kind is not None
-            else QCoreApplication.translate(
-                "M-EDIT-08",
-                "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.",
-            )
+    if kind is None:
+        return QCoreApplication.translate(
+            "M-EDIT-08",
+            "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.",
         )
+    if FAMILIES[kind] == "Mesh":
+        return _mesh(data, kind, source)
+    if FAMILIES[kind] != "Image":
+        return _soon()
     try:
         pixels = ochre.read_image(data)
     except ochre.OchreError as error:
@@ -406,6 +415,16 @@ def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
             "M-GRAFT-06", "This file couldn't be used: {reason}."
         ).format(reason=error)
     return rules.Content(ochre.to_png(pixels), ochre.write_ktx2(pixels), source)
+
+
+def _mesh(data: bytes, kind: str, source: str) -> rules.Content | str:
+    try:
+        mesh = clay.read_obj(data) if kind == "obj" else clay.read_mesh(data)
+        return rules.Content(b"", b"", source, clay.write_filemesh(mesh))
+    except clay.ClayError as error:
+        return QCoreApplication.translate(
+            "M-GRAFT-06", "This file couldn't be used: {reason}."
+        ).format(reason=error)
 
 
 def compile_snapshot(

@@ -159,16 +159,18 @@ class Graft:
 
 @dataclass(frozen=True, slots=True)
 class Content:
-    """A replacement's content, ready to serve in each image format the CDN may send (S-21).
+    """A replacement's content, ready to serve in each format the CDN may send (S-21).
 
     Prepared when the snapshot is built (rule 2: the proxy only picks bytes, it converts
-    nothing): `png` and `ktx2` hold the same pixels.
+    nothing): `png` and `ktx2` hold the same pixels; `mesh` is a FileMesh. A picture has no mesh
+    and a mesh no picture (empty bytes); Remove has all three.
     """
 
     png: bytes
     ktx2: bytes
     #: Where it came from, for the log: "file", "url" or "remove".
     source: str
+    mesh: bytes = b""
 
 
 @dataclass(frozen=True, slots=True)

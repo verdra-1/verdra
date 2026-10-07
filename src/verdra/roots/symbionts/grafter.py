@@ -60,6 +60,7 @@ _LOCATION: Final = "location"
 _DOWNLOADS_LIMIT: Final = 1024
 _PNG: Final = b"\x89PNG\r\n\x1a\n"
 _KTX2: Final = b"\xabKTX 20\xbb\r\n\x1a\n"
+_FILEMESH: Final = re.compile(rb"version \d\.\d\d\r?\n")
 #: Response headers about the original bytes that don't describe the replacement.
 _STALE_HEADERS: Final = frozenset({b"content-md5", b"etag", b"last-modified"})
 #: What a content hash looks like; anything else is logged as "not a hash", never verbatim.
@@ -371,7 +372,23 @@ class Grafter:
             served, kind = content.ktx2, "KTX2"
         elif body.startswith(_PNG):
             served, kind = content.png, "PNG"
+        elif _FILEMESH.match(body):
+            served, kind = content.mesh, "FileMesh"
         else:
+            served, kind = b"", ""
+        if kind and not served:
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-GRAFT-12",
+                    "Roblox downloaded asset {asset} as a {kind}, but its replacement is another "
+                    "type of asset, so the original shows.",
+                ).format(asset=original, kind="mesh" if kind == "FileMesh" else "picture"),
+            )
+            if self.on_unreadable is not None:
+                self.on_unreadable(f"asset {original} replaced by another type")
+            return None
+        if not kind:
             log.warning(
                 "%s",
                 QCoreApplication.translate(
