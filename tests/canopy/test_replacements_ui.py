@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
+from verdra.bark import rain
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
@@ -23,6 +25,7 @@ from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import terrain
 from verdra.strata import ochre
+from verdra.trunk import tendrils
 from verdra.trunk.branches import grafts, sprout
 from verdra.trunk.sapwood import startup
 from verdra.trunk.sapwood.startup import Services
@@ -622,3 +625,106 @@ def test_apply_now_says_when_replacements_couldnt_be_prepared(
     )
     shell.window.header.apply_now.click()
     assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
+
+
+@pytest.fixture
+def downloading(
+    services: Services, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[Shell, StubSprout, threading.Event, list[str]]]:
+    """A shell whose links download on a worker, held until the test sets the gate."""
+    gate = threading.Event()
+    fetched: list[str] = []
+    answers: list[bytes | rain.RainError] = []
+
+    def fetch(url: str, folder: Path, **_kwargs: object) -> bytes:
+        fetched.append(url)
+        gate.wait(5)
+        answer = answers.pop(0) if answers else ochre.to_png(ochre.Pixels(1, 1, b"\1\2\3\xff"))
+        if isinstance(answer, rain.RainError):
+            raise answer
+        rain.cache_path(url, folder).parent.mkdir(parents=True, exist_ok=True)
+        rain.cache_path(url, folder).write_bytes(answer)
+        return answer
+
+    monkeypatch.setattr(rain, "fetch", fetch)
+    pool = tendrils.Tendrils(workers=1)
+    services.grafts = grafts.Grafts(terrain.config_dir() / "profiles", services.settings, pool=pool)
+    stub = StubSprout()
+    services.sprout = stub  # type: ignore[assignment]
+    shell = Shell(services)
+    shell.build()
+    qtbot.addWidget(shell.window)
+    shell.answers = answers  # type: ignore[attr-defined]
+    yield shell, stub, gate, fetched
+    gate.set()
+    pool.shutdown(grace=2)
+    shell.window.allow_close = True
+    shell.window.close()
+    services.sprout = None
+    stub.deleteLater()
+    services.grafts.deleteLater()
+
+
+def add_link(service: grafts.Grafts, link: str) -> None:
+    profile = service.edit("create", "Links")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=ABOVE_UINT32),
+        grafts.Target(kind="url", value=link),
+        "Image",
+    )
+
+
+@pytest.mark.spec("S-24", 11)
+def test_apply_now_waits_for_a_link_still_downloading_then_goes_on(
+    downloading: tuple[Shell, StubSprout, threading.Event, list[str]], qtbot: QtBot
+) -> None:
+    shell, stub, gate, fetched = downloading
+    service = shell.services.grafts
+    assert service is not None
+    add_link(service, "https://pictures.example/wall.png")
+    shell.window.header.apply_now.click()
+    assert toasts(shell) == ["Downloading 1 replacement first. Apply now goes on when it's ready."]
+    assert stub.calls == []  # nothing moved or restarted yet
+    assert not any("couldn't be prepared" in text for text in toasts(shell))
+    shell.window.header.apply_now.click()  # a second click while waiting changes nothing
+    assert len(fetched) == 1
+    gate.set()
+    qtbot.waitUntil(lambda: stub.calls == ["clear"], timeout=5000)
+    assert ABOVE_UINT32 in service.holder.current.content  # applied, no second Apply now
+    assert "Applied 1 replacement. They'll appear next time Roblox starts." in toasts(shell)
+    shown = [t.text for t in shell.window.findChildren(Toast) if t.isVisibleTo(shell.window)]
+    assert not any(text.startswith("Downloading") for text in shown)  # the wait is over
+
+
+def test_a_link_that_fails_while_apply_now_waits_is_not_tried_in_a_loop(
+    downloading: tuple[Shell, StubSprout, threading.Event, list[str]], qtbot: QtBot
+) -> None:
+    shell, stub, gate, fetched = downloading
+    shell.answers.append(rain.RainError("the server answered 404"))  # type: ignore[attr-defined]
+    service = shell.services.grafts
+    assert service is not None
+    add_link(service, "https://pictures.example/gone.png")
+    shell.window.header.apply_now.click()
+    gate.set()
+    qtbot.waitUntil(lambda: stub.calls == ["clear"], timeout=5000)
+    assert len(fetched) == 1  # Apply now went on without trying it again
+    assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
+
+
+def test_canceling_the_wait_leaves_the_download_running(
+    downloading: tuple[Shell, StubSprout, threading.Event, list[str]], qtbot: QtBot
+) -> None:
+    shell, stub, gate, _fetched = downloading
+    service = shell.services.grafts
+    assert service is not None
+    add_link(service, "https://pictures.example/wall.png")
+    shell.window.header.apply_now.click()
+    [toast] = [t for t in shell.window.findChildren(Toast) if t.text.startswith("Downloading")]
+    assert toast.action_button is not None
+    toast.action_button.click()  # "Cancel"
+    with qtbot.waitSignal(service.settled, timeout=5000):
+        gate.set()
+    assert stub.calls == []  # canceled: Apply now didn't go on
+    assert ABOVE_UINT32 in service.holder.current.content  # the link still applies (S-21)

@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from verdra.canopy.crown import theme
 from verdra.canopy.crown.about import AboutDialog
-from verdra.canopy.crown.dew import Dew, Kind
+from verdra.canopy.crown.dew import Dew, Kind, Toast
 from verdra.canopy.crown.header import Header, StatusView, status_of
 from verdra.canopy.crown.seedling import Onboarding
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
@@ -243,6 +243,13 @@ class ApplyText(QObject):
             count,
         )
 
+    def waiting(self, count: int) -> str:
+        return self.tr(
+            "Downloading %n replacements first. Apply now goes on when they're ready.",
+            "M-APPLY-04",
+            count,
+        )
+
     def restarted_cached(self, count: int) -> str:
         return self.tr(
             "Applied %n replacements. Assets Roblox already saved may change only after it "
@@ -269,6 +276,8 @@ class Shell:
         self.shortcuts: Shortcuts
         #: M-LAUNCH-08's banner while a Player Verdra didn't start is running.
         self.others_banner: Notice | None = None
+        #: M-APPLY-04's toast while Apply now waits for downloads.
+        self.apply_waiting: Toast | None = None
 
     # --- startup.Interface ----------------------------------------------------------------
 
@@ -542,8 +551,12 @@ class Shell:
         if isinstance(screen, ReplacementsScreen) and self.window.stack.currentWidget() is screen:
             getattr(screen, name).click()  # a disabled button ignores the click
 
-    def apply_now(self) -> None:
+    def apply_now(self, *, retry: bool = True) -> None:
         """Apply now (spec S-24): publish, move Roblox's cache aside, restart Roblox if it runs.
+
+        Links still downloading are waited for first, with a toast that shows it (M-APPLY-04);
+        Apply now goes on by itself when the last one is done (without trying a failed one
+        again, so a link that keeps failing can't keep it waiting).
 
         The cache moves only while no Player or Studio runs (S-24 rule 4): Studio, or a Player
         Verdra didn't start, is never closed; Apply now then says why the cache stayed. A Player
@@ -552,7 +565,11 @@ class Shell:
         grafts, sprout = self.services.grafts, self.services.sprout
         if grafts is None:
             return
-        count = grafts.publish()
+        count = grafts.publish(retry=retry)
+        if grafts.downloading:  # M-APPLY-04: go on once the links are here, without a 2nd click
+            self._wait_for_downloads(grafts.downloading)
+            return
+        self._stop_waiting()
         if grafts.warnings:  # S-21: a replacement that can't be prepared is never silent
             self.window.dew.show(ApplyText().not_prepared(len(grafts.warnings)), Kind.WARNING)
         if sprout is None:
@@ -585,6 +602,34 @@ class Shell:
         if not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
         self.window.dew.show(ApplyText().next_time(count))
+
+    def _wait_for_downloads(self, count: int) -> None:
+        grafts = self.services.grafts
+        if self.apply_waiting is not None or grafts is None:
+            return  # already waiting: Apply now goes on once
+        self.apply_waiting = self.window.dew.show(
+            ApplyText().waiting(count),
+            Kind.INFO,
+            (QCoreApplication.translate("M-APPLY-04", "Cancel"), self._stop_waiting),
+            progress=True,
+        )
+        grafts.settled.connect(self._downloads_settled)
+
+    def _downloads_settled(self) -> None:
+        if self.apply_waiting is None:
+            return
+        self._stop_waiting()
+        self.apply_now(retry=False)
+
+    def _stop_waiting(self) -> None:
+        """Stop waiting for downloads (they carry on and apply when ready, S-21)."""
+        grafts, toast = self.services.grafts, self.apply_waiting
+        if toast is None:
+            return  # not waiting
+        self.apply_waiting = None
+        if grafts is not None:
+            grafts.settled.disconnect(self._downloads_settled)
+        toast.dismiss()
 
     def _cache_can_move(self, running: RunningRoblox | None, others: frozenset[int]) -> bool:
         """Whether nothing but Verdra's own Players runs; else say why the cache stays."""

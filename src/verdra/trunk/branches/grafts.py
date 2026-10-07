@@ -860,11 +860,16 @@ class Grafts(QObject):
     connection without another Apply now. A failed download is left out with its reason
     (M-GRAFT-10) and tried again at the next Apply now (S-21).
 
+    Apply now waits for links still downloading (`downloading`), and `settled` says when the
+    last one has finished or failed, so it can go on without a second click.
+
     Signals:
         changed(): The profiles changed (an edit, undo or redo), or a link finished downloading.
+        settled(): No link is downloading any more (the last one finished or failed).
     """
 
     changed = Signal()
+    settled = Signal()
 
     def __init__(
         self,
@@ -896,6 +901,11 @@ class Grafts(QObject):
     def profiles(self) -> list[Profile]:
         """The profiles, highest first (read only: edit through the methods)."""
         return self.store.profiles
+
+    @property
+    def downloading(self) -> int:
+        """How many links are downloading now."""
+        return sum(1 for reason in self._links.values() if not reason)
 
     def lookup(self, asset_id: int, done: Callable[[str | None, str], None]) -> None:
         """Ask Roblox what asset `asset_id` is (S-22), on a worker; answer on the Qt thread.
@@ -942,13 +952,15 @@ class Grafts(QObject):
         """Preview changes (S-23): what the next Apply now publishes (no download starts)."""
         return preview(self.store.compile(self._cached_link).snapshot)
 
-    def publish(self) -> int:
+    def publish(self, *, retry: bool = True) -> int:
         """Compile and publish the snapshot; return how many originals it replaces.
 
-        Apply now tries a link whose download failed again.
+        Apply now tries a link whose download failed again (`retry`); when it goes on after
+        waiting for downloads, it doesn't, so a link that keeps failing can't keep it waiting.
         """
-        for link in [link for link, reason in self._links.items() if reason]:
-            del self._links[link]
+        if retry:
+            for link in [link for link, reason in self._links.items() if reason]:
+                del self._links[link]
         return self._publish()
 
     def _publish(self) -> int:
@@ -994,12 +1006,16 @@ class Grafts(QObject):
         )
         self._publish()
         self.changed.emit()
+        if not self.downloading:
+            self.settled.emit()
 
     def _download_failed(self, url: str, reason: str) -> None:
         self._links[url] = reason or "?"
         log.warning("%s", self._failed(url, self._links[url]))
         self._publish()  # the table shows why; the next Apply now tries again
         self.changed.emit()
+        if not self.downloading:
+            self.settled.emit()
 
     @staticmethod
     def _downloading() -> str:
