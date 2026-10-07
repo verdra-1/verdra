@@ -1,0 +1,39 @@
+First texture swap that works, maintainer's PC (Windows 11), 2026-10-07: the maintainer's
+verdra.log of that evening, three Verdra runs. Counts, anonymised host and path names, and the two
+public asset IDs of the swap only: no user name, process IDs, query strings, timestamps or
+tokens (plan 16.2). Detailed logging was on.
+
+Replacement: 15553230204 (original, a public Toolbox image) -> 11473800131 (replacement).
+
+Run 1 (a build from before verdra-1/verdra#91): 8 POST assetdelivery.roblox.com /v1/assets/batch;
+7 "An asset batch request was compressed (gzip); passed on unchanged", 1 read without a match.
+(The old behavior, for comparison.)
+
+Run 2 (main after verdra-1/verdra#91), after "Moved Roblox's saved assets ..." and
+"Applied 1 replacement":
+20 | POST assetdelivery.roblox.com /v1/assets/batch
+18 | of them gzip-compressed, 2 not compressed
+3 | batches with "15553230204->11473800131" (in batches of 61, 2 and 1 items)
+3 | "Asset batch response: 1 of 1 replaced items found by request ID"
+2 | batches with one item asked for by hash, not by asset ID ("asked for: ?")
+0 | warnings
+
+Run 3 (same build), after three "A Roblox Player that Verdra didn't start is running ..."
+warnings, the Player closed, then "Moved Roblox's saved assets ..." and "Applied 1 replacement":
+14 | POST assetdelivery.roblox.com /v1/assets/batch
+13 | of them gzip-compressed, 1 not compressed
+3 | batches with "15553230204->11473800131" (in batches of 61, 1 and 1 items)
+3 | "Asset batch response: 1 of 1 replaced items found by request ID"
+2 | batches with one item asked for by hash
+3 | warnings (the three foreign-Player warnings above; none from the grafter)
+
+Item field names seen in the batches that carried the original: assetId, serverPlaceId,
+assetType, requestId, contentRepresentationPriorityList, doNotFallbackToBaselineRepresentation.
+Response field names for those items: location, requestId, isArchived, assetTypeId,
+assetMetadatas, isRecordable, contentRepresentationSpecifier.
+Hash items' field names: hash, contentRepresentationPriorityList,
+doNotFallbackToBaselineRepresentation, assetType, accept, requestId.
+
+The maintainer reports the Player showed 11473800131 on the wall, and recorded a 65-second
+video in which the replacement stays from every angle and distance and the original never
+comes back (the video isn't in the repository).

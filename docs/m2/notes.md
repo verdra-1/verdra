@@ -167,3 +167,17 @@ names only).
 - `rbx-storage-sc`: a folder that held no files before or after the join (its date changed, so
   something opened it). An empty folder holds no saved picture, so moving it isn't needed.
 - Not verified: what either is for. Roblox doesn't document them.
+
+## First texture swap works (2026-10-07)
+
+With main after verdra-1/verdra#91 the Player showed the replacement (11473800131) in place of
+the original (15553230204). Evidence: `docs/platforms/evidence/windows/first-swap-works-2026-10-07.txt`.
+
+| | What it shows |
+|---|---|
+| **The log proves** | In each of the two runs with the fixed build, the original was asked for in three batches, all gzip-compressed (in batches of 61, 2 and 1 items, then 61, 1 and 1); each time the grafter asked for the replacement instead, and each response was rewritten by request ID ("1 of 1 replaced items found by request ID"). No grafter warning, so no batch went unread. Apply now moved the cache first. |
+| **The log doesn't prove** | What the Player drew: the log ends at the batch response, and the downloads from the CDN host pass through as tunnels. Whether every representation of the picture went through the replacement: two items per run were asked for by hash, not by asset ID (analysed in S-21's refinement for hash items). Anything about Studio, which stayed closed. |
+| **The owner saw** | The replacement on the wall, stable from every angle and distance for 65 seconds of video; the original never came back. A light halo along the paint's top edge and slight shimmer at a distance were seen; the owner checks them with the image placed directly in Studio (most likely Roblox's texture filtering and the image's transparent edges). |
+
+The first attempts' causes, in order: the original already in Roblox's cache (now moved aside by
+Apply now), then gzip-compressed batches passed on unread (verdra-1/verdra#91).
