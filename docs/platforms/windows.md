@@ -30,7 +30,7 @@ Filled in from [protocol.md](protocol.md). Until a row is `Confirmed`, no code m
 | W-09 | A running Roblox's proxy variables can be read (S-15) | Readable as the same user, without administrator rights: the coexistence check read `HTTPS_PROXY` and `HTTP_PROXY` = `http://127.0.0.1:49443` from three running Players | Confirmed, PC | 2026-10-04 | Stage 2 |
 | W-10 | The hosts file is readable without administrator rights (S-15) | Readable as a normal user (20 lines) | Confirmed, PC | 2026-10-04 | Stage 1 |
 | V0 | Client honors `HTTPS_PROXY` / `HTTP_PROXY` | The Player launched with the variables sent all its HTTPS traffic through Verdra: 133 connections to 13 hosts, two game joins | Confirmed, PC | 2026-10-04 | Stage 2 |
-| V1 | Asset batch requests (`POST assetdelivery.roblox.com/v1/assets/batch`) are JSON arrays of items with an asset ID and a request ID; the response names each item's content location, served from `fts.rbxcdn.com` (S-21) | Seen in the Stage 2 capture: 204 batch requests and the `fts.rbxcdn.com` downloads that follow them (paths only; bodies weren't logged). Second swap test: one batch read, a JSON array of items with `assetId`, `xcachesplit`, `assetType` and `requestId` (field names only), and 14 of 15 batches sent with `Content-Encoding: gzip` | Request shape and compression: Observed, PC, 2026-10-07. Response shape: Unconfirmed until a swap is seen in game | 2026-10-07 | `evidence/windows/stage2-2026-10-04.txt`, `evidence/windows/second-swap-2026-10-07.txt` |
+| V1 | Asset batch requests (`POST assetdelivery.roblox.com/v1/assets/batch`) are JSON arrays of items with an asset ID and a request ID; the response names each item's content location, served from `fts.rbxcdn.com` (S-21) | Seen in the Stage 2 capture: 204 batch requests and the `fts.rbxcdn.com` downloads that follow them (paths only; bodies weren't logged). Second swap test: one batch read, a JSON array of items with `assetId`, `xcachesplit`, `assetType` and `requestId` (field names only), and 14 of 15 batches sent with `Content-Encoding: gzip` | Request and response shape, and compression: Observed, PC, 2026-10-07; an ID swap seen in game the same day | 2026-10-07 | `evidence/windows/stage2-2026-10-04.txt`, `evidence/windows/second-swap-2026-10-07.txt`, `evidence/windows/first-swap-works-2026-10-07.txt` |
 
 ## Maintainer's PC compared with the CI runner
 
@@ -106,6 +106,23 @@ in [`docs/m2/notes.md`](../m2/notes.md).
 V1 (the batch body shape) is now Observed on the PC: the one batch Verdra read was a JSON array
 of items with `assetId`, `xcachesplit`, `assetType` and `requestId`, and the Player sends most
 batches with `Content-Encoding: gzip`.
+
+## First texture swap works (maintainer's PC, 2026-10-07)
+
+From the maintainer's `verdra.log`, anonymised in `evidence/windows/first-swap-works-2026-10-07.txt`.
+The analysis is in [`docs/m2/notes.md`](../m2/notes.md).
+
+| Check | Evidence | Result |
+|---|---|---|
+| Cache moved before the join | "Moved Roblox's saved assets ..." in both runs | Pass |
+| The original asked for and replaced | 3 batches per run with `15553230204->11473800131`, all gzip-compressed | Pass |
+| Responses mapped back | 3 "1 of 1 replaced items found by request ID" per run | Pass |
+| No batch unread | No grafter warning | Pass |
+| The wall | The owner saw 11473800131; 65-second video, the original never came back | **Pass** |
+
+V1 is now Observed on the PC for requests and responses: response items carry `location`,
+`requestId`, `assetTypeId`, `contentRepresentationSpecifier`, `assetMetadatas`, `isArchived` and
+`isRecordable` (field names only).
 
 ## Differences from the plan
 
