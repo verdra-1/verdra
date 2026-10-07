@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import re
 import socket
@@ -313,6 +314,11 @@ class RoutingPlatform(FakePlatform):
         self.hosts = hosts or Path(os.devnull)
         self.running: list[humus.RunningClient] | humus.Unsupported = []
         self.checked_on: list[bool] = []
+        #: This user's Players and Studios, as the system lists them.
+        self.processes = humus.RobloxProcesses()
+
+    def roblox_processes(self) -> humus.RobloxProcesses:
+        return self.processes
 
     def hosts_file(self) -> Path:
         return self.hosts
@@ -367,6 +373,7 @@ def routed(
         ledger=lambda: ledger,
         vault=lambda: vault,
         clock=lambda: NOW,
+        schedule=routing_clock.schedule,
     )
     yield made, platform, ledger
     made.stop_routing()
@@ -1172,3 +1179,159 @@ def test_delete_backups_removes_them_all_and_reset_then_has_none_to_restore(
     assert summary.removed == 0 and summary.failed == []
     made.deleteLater()
     status.deleteLater()
+
+
+# --- A Roblox Player Verdra didn't start (M-LAUNCH-08 to M-LAUNCH-16) ------------------------
+
+
+def sleeper() -> subprocess.Popen[bytes]:
+    """A process standing in for a running Player (killed by the test)."""
+    return subprocess.Popen(SLEEP)  # noqa: S603 - the test's own interpreter
+
+
+def stop(*processes: subprocess.Popen[bytes]) -> None:
+    for process in processes:
+        process.kill()
+        process.wait()
+
+
+@pytest.mark.spec("S-12", 8)
+def test_a_join_waits_while_a_player_verdra_didnt_start_runs(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    routing_clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    made, platform, _ledger = routed
+    made.start_routing()
+    platform.processes = humus.RobloxProcesses(players=(4242,))
+    held: list[str] = []
+    seen: list[bool] = []
+    made.held_back.connect(held.append)
+    made.others_changed.connect(seen.append)
+    link = "roblox-player:1+launchmode:play+gameinfo:x"
+    with caplog.at_level("INFO", logger="verdra"):
+        made.launch(link)
+    assert held == [link]
+    assert platform.launched == []  # nothing started: the join would go to that Player
+    assert seen == [True]
+    assert made.status.current.state.value == "degraded"
+    assert made.status.current.reason == (
+        "Roblox is already running without Verdra. Close it completely, then click Apply now."
+    )
+    assert "Verdra didn't start Roblox yet: Roblox is already running without Verdra" in (
+        caplog.text
+    )
+    made.launch(link, despite_others=True)  # "Continue anyway"
+    assert platform.launched == [(link, made.router.port)]
+    platform.processes = humus.RobloxProcesses()  # the user closed it
+    routing_clock.advance(made.OTHERS_WATCH_SECONDS)
+    assert seen == [True, False]
+    assert made.status.current.state.value == "routing"
+    made.stop_watching()
+
+
+@pytest.mark.spec("S-12", 9)
+def test_every_launch_says_how_it_went(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    routing_clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    made, platform, _ledger = routed
+    with caplog.at_level("INFO", logger="verdra"):
+        made.launch("roblox-player:1")
+        assert "Started Roblox through Verdra (process 999999999)." in caplog.text
+        # Ten seconds later it's gone (the fake process never ran) and nothing else runs.
+        routing_clock.advance(made.HANDOFF_SECONDS)
+    assert "The Roblox Verdra started closed right away (process 999999999)." in caplog.text
+    # Again, but this time a Player Verdra didn't start is running: the game went there.
+    handed: list[str] = []
+    made.handed_off.connect(handed.append)
+    made.launch("roblox-player:2")
+    platform.processes = humus.RobloxProcesses(players=(4242,))
+    with caplog.at_level("INFO", logger="verdra"):
+        routing_clock.advance(made.HANDOFF_SECONDS)
+    assert handed == [
+        "Roblox handed this game to the Roblox that was already running without Verdra "
+        "(process 4242), so your replacements don't show there. Close Roblox completely, then "
+        "join again."
+    ]
+    made.stop_watching()
+
+
+def test_a_launch_that_fails_says_why(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, platform, _ledger = routed
+
+    def broken(*_args: object, **_kwargs: object) -> int:
+        raise PermissionError(13, "Access is denied")
+
+    platform.launch_roblox = broken  # type: ignore[method-assign]
+    said: list[str] = []
+    made.refused.connect(said.append)
+    made.launch("roblox-player:1")
+    assert said == ["Verdra couldn't start Roblox: Access is denied."]
+    assert made.status._launch is None  # noqa: SLF001 - no launch window for a failed launch
+
+
+def test_a_player_using_verdras_proxy_counts_as_verdras(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], tmp_path: Path
+) -> None:
+    made, platform, _ledger = routed
+    made.start_routing()
+    player = sleeper()
+    other = sleeper()
+    try:
+        port = made.router.port
+        assert port is not None
+        platform.processes = humus.RobloxProcesses(players=(player.pid, other.pid))
+        proxy = f"http://127.0.0.1:{port}"
+        names = ("HTTPS_PROXY", "HTTP_PROXY")
+        platform.running = [
+            # Started by an earlier run of Verdra: its environment names Verdra's proxy.
+            humus.RunningClient(player.pid, "RobloxPlayerBeta.exe", dict.fromkeys(names, proxy)),
+            # Windows wouldn't show this one's environment: not in the record, so not Verdra's.
+            humus.RunningClient(other.pid, "RobloxPlayerBeta.exe", None, "AccessDenied"),
+        ]
+        assert made.other_players() == {other.pid}
+        assert player.pid in made.players_started_here()  # taken into the record
+    finally:
+        stop(player, other)
+
+
+def test_the_record_of_players_survives_a_restart_of_verdra(tmp_path: Path) -> None:
+    record = tmp_path / "players.json"
+    player = sleeper()
+    try:
+        first = sprout.Launches(platform=SleepingPlatform(), record=record)  # type: ignore[arg-type]
+        first.adopt(player.pid)
+        again = sprout.Launches(platform=SleepingPlatform(), record=record)  # type: ignore[arg-type]
+        assert [p.pid for p in again.running()] == [player.pid]
+    finally:
+        stop(player)
+    # A PID that now belongs to another process (other creation time) is never taken for Roblox.
+    record.write_text(json.dumps({str(os.getpid()): 1.0}), encoding="utf-8")
+    assert sprout.Launches(platform=SleepingPlatform(), record=record).running() == []  # type: ignore[arg-type]
+    assert json.loads(record.read_text(encoding="utf-8")) == {}
+    record.write_text("not json", encoding="utf-8")
+    assert sprout.Launches(platform=SleepingPlatform(), record=record).started == {}  # type: ignore[arg-type]
+
+
+@pytest.mark.spec("S-12", 10)
+def test_closing_the_other_roblox_closes_only_players_verdra_didnt_start(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    made, platform, _ledger = routed
+    ours, other = sleeper(), sleeper()
+    try:
+        made.launches.adopt(ours.pid)
+        platform.processes = humus.RobloxProcesses(players=(ours.pid, other.pid))
+        with caplog.at_level("INFO", logger="verdra"):
+            made.close_others()
+        assert other.wait(timeout=10) is not None
+        assert ours.poll() is None  # Verdra's own Player keeps running
+        assert "Closed the Roblox that was running without Verdra." in caplog.text
+    finally:
+        stop(ours, other)
+        made.stop_watching()

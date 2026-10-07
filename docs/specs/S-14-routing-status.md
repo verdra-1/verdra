@@ -22,7 +22,7 @@ Always show whether routing works, and why not.
   |---|---|---|
   | Idle | Routing is off (never started, paused from the tray, or stopped) | "Start routing" (M-STATUS-03) |
   | Routing | Proxy listening; Roblox traffic seen in the last 2 minutes, or no Roblox running | none |
-  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10); (d) an asset batch couldn't be read while a replacement is active (S-21, M-GRAFT-03), for two minutes after the last one | (a) "Restart Roblox through Verdra"; (b) and (d) none, reason only; (c) "Repair certificate" (M-STATUS-04) |
+  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10); (d) an asset batch couldn't be read while a replacement is active (S-21, M-GRAFT-03), for two minutes after the last one; (e) a Roblox Player Verdra didn't start is running (S-12, M-LAUNCH-08) | (a) "Restart Roblox through Verdra"; (b) and (d) none, reason only; (c) "Repair certificate" (M-STATUS-04); (e) "Close Roblox…", after M-LAUNCH-10 |
   | Error | The proxy couldn't start (M-PROXY-01); another routing tool was detected (S-15, M-COEX-01); the keeper is unavailable (Hosts-file mode, M6) | One fix specific to the reason (M-STATUS-05) |
 
 - **Priority.** If several triggers hold, Error wins over Degraded, Degraded over Routing. Within
@@ -112,3 +112,7 @@ Always show whether routing works, and why not.
 - Until the action behind a fix exists (starting routing, launching Roblox, repairing the
   certificate), its button is shown disabled with M-SOON-01; the interface enables a fix only
   when a service handles it.
+- **Degraded (e), 2026-10-08.** A Roblox Player Verdra didn't start keeps the game away from
+  Verdra (S-12's refinement of that day); the status says so until that Player closes, and its fix
+  asks before closing it.
+

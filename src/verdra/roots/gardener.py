@@ -295,6 +295,8 @@ class Trigger(StrEnum):
     CA_MISSING = "ca_missing"
     #: Degraded (d): an asset batch couldn't be read while a replacement is active (S-21).
     ASSETS_UNREADABLE = "assets_unreadable"
+    #: Degraded (e): a Roblox Player Verdra didn't start is running (S-12, M-LAUNCH-08).
+    OTHER_PLAYER = "other_player"
     #: Error: the proxy couldn't start (M-PROXY-01).
     PROXY_FAILED = "proxy_failed"
     #: Error: another routing tool was detected (S-15, M-COEX-01).
@@ -438,6 +440,14 @@ class RoutingStatusSource(QObject):
     def ca_repaired(self) -> None:
         """The CA block is back in every trust file."""
         self._clear(Trigger.CA_MISSING)
+
+    def other_player(self, reason: str) -> None:
+        """A Player Verdra didn't start is running: Degraded (e) until it closes."""
+        self._raise(Trigger.OTHER_PLAYER, reason)
+
+    def other_player_closed(self) -> None:
+        """No Player Verdra didn't start runs any more."""
+        self._clear(Trigger.OTHER_PLAYER)
 
     def error(self, trigger: Trigger, reason: str) -> None:
         """Routing can't work (`trigger` is one of `ERROR_TRIGGERS`)."""

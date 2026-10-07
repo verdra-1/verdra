@@ -48,7 +48,7 @@ Start Roblox through Verdra on every platform without administrator rights.
    the change.
 3. No administrator rights are needed for anything in this spec.
 4. Only processes Verdra started are ever closed by Verdra (psutil, matched by process ID), never
-   other Roblox instances.
+   other Roblox instances, except a Player the user has just confirmed closing (M-LAUNCH-10).
 5. No path, executable name, cache file or registry location is used before it is recorded in
    `docs/platforms/<os>.md` (plan 16.4).
 
@@ -66,6 +66,28 @@ Start Roblox through Verdra on every platform without administrator rights.
   administrator rights, which routing per app never uses. Install Roblox for your account only,
   then try again. Nothing was changed."
 - M-LAUNCH-06 (Activity, new) "Verdra couldn't take over Roblox links: <reason>."
+- M-LAUNCH-08 (Notice and routing status, new) "Roblox is already running without Verdra.
+  Close it completely, then click Apply now." Buttons "How to close it" (M-LAUNCH-18) and
+  "Close Roblox…" (M-LAUNCH-10).
+- M-LAUNCH-09 (Activity, new) "Verdra didn't start Roblox yet: Roblox is already running without
+  Verdra, so the game would open there without your replacements."
+- M-LAUNCH-10 (Dialog, new) "Close the Roblox that is running without Verdra? Unsaved progress in
+  its game may be lost." Buttons "Close Roblox", "Cancel".
+- M-LAUNCH-11 (Activity, new) "Closed the Roblox that was running without Verdra."
+- M-LAUNCH-12 (Notice, new) "Verdra couldn't start Roblox: <reason>."
+- M-LAUNCH-13 (Activity, new) "Started Roblox through Verdra (process <pid>)."
+- M-LAUNCH-14 (Toast, new) "Roblox handed this game to the Roblox that was already running
+  without Verdra (process <pid>), so your replacements don't show there. Close Roblox completely,
+  then join again."
+- M-LAUNCH-15 (Activity, new) "The Roblox Verdra started closed right away (process <pid>)."
+- M-LAUNCH-16 (Activity, new) "Verdra couldn't close the Roblox that is running without Verdra.
+  Close it from Task Manager, then try again."
+- M-LAUNCH-17 (Dialog, new) "Roblox is already running without Verdra" / "If Verdra starts this
+  game now, it opens in that Roblox and your replacements don't show. Close it first, so the game
+  opens through Verdra." Buttons "Close Roblox and continue", "Continue anyway", "Cancel".
+- M-LAUNCH-18 (Dialog, new) "How to close Roblox completely" / "1. Leave your game and close every
+  Roblox window. 2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each
+  "Roblox" entry and click End task. 3. Back in Verdra, click Apply now, then join your game."
 - M-SHELL-02 (Dialog, new) "Quit Verdra while Roblox is running? Your replacements stop the next
   time Roblox starts." Buttons "Quit", "Cancel".
 
@@ -86,6 +108,13 @@ Start Roblox through Verdra on every platform without administrator rights.
    parameter and with unusual characters (property test).
 7. No Roblox found → M-LAUNCH-01; a Microsoft Store install detected → M-LAUNCH-02 (fixtures of
    both situations).
+8. With a Player Verdra didn't start running, the banner and the routing status show M-LAUNCH-08
+   until it closes, and a launch or a join from the browser waits for the user's choice
+   (M-LAUNCH-17): close it and continue, continue anyway, or cancel.
+9. Every launch says how it went in Activity: started (M-LAUNCH-13), failed (M-LAUNCH-12),
+   closed at once (M-LAUNCH-15) or handed to the Player already running (M-LAUNCH-14).
+10. "Close Roblox…" closes only Players Verdra didn't start, and only after M-LAUNCH-10 is
+    confirmed; Verdra's own Players keep running.
 
 ## Lives in
 
@@ -118,3 +147,23 @@ Start Roblox through Verdra on every platform without administrator rights.
   until a Store install is observed (W-04: none on the maintainer's PC); cache clearing (test 4)
   waits for the cache file list (W-06, not settled by a listing) and is carried to M2, where
   Apply now (S-24) is its first use.
+- **A Player Verdra didn't start (2026-10-08, after Guide B on the maintainer's PC).** A Player
+  left running from before Verdra started took the join from the browser: Roblox hands a new
+  game to a Player that is already running, and that Player never used Verdra, so nothing was
+  replaced and nothing on screen said why. Now:
+  - Verdra keeps its own record of the Players it started (`players.json` in its folder:
+    process IDs with their creation times, so a reused ID never matches), so a Verdra started
+    again still knows them. A Player missing from the record whose environment Windows shows,
+    with Verdra's proxy in it, joins the record. When Windows refuses to show the environment
+    ("AccessDenied", seen on the maintainer's PC for a Player Verdra didn't start), the record
+    alone decides. Nothing else is ever tried to look inside a Roblox process.
+  - Such a Player shows a banner on every screen (Replacements included) and the routing status
+    Degraded (e) (S-14) with M-LAUNCH-08, looked at again every 3 s until it closes.
+  - A launch (a join from the browser included) waits and asks (M-LAUNCH-17). "Close Roblox and
+    continue" closes it (rule 4's exception) and then launches; "Continue anyway" launches as
+    before.
+  - Rule 4's exception is the maintainer's decision of 2026-10-08: a Player Verdra didn't start
+    is closed only right after the user confirms, never silently.
+  - Ten seconds after each launch Verdra checks whether its Player still runs, and says where
+    the game went (test 9).
+

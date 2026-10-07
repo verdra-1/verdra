@@ -169,6 +169,10 @@
         <source>I understand</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Editor</name>
@@ -702,6 +706,113 @@
     <name>M-LAUNCH-06</name>
     <message>
         <source>Verdra couldn&apos;t take over Roblox links: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-08</name>
+    <message>
+        <source>Roblox is already running without Verdra. Close it completely, then click Apply now.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-09</name>
+    <message>
+        <source>Verdra didn&apos;t start Roblox yet: Roblox is already running without Verdra, so the game would open there without your replacements.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-10</name>
+    <message>
+        <source>Close Roblox…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close the Roblox that is running without Verdra? Unsaved progress in its game may be lost.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close Roblox</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-11</name>
+    <message>
+        <source>Closed the Roblox that was running without Verdra.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-12</name>
+    <message>
+        <source>Verdra couldn&apos;t start Roblox: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-13</name>
+    <message>
+        <source>Started Roblox through Verdra (process {pid}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-14</name>
+    <message>
+        <source>Roblox handed this game to the Roblox that was already running without Verdra (process {pid}), so your replacements don&apos;t show there. Close Roblox completely, then join again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-15</name>
+    <message>
+        <source>The Roblox Verdra started closed right away (process {pid}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-16</name>
+    <message>
+        <source>Verdra couldn&apos;t close the Roblox that is running without Verdra. Close it from Task Manager, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-17</name>
+    <message>
+        <source>Roblox is already running without Verdra</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>If Verdra starts this game now, it opens in that Roblox and your replacements don&apos;t show. Close it first, so the game opens through Verdra.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close Roblox and continue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Continue anyway</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-LAUNCH-18</name>
+    <message>
+        <source>How to close it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>How to close Roblox completely</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1. Leave your game and close every Roblox window.
+2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each &quot;Roblox&quot; entry and click End task.
+3. Back in Verdra, click Apply now, then join your game.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

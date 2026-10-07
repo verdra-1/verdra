@@ -33,7 +33,7 @@ from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
 from verdra.canopy.crown.splash import Splash
 from verdra.canopy.crown.tray import Tray
-from verdra.canopy.leaves.dialogs import DestructiveConfirmation
+from verdra.canopy.leaves.dialogs import Choice, DestructiveConfirmation, Information
 from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.screens.garden import TweaksScreen
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
@@ -42,7 +42,7 @@ from verdra.canopy.screens.rings import ActivityScreen
 from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
-from verdra.trunk.branches.sprout import cache_moved_text
+from verdra.trunk.branches.sprout import cache_moved_text, other_player_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -267,6 +267,8 @@ class Shell:
         self.tray: Tray | None = None
         self.window: MainWindow
         self.shortcuts: Shortcuts
+        #: M-LAUNCH-08's banner while a Player Verdra didn't start is running.
+        self.others_banner: Notice | None = None
 
     # --- startup.Interface ----------------------------------------------------------------
 
@@ -283,9 +285,15 @@ class Shell:
         if services.sprout is not None:
             services.sprout.refused.connect(self.show_launch_notice)
             services.sprout.other_tool.connect(self.show_other_tool)
+            services.sprout.others_changed.connect(self.show_others)
+            services.sprout.held_back.connect(self.ask_about_others)
+            services.sprout.handed_off.connect(self.show_handed_off)
             popover = self.window.header.popover
-            popover.set_handled({"start", "retry", "restart_roblox", "repair_certificate"})
+            popover.set_handled(
+                {"start", "retry", "restart_roblox", "repair_certificate", "close_others"}
+            )
             popover.fix_requested.connect(self.fix_routing)
+            services.sprout.refresh_others()
         if services.grafts is not None:
             self.window.header.enable_apply()
             self.window.header.apply_now.clicked.connect(self.apply_now)
@@ -416,12 +424,95 @@ class Shell:
             return
         if key == "restart_roblox":
             sprout.launch()
+        elif key == "close_others":
+            self.close_other_roblox()
         elif key == "retry":
             sprout.retry()
         elif key == "repair_certificate":
             sprout.repair_certificate()
         else:
             sprout.start_routing()
+
+    # --- A Roblox Player Verdra didn't start (M-LAUNCH-08 to M-LAUNCH-17) ------------------
+
+    def show_others(self, running: bool) -> None:  # noqa: FBT001 - a Qt signal's argument
+        """Show or remove the banner saying Roblox runs without Verdra (on every screen)."""
+        if running and self.others_banner is None:
+            banner = Notice(other_player_text(), Tone.WARNING, self.window)
+            banner.add_action(
+                QCoreApplication.translate("M-LAUNCH-18", "How to close it"), self.explain_others
+            )
+            banner.add_action(
+                QCoreApplication.translate("M-LAUNCH-10", "Close Roblox…"), self.close_other_roblox
+            )
+            self.window.notices.insertWidget(0, banner)
+            self.others_banner = banner
+        elif not running and self.others_banner is not None:
+            self.others_banner.hide()
+            self.others_banner.deleteLater()
+            self.others_banner = None
+
+    def show_handed_off(self, text: str) -> None:
+        """M-LAUNCH-14: the game most likely opened in the Roblox running without Verdra."""
+        self.window.dew.show(text, Kind.WARNING)
+
+    def explain_others(self) -> None:
+        """M-LAUNCH-18: how to close every Roblox, in plain steps."""
+        Information(
+            QCoreApplication.translate("M-LAUNCH-18", "How to close Roblox completely"),
+            QCoreApplication.translate(
+                "M-LAUNCH-18",
+                "1. Leave your game and close every Roblox window.\n"
+                "2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each "
+                '"Roblox" entry and click End task.\n'
+                "3. Back in Verdra, click Apply now, then join your game.",
+            ),
+            self.window,
+        ).exec()
+
+    def close_other_roblox(self) -> None:
+        """Close the Roblox running without Verdra, only once the user confirms (M-LAUNCH-10)."""
+        sprout = self.services.sprout
+        if sprout is None:
+            return
+        dialog = DestructiveConfirmation(
+            QCoreApplication.translate(
+                "M-LAUNCH-10",
+                "Close the Roblox that is running without Verdra? Unsaved progress in its game "
+                "may be lost.",
+            ),
+            QCoreApplication.translate("M-LAUNCH-10", "Close Roblox"),
+            parent=self.window,
+        )
+        if dialog.exec() == DestructiveConfirmation.DialogCode.Accepted:
+            sprout.close_others()
+
+    def ask_about_others(self, link: str) -> None:
+        """M-LAUNCH-17: a launch waits while Roblox runs without Verdra; the user decides."""
+        sprout = self.services.sprout
+        if sprout is None:
+            return
+        self.window.showNormal()
+        self.window.raise_()
+        dialog = Choice(
+            QCoreApplication.translate("M-LAUNCH-17", "Roblox is already running without Verdra"),
+            QCoreApplication.translate(
+                "M-LAUNCH-17",
+                "If Verdra starts this game now, it opens in that Roblox and your replacements "
+                "don't show. Close it first, so the game opens through Verdra.",
+            ),
+            QCoreApplication.translate("M-LAUNCH-17", "Close Roblox and continue"),
+            QCoreApplication.translate("M-LAUNCH-17", "Continue anyway"),
+            self.window,
+        )
+        dialog.exec()
+        if dialog.choice == "primary":
+            sprout.close_others()
+            if sprout.others:
+                return  # M-LAUNCH-16 says why; the banner stays
+            sprout.launch(link or None)
+        elif dialog.choice == "secondary":
+            sprout.launch(link or None, despite_others=True)
 
     def add_replacement(self) -> None:
         """Ctrl+N: show Replacements and open the editor drawer."""
@@ -456,8 +547,9 @@ class Shell:
             self.window.dew.show(ApplyText().next_time(count))
             return
         running = sprout.roblox_processes()
+        others = sprout.refresh_others()
         ours = sprout.players_started_here()
-        clear = self._cache_can_move(running, ours)
+        clear = self._cache_can_move(running, others)
         if ours:
             dialog = DestructiveConfirmation(
                 QCoreApplication.translate(
@@ -482,7 +574,7 @@ class Shell:
             sprout.start_routing()  # S-24 rule 2
         self.window.dew.show(ApplyText().next_time(count))
 
-    def _cache_can_move(self, running: RunningRoblox | None, ours: set[int]) -> bool:
+    def _cache_can_move(self, running: RunningRoblox | None, others: frozenset[int]) -> bool:
         """Whether nothing but Verdra's own Players runs; else say why the cache stays."""
         if running is None:
             return False
@@ -496,7 +588,7 @@ class Shell:
                 Kind.WARNING,
             )
             return False
-        if running.players - ours:
+        if others:
             self.window.dew.show(
                 QCoreApplication.translate(
                     "M-CACHE-03",

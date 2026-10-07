@@ -275,6 +275,8 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         settings,
         services.routing,
         pool=services.tendrils,
+        # The Players Verdra started, kept so a restarted Verdra still knows them (S-12).
+        launches=sprout_.Launches(record=terrain.config_dir() / "players.json"),
         diagnose=arguments.diagnose_interception,
         snapshots=services.grafts.holder,
     )
