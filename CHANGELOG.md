@@ -8,6 +8,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- Apply now waits for a link that is still downloading, shows it, and goes on by itself when
+  the download is done, so a second click is no longer needed.
 - Deleting a profile is now in a "Profile options" menu, says how many replacements go with it,
   and can be undone from the message that follows (or from the empty Replacements screen if it
   was the last profile).

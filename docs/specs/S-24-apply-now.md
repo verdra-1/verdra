@@ -54,6 +54,9 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - M-APPLY-02 (Toast) "Applied <n> replacements. They'll appear next time Roblox starts."
 - M-APPLY-03 (Toast, new) "Applied <n> replacements. Assets Roblox already saved may change
   only after it refreshes them." (A restart in which the cache stayed.)
+- M-APPLY-04 (Toast, new) "Downloading <n> replacements first. Apply now goes on when they're
+  ready." (singular: "Downloading 1 replacement first. Apply now goes on when it's ready.")
+  Button "Cancel".
 - M-CACHE-01 (Toast and Activity, new) "Moved Roblox's saved assets (<names>) to <folder>. Reset
   everything puts them back."
 - M-CACHE-02 (Toast, new) "Roblox Studio is open, so Verdra didn't move Roblox's saved assets
@@ -99,6 +102,9 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
     Reset everything restores the newest; a crash part-way through deleting an old backup
     leaves Reset everything correct and the leftover goes with the next deletion; a backup
     Reset still needs is never deleted; "Delete backups…" asks first, then deletes them all.
+11. Apply now with a link still downloading waits, showing M-APPLY-04, and goes on by itself when
+    the download is done; a download that fails meanwhile isn't tried again in a loop; "Cancel"
+    stops the wait, and the link still applies when it arrives (S-21).
 
 ## Lives in
 
@@ -124,3 +130,11 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - **Only the newest backup (owner, 2026-10-07).** Each Apply now kept every backup (the first
   was about 2.4 GB). Rule 5 and test 10 keep only the newest; the owner asked for it in plan
   16.2 ("Next steps", item 1).
+- **Waiting for downloads, 2026-10-08 (after Guide B on the maintainer's PC).** Apply now right
+  after adding a link said "1 replacement couldn't be prepared", the download finished a second
+  later, and a second Apply now was needed to move the cache and restart Roblox. Now Apply now
+  waits while a link downloads, with a toast that shows it (M-APPLY-04, with a progress bar and
+  "Cancel"), and goes on by itself once the last one is done (test 11). Going on doesn't retry a
+  failed link, so one that keeps failing can't keep Apply now waiting; it shows M-GRAFT-01 like
+  any replacement that couldn't be prepared. A second click while it waits changes nothing.
+

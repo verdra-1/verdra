@@ -140,6 +140,14 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>Downloading %n replacements first. Apply now goes on when they&apos;re ready.</source>
+        <comment>M-APPLY-04</comment>
+        <translation>
+            <numerusform>Downloading %n replacement first. Apply now goes on when it&apos;s ready.</numerusform>
+            <numerusform>Downloading %n replacements first. Apply now goes on when they&apos;re ready.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Applied %n replacements. Assets Roblox already saved may change only after it refreshes them.</source>
         <comment>M-APPLY-03</comment>
         <translation>
@@ -271,6 +279,13 @@
     <name>M-ABOUT-03</name>
     <message>
         <source>Release builds include this text; this build doesn&apos;t.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-APPLY-04</name>
+    <message>
+        <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
