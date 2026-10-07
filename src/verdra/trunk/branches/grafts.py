@@ -28,6 +28,8 @@ import msgspec
 from msgspec import Meta, Struct, field
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 
+import verdra
+from verdra.bark import rain
 from verdra.roots import rules
 from verdra.soil import atomic, terrain
 from verdra.strata import ochre
@@ -169,7 +171,7 @@ SIZE_LIMITS: Final[Mapping[str, int]] = MappingProxyType(
 #: Every target kind, and the ones the grafter serves today: the others stay out of the
 #: snapshot (`compile_snapshot`) until it serves content (S-21 deviation, docs/m2/notes.md).
 ALL_KINDS: Final = frozenset({"asset_id", "file", "url", "remove"})
-SERVED: Final = frozenset({"asset_id", "file"})
+SERVED: Final = frozenset({"asset_id", "file", "url", "remove"})
 _HEAD = 64
 _MAGIC: Final = (
     (b"\x89PNG\r\n\x1a\n", "png"),
@@ -333,41 +335,84 @@ class Compiled:
     left_out: tuple[tuple[str, str], ...]
 
 
-def prepare_content(graft: rules.Graft, folder: Path) -> rules.Content | str:
-    """Read and convert a content replacement's target ahead of time; or say why it can't be used.
+#: Remove (S-21): a fully transparent picture, served in whichever format the CDN answers with.
+_CLEAR: Final = ochre.Pixels(1, 1, b"\0\0\0\0")
 
-    S-21 rule 2: the proxy only picks prepared bytes. A Local file image is decoded once
-    (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2, the formats the CDN sends
-    images in; meshes and sounds follow with their own steps (M-SOON-01 until then).
-    """
-    soon = QCoreApplication.translate(
+#: For a link: its downloaded bytes, or why there are none yet (still downloading, or failed).
+Fetched = Callable[[str], bytes | str]
+
+
+def _soon() -> str:
+    return QCoreApplication.translate(
         "M-SOON-01", "This part of Verdra isn't built yet. It will arrive in a later version."
     )
-    if graft.kind != "file" or graft.slot is not None:
-        return soon
-    path = resolve(graft.value, folder)
+
+
+def prepare_content(
+    graft: rules.Graft, folder: Path, fetched: Fetched | None = None
+) -> rules.Content | str:
+    """Read and convert a content replacement's target ahead of time; or say why it can't be used.
+
+    S-21 rule 2: the proxy only picks prepared bytes. A Local file or a link's image is decoded
+    once (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2, the formats the CDN
+    sends images in; Remove is a transparent picture in both. Meshes and sounds follow with their
+    own steps (M-SOON-01 until then). A link's bytes come from `fetched` (bark/rain's cache).
+    """
+    if graft.slot is not None:
+        return _soon()
+    if graft.kind == "remove":
+        return rules.Content(ochre.to_png(_CLEAR), ochre.write_ktx2(_CLEAR), "remove")
+    if graft.kind == "url":
+        data = fetched(graft.value) if fetched is not None else _soon()
+        if isinstance(data, str):
+            return data
+        return _picture(data, "url", graft.value)
+    if graft.kind != "file":
+        return _soon()
+    return _file_content(resolve(graft.value, folder))
+
+
+def _file_content(path: Path) -> rules.Content | str:
     family, problem = file_family(path)
     if problem is not None:
         return problem
     if family != "Image":
-        return soon
+        return _soon()
     try:
-        pixels = ochre.read_image(atomic.read_bytes(path))
-        return rules.Content(ochre.to_png(pixels), ochre.write_ktx2(pixels), "file")
+        data = atomic.read_bytes(path)
     except OSError:
         return QCoreApplication.translate(
             "M-GRAFT-02", "The file for this replacement is missing: {path}."
         ).format(path=path)
+    return _picture(data, "file", str(path))
+
+
+def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
+    """Decode a picture once and write it as PNG and KTX2, or say why it can't be used."""
+    kind = sniff(data[:_HEAD], where)
+    if kind is None or FAMILIES[kind] != "Image":
+        return (
+            _soon()
+            if kind is not None
+            else QCoreApplication.translate(
+                "M-EDIT-08",
+                "This file type isn't supported. Use PNG, JPEG, KTX2, OBJ, MESH, OGG or MP3.",
+            )
+        )
+    try:
+        pixels = ochre.read_image(data)
     except ochre.OchreError as error:
         return QCoreApplication.translate(
             "M-GRAFT-06", "This file couldn't be used: {reason}."
         ).format(reason=error)
+    return rules.Content(ochre.to_png(pixels), ochre.write_ktx2(pixels), source)
 
 
 def compile_snapshot(
     profiles: Sequence[Profile],
     served: frozenset[str] = SERVED,
     folder: Path | None = None,
+    fetched: Fetched | None = None,
 ) -> Compiled:
     """Compile the enabled replacements of the enabled profiles, `profiles` highest first.
 
@@ -408,7 +453,7 @@ def compile_snapshot(
                 asset_type=replacement.asset_type,
             )
             if graft.kind != "asset_id" and folder is not None:
-                prepared = prepare_content(graft, folder / profile.name)
+                prepared = prepare_content(graft, folder / profile.name, fetched)
                 if isinstance(prepared, str):
                     left_out.append((replacement.id, prepared))
                     continue
@@ -520,9 +565,9 @@ class ProfileStore:
         """Return a copy of the profile with this ID (edits go through the store)."""
         return copy.deepcopy(_find(self.profiles, profile_id))
 
-    def compile(self) -> Compiled:
+    def compile(self, fetched: Fetched | None = None) -> Compiled:
         """Compile the current profiles into a snapshot (S-21), content prepared."""
-        return compile_snapshot(self.profiles, folder=self.folder)
+        return compile_snapshot(self.profiles, folder=self.folder, fetched=fetched)
 
     @property
     def can_undo(self) -> bool:
@@ -716,6 +761,10 @@ class ProfileStore:
             source.rename(self.folder / new)
 
 
+def _user_agent() -> str:
+    return f"Verdra/{verdra.__version__}"
+
+
 def _find(profiles: list[Profile], profile_id: str) -> Profile:
     for profile in profiles:
         if profile.id == profile_id:
@@ -732,8 +781,14 @@ class Grafts(QObject):
     Every edit is saved at once; `publish` compiles the profiles and swaps the snapshot in, which
     the proxy uses from its next connection (Apply now, S-24).
 
+    A link (URL target) is downloaded on a worker the first time it is published (bark/rain:
+    HTTPS only, size limit, cached by SHA-256); until then it is left out with M-GRAFT-09, and
+    once it is downloaded the snapshot is published again, so it applies from the next
+    connection without another Apply now. A failed download is left out with its reason
+    (M-GRAFT-10) and tried again at the next Apply now (S-21).
+
     Signals:
-        changed(): The profiles changed (an edit, undo or redo).
+        changed(): The profiles changed (an edit, undo or redo), or a link finished downloading.
     """
 
     changed = Signal()
@@ -744,9 +799,17 @@ class Grafts(QObject):
         settings: Any,
         holder: rules.SnapshotHolder | None = None,
         parent: QObject | None = None,
+        *,
+        pool: Any = None,
+        downloads: Path | None = None,
     ) -> None:
         super().__init__(parent)
         self.settings = settings
+        #: Runs link downloads (trunk/tendrils); without one they run inline (tests).
+        self.pool = pool
+        self.downloads = downloads if downloads is not None else folder.parent / "Downloads"
+        #: Link -> why it has no content yet ("" while it downloads).
+        self._links: dict[str, str] = {}
         self.holder = holder or rules.SnapshotHolder()
         self.store = ProfileStore(
             folder,
@@ -762,15 +825,79 @@ class Grafts(QObject):
         return self.store.profiles
 
     def preview(self) -> Preview:
-        """Preview changes (S-23): what the next Apply now publishes."""
-        return preview(self.store.compile().snapshot)
+        """Preview changes (S-23): what the next Apply now publishes (no download starts)."""
+        return preview(self.store.compile(self._cached_link).snapshot)
 
     def publish(self) -> int:
-        """Compile and publish the snapshot; return how many originals it replaces."""
-        compiled = self.store.compile()
+        """Compile and publish the snapshot; return how many originals it replaces.
+
+        Apply now tries a link whose download failed again.
+        """
+        for link in [link for link, reason in self._links.items() if reason]:
+            del self._links[link]
+        return self._publish()
+
+    def _publish(self) -> int:
+        compiled = self.store.compile(self._link)
         self.holder.publish(compiled.snapshot)
         self.warnings = dict(compiled.left_out)
         return len(compiled.snapshot.grafts)
+
+    def _cached_link(self, url: str) -> bytes | str:
+        data = rain.cached(url, self.downloads)
+        return data if data is not None else self._downloading()
+
+    def _link(self, url: str) -> bytes | str:
+        """A link's content for the snapshot: cached, failed, or downloading (started here)."""
+        data = rain.cached(url, self.downloads)
+        if data is not None:
+            return data
+        if url in self._links:
+            reason = self._links[url]
+            return self._failed(url, reason) if reason else self._downloading()
+        self._links[url] = ""
+        if self.pool is None:
+            try:
+                return rain.fetch(url, self.downloads, user_agent=_user_agent())
+            except rain.RainError as error:
+                self._links[url] = str(error)
+                return self._failed(url, str(error))
+        job = self.pool.submit(
+            QCoreApplication.translate("M-GRAFT-09", "Downloading a replacement"),
+            lambda _handle: rain.fetch(url, self.downloads, user_agent=_user_agent()),
+        )
+        job.succeeded.connect(lambda _data: self._downloaded(url))
+        job.failed.connect(lambda reason: self._download_failed(url, reason))
+        return self._downloading()
+
+    def _downloaded(self, url: str) -> None:
+        self._links.pop(url, None)
+        log.info(
+            "%s",
+            QCoreApplication.translate(
+                "M-GRAFT-11", "Downloaded the replacement from {host}. It applies from now on."
+            ).format(host=urlsplit(url).hostname),
+        )
+        self._publish()
+        self.changed.emit()
+
+    def _download_failed(self, url: str, reason: str) -> None:
+        self._links[url] = reason or "?"
+        log.warning("%s", self._failed(url, self._links[url]))
+        self._publish()  # the table shows why; the next Apply now tries again
+        self.changed.emit()
+
+    @staticmethod
+    def _downloading() -> str:
+        return QCoreApplication.translate(
+            "M-GRAFT-09", "Downloading this replacement. It applies as soon as it's ready."
+        )
+
+    @staticmethod
+    def _failed(url: str, reason: str) -> str:
+        return QCoreApplication.translate(
+            "M-GRAFT-10", "The replacement from {host} couldn't be downloaded: {reason}."
+        ).format(host=urlsplit(url).hostname, reason=reason)
 
     def edit(self, method: str, *args: Any) -> Any:
         """Run one `ProfileStore` edit (`create`, `add_replacement`, `undo`…) and say so."""

@@ -132,6 +132,14 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n replacements couldn&apos;t be prepared. See the warnings in Replacements.</source>
+        <comment>M-GRAFT-01</comment>
+        <translation>
+            <numerusform>%n replacement couldn&apos;t be prepared. See the warnings in Replacements.</numerusform>
+            <numerusform>%n replacements couldn&apos;t be prepared. See the warnings in Replacements.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Applied %n replacements. Assets Roblox already saved may change only after it refreshes them.</source>
         <comment>M-APPLY-03</comment>
         <translation>
@@ -588,6 +596,31 @@
     <name>M-GRAFT-08</name>
     <message>
         <source>Roblox downloaded asset {asset} in a format Verdra can&apos;t make yet ({format}), so the original shows.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-09</name>
+    <message>
+        <source>Downloading a replacement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading this replacement. It applies as soon as it&apos;s ready.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-10</name>
+    <message>
+        <source>The replacement from {host} couldn&apos;t be downloaded: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-11</name>
+    <message>
+        <source>Downloaded the replacement from {host}. It applies from now on.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
