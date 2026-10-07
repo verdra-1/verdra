@@ -1,0 +1,30 @@
+Guide B on the maintainer's PC (Windows 11), 2026-10-07, with Windows test build #6: the
+maintainer's verdra.log of that evening (one Verdra run for Guide B), and one screenshot.
+Counts, message wording and the public asset ID of the test picture only: no user name, user-ID
+folders, process IDs, query strings, timestamps or tokens (plan 16.2). Detailed logging was on.
+
+Type check (M-EDIT-02), screenshot:
+- Original 15553230204 (a public picture), Replace with: Asset ID, the ID of a sound from the
+  Creator Store. Save was greyed out with "A sound can't replace a picture."
+- So Roblox's public asset details answered both lookups, with no sign-in.
+
+The Guide B run, from the log:
+1 | Verdra started; Routing
+1 | Player running before Verdra started, not started by Verdra (later a second one, same)
+6 | "Coexistence check: RobloxPlayerBeta.exe (<pid>) environment not readable: AccessDenied"
+6 | "Verdra couldn't check everything for other routing tools (...: AccessDenied), so it went ahead."
+2 | "Delete profile My replacements?" answered with Delete (meant: remove a row)
+3 | "A Roblox Player that Verdra didn't start is running, so Verdra didn't move Roblox's saved
+    assets aside. Close it, then click Apply now again."
+1 | "1 replacement couldn't be prepared" at Apply now right after adding a link, then 1 s later
+    "Downloaded the replacement from <host>. It applies from now on." (host only, no link)
+1 | "Another launch of Verdra brought this window to the front" (a join from the browser)
+0 | POST assetdelivery.roblox.com /v1/assets/batch (none in the whole run)
+
+Earlier runs the same evening (before Guide B), for comparison: the coexistence check read the
+running Player's environment and found Verdra's own proxy variables, and Verdra replaced
+15553230204 in 3 batches in each of three joins.
+
+Result: the type check passed. The file, link and Remove swaps weren't tested: no Roblox traffic
+reached Verdra while a Player Verdra didn't start was running, and the maintainer saw no new
+Roblox window after the join.

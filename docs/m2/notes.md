@@ -207,3 +207,21 @@ files, links and Remove is next. What the tests can't show, and that session wil
 CDN sends the Player PNG or KTX2 for an in-game picture (the log names the format served:
 "Served the replacement for asset … (KTX2, …)"), and whether the Player accepts an uncompressed
 KTX2 where the CDN's own was compressed.
+
+## Asset type check works on the PC (2026-10-07)
+
+Guide B, step 3, on the maintainer's PC: a sound's ID entered as the replacement for picture
+15553230204 greyed out Save with "A sound can't replace a picture." (M-EDIT-02). So Roblox's
+public asset details answer without signing in, which was the open question for
+`bark/pollinator`. Evidence: `docs/platforms/evidence/windows/type-check-and-stray-player-2026-10-07.txt`.
+
+Steps 4 to 6 (file, link, Remove in game) weren't tested: a Player Verdra didn't start was
+running all along, so no Roblox traffic reached Verdra. The fixes, one pull request each:
+
+1. a Player Verdra didn't start is shown plainly (banner, a notice on a join, each launch's
+   outcome in Activity), and Verdra keeps its own record of the Players it started;
+2. deleting a profile is hard to do by accident and can be undone;
+3. Apply now waits for links still downloading;
+4. no toolbar label is cut off at the smallest window size;
+5. signed link values are never logged (checked).
+
