@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -74,7 +75,7 @@ class Editor(QFrame):
         column.addWidget(self.original)
 
         column.addWidget(QLabel(self.tr("Replace with"), self))
-        kinds = QHBoxLayout()
+        kinds = QGridLayout()  # two by two, so each label fits at the smallest window
         self.kinds = QButtonGroup(self)
         for index, label in enumerate(
             (self.tr("Asset ID"), self.tr("Local file"), self.tr("URL"), self.tr("Remove"))
@@ -83,7 +84,7 @@ class Editor(QFrame):
             button.setCheckable(True)
             button.setChecked(index == 0)
             self.kinds.addButton(button, index)
-            kinds.addWidget(button)
+            kinds.addWidget(button, index // 2, index % 2)
         column.addLayout(kinds)
 
         field = QHBoxLayout()

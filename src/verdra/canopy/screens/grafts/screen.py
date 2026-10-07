@@ -119,8 +119,7 @@ class ReplacementsScreen(QWidget):
 
     def _build_profiles(self, host: QWidget) -> QVBoxLayout:
         side = QVBoxLayout()
-        heading = QHBoxLayout()
-        heading.addWidget(QLabel(self.tr("Profiles"), host), 1)
+        side.addWidget(QLabel(self.tr("Profiles"), host))
         # Deleting a profile sits in a menu, apart from the buttons used every day (a profile
         # was deleted by accident when a row was meant, Guide B on the maintainer's PC).
         self.profile_menu = QToolButton(host)
@@ -132,8 +131,7 @@ class ReplacementsScreen(QWidget):
         self.delete_action.triggered.connect(self._delete)
         menu.addAction(self.delete_action)
         self.profile_menu.setMenu(menu)
-        heading.addWidget(self.profile_menu)
-        side.addLayout(heading)
+        side.addWidget(self.profile_menu, 0, Qt.AlignmentFlag.AlignLeft)
         self.profiles = QListWidget(host)
         self.profiles.setAccessibleName(self.tr("Profiles"))
         self.profiles.currentRowChanged.connect(lambda _row: self._show_replacements())
@@ -155,7 +153,7 @@ class ReplacementsScreen(QWidget):
 
     def _build_table(self, host: QWidget) -> QVBoxLayout:
         middle = QVBoxLayout()
-        tools = QHBoxLayout()
+        tools = QVBoxLayout()
         self.add = QPushButton(self.tr("Add replacement"), host)
         self.add.setProperty("primary", True)
         self.add.clicked.connect(self._open_editor)
@@ -167,9 +165,14 @@ class ReplacementsScreen(QWidget):
         self.redo.clicked.connect(lambda: self._edit("redo"))
         self.preview = QPushButton(self.tr("Preview changes"), host)
         self.preview.clicked.connect(self.show_preview)
-        for button in (self.add, self.remove, self.undo, self.redo, self.preview):
-            tools.addWidget(button)
-        tools.addStretch(1)
+        # Two rows, so every label fits at the smallest window with the editor open and the
+        # largest text size (a toolbar on one row was cut to "replacem", Guide B on Windows).
+        for buttons in ((self.add, self.remove), (self.undo, self.redo, self.preview)):
+            row = QHBoxLayout()
+            for button in buttons:
+                row.addWidget(button)
+            row.addStretch(1)
+            tools.addLayout(row)
         middle.addLayout(tools)
         self.table = QTableWidget(0, 4, host)
         self.table.setHorizontalHeaderLabels(
