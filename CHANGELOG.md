@@ -181,6 +181,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Quitting after Reset everything with "Also delete my profiles, library and settings" could
+  write a settings change made just before back into the deleted folder. Nothing is written
+  after the folders are deleted.
 - Replacements now apply to the asset requests Roblox sends compressed, which is most of them:
   before, every compressed request was passed on without being read, so the original picture
   stayed. If an asset request can't be read while a replacement is on, Activity says why and the

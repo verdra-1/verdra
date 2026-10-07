@@ -419,6 +419,12 @@ class SettingsStore(QObject):
         if not self._saving:
             self._save_next()
 
+    def discard_pending(self) -> None:
+        """Drop changes not yet written, and stop the save timer (Reset everything erasing)."""
+        self._timer.stop()
+        self._dirty = False
+        self._latest = None
+
     def _save_next(self) -> None:
         assert self._submit is not None and self._latest is not None  # noqa: S101 - from flush
         data = self._latest

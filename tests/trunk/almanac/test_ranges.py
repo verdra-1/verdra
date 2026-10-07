@@ -7,6 +7,7 @@ not from the schema, so that a schema change that widens or narrows a range fail
 """
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -43,10 +44,11 @@ RANGES: dict[str, tuple[list[Any], list[Any]]] = {
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> SettingsStore:
+def settings(tmp_path: Path) -> Iterator[SettingsStore]:
     loaded = SettingsStore(tmp_path / "settings.json")
     loaded.load()
-    return loaded
+    yield loaded
+    loaded.flush(final=True)  # no save timer left to fire in a later test
 
 
 def default(key: str) -> Any:
