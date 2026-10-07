@@ -29,7 +29,7 @@ from msgspec import Meta, Struct, field
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 
 import verdra
-from verdra.bark import rain
+from verdra.bark import pollinator, rain
 from verdra.roots import rules
 from verdra.soil import atomic, terrain
 from verdra.strata import clay, ochre
@@ -266,6 +266,35 @@ def url_problem(value: str) -> str | None:
     return None
 
 
+# --- The asset type check (spec S-22; S-21 rule 3) -------------------------------------------
+
+
+def type_name(asset_type: str) -> str:
+    """The noun an asset type is called in messages ("picture", "mesh", "decal"…)."""
+    names = {name.lower(): name for name in pollinator.NAMES.values()}
+    by_family = {"image": "picture", "mesh": "mesh", "audio": "sound"}
+    key = asset_type.strip().lower()
+    return by_family.get(key) or names.get(key) or "different kind of item"
+
+
+def original_type(kind: pollinator.AssetKind) -> str:
+    """What is saved as a replacement's asset type once Roblox has said what the original is."""
+    return kind.family or pollinator.NAMES.get(kind.type_id, "other").capitalize()
+
+
+def type_problem(original: str, target: str) -> str | None:
+    """M-EDIT-02 when a `target` type can't stand in for an `original` type, else None.
+
+    Both are asset types as saved ("Image", "Mesh", "Audio", "Decal"…), "" when unknown; an
+    unknown one is never refused here (the CDN's answer is checked again when served, M-GRAFT-12).
+    """
+    if not original or not target or original.lower() == target.lower():
+        return None
+    return QCoreApplication.translate("M-EDIT-02", "A {target} can't replace a {original}.").format(
+        target=type_name(target), original=type_name(original)
+    )
+
+
 def target_problem(kind: str, value: str, folder: Path) -> str | None:
     """Return why a Local file, URL or Remove target can't be saved, or None (S-22 rule 1)."""
     if kind == "file":
@@ -360,6 +389,16 @@ def prepare_content(
     """
     if graft.slot is not None:
         return _soon()
+    prepared = _prepare(graft, folder, fetched)
+    if isinstance(prepared, rules.Content) and graft.kind != "remove":
+        served = "Mesh" if prepared.mesh else "Image"
+        problem = type_problem(graft.asset_type, served)
+        if problem is not None:  # S-21 rule 3: an unsupported combination is never sent
+            return problem
+    return prepared
+
+
+def _prepare(graft: rules.Graft, folder: Path, fetched: Fetched | None) -> rules.Content | str:
     if graft.kind == "remove":
         return rules.Content(
             ochre.to_png(_CLEAR),
@@ -842,6 +881,47 @@ class Grafts(QObject):
     def profiles(self) -> list[Profile]:
         """The profiles, highest first (read only: edit through the methods)."""
         return self.store.profiles
+
+    def lookup(self, asset_id: int, done: Callable[[str | None, str], None]) -> None:
+        """Ask Roblox what asset `asset_id` is (S-22), on a worker; answer on the Qt thread.
+
+        `done(asset_type, problem)`: the asset type to save ("Image", "Decal"…) and "", or None
+        and M-EDIT-01 when there is no such asset, or "" and M-EDIT-05 when Roblox can't be
+        reached (the replacement can still be saved).
+        """
+
+        def answer(kind: pollinator.AssetKind | None) -> None:
+            if kind is None:
+                done(
+                    None,
+                    QCoreApplication.translate(
+                        "M-EDIT-01", "No asset with ID {id} was found."
+                    ).format(id=asset_id),
+                )
+            else:
+                done(original_type(kind), "")
+
+        def unreachable(_reason: str = "") -> None:
+            done(
+                "",
+                QCoreApplication.translate(
+                    "M-EDIT-05",
+                    "Roblox couldn't be reached to check this ID. You can save it anyway.",
+                ),
+            )
+
+        if self.pool is None:
+            try:
+                answer(pollinator.asset_kind(asset_id))
+            except pollinator.PollinatorError:
+                unreachable()
+            return
+        job = self.pool.submit(
+            QCoreApplication.translate("M-EDIT-13", "Checking an asset ID"),
+            lambda _handle: pollinator.asset_kind(asset_id),
+        )
+        job.succeeded.connect(answer)
+        job.failed.connect(unreachable)
 
     def preview(self) -> Preview:
         """Preview changes (S-23): what the next Apply now publishes (no download starts)."""

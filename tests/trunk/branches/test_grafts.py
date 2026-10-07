@@ -5,16 +5,21 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
 import msgspec
 import pytest
 from PySide6.QtWidgets import QApplication
+from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
+from tests.roots.test_grafter import FakeSettings
+from verdra.bark import pollinator
 from verdra.roots import rules
 from verdra.strata import ochre
+from verdra.trunk import tendrils
 from verdra.trunk.almanac import schema
 from verdra.trunk.branches import grafts
 from verdra.trunk.branches.grafts import Original, Target
@@ -504,3 +509,98 @@ def test_a_later_asset_id_replacement_wins_over_a_file_and_drops_its_content(
     compiled = grafts.compile_snapshot([made.get(high.id), made.get(low.id)], folder=tmp_path)
     assert compiled.snapshot.swaps() == {ABOVE_UINT32: ABOVE_INT32}
     assert ABOVE_UINT32 not in compiled.snapshot.content
+
+
+# --- The asset type check (S-22; S-21 rule 3) ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("original", "target", "problem"),
+    [
+        ("Image", "Image", None),
+        ("image", "Image", None),
+        ("", "Audio", None),  # not known yet: never refused
+        ("Mesh", "", None),
+        ("Audio", "Image", "A picture can't replace a sound."),
+        ("Image", "Mesh", "A mesh can't replace a picture."),
+        ("Decal", "Image", "A picture can't replace a decal."),
+        ("Model", "Mesh", "A mesh can't replace a model."),
+        ("Mesh", "Plugin", "A different kind of item can't replace a mesh."),
+    ],
+)
+@pytest.mark.spec("S-22", 1)
+def test_a_target_must_have_the_originals_type(
+    original: str, target: str, problem: str | None
+) -> None:
+    assert grafts.type_problem(original, target) == problem
+
+
+@pytest.mark.parametrize(
+    ("type_id", "saved"), [(1, "Image"), (3, "Audio"), (4, "Mesh"), (13, "Decal"), (2, "Other")]
+)
+def test_the_type_saved_for_what_roblox_says(type_id: int, saved: str) -> None:
+    assert grafts.original_type(pollinator.AssetKind(type_id)) == saved
+
+
+def test_a_file_of_another_type_is_never_served(tmp_path: Path) -> None:
+    (tmp_path / "wall.png").write_bytes(ochre.to_png(ochre.Pixels(1, 1, b"\0\0\0\xff")))
+    graft = rules.Graft(ABOVE_UINT32, None, "file", "./wall.png", "A", "r", "Audio")
+    assert grafts.prepare_content(graft, tmp_path) == "A picture can't replace a sound."
+    remove = rules.Graft(ABOVE_UINT32, None, "remove", "", "A", "r", "Decal")
+    assert isinstance(grafts.prepare_content(remove, tmp_path), rules.Content)
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        (pollinator.AssetKind(1), ("Image", "")),
+        (None, (None, f"No asset with ID {ABOVE_UINT32} was found.")),
+        (
+            pollinator.PollinatorError("offline"),
+            ("", "Roblox couldn't be reached to check this ID. You can save it anyway."),
+        ),
+    ],
+)
+@pytest.mark.spec("S-22", 5)
+def test_a_lookup_answers_with_the_type_or_why_not(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    qapp: QApplication,  # noqa: ARG001
+    answer: object,
+    expected: tuple[str | None, str],
+) -> None:
+    def asset_kind(asset_id: int) -> object:
+        assert asset_id == ABOVE_UINT32
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(pollinator, "asset_kind", asset_kind)
+    service = grafts.Grafts(tmp_path, FakeSettings())
+    got: list[tuple[str | None, str]] = []
+    service.lookup(ABOVE_UINT32, lambda kind, message: got.append((kind, message)))
+    assert got == [expected]
+    service.deleteLater()
+
+
+def test_a_lookup_runs_on_a_worker_and_answers_on_the_qt_thread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot: QtBot
+) -> None:
+    threads: list[threading.Thread] = []
+
+    def asset_kind(_asset_id: int) -> pollinator.AssetKind:
+        threads.append(threading.current_thread())
+        return pollinator.AssetKind(4)
+
+    monkeypatch.setattr(pollinator, "asset_kind", asset_kind)
+    pool = tendrils.Tendrils(workers=1)
+    service = grafts.Grafts(tmp_path, FakeSettings(), pool=pool)
+    got: list[tuple[str | None, threading.Thread]] = []
+    try:
+        service.lookup(5, lambda kind, _message: got.append((kind, threading.current_thread())))
+        qtbot.waitUntil(lambda: bool(got), timeout=5000)
+    finally:
+        pool.shutdown(grace=1)
+        service.deleteLater()
+    assert got == [("Mesh", threading.main_thread())]
+    assert threads != [threading.main_thread()]

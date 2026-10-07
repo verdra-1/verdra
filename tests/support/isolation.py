@@ -10,7 +10,9 @@ cache folders; a test that reached them would change the machine it runs on. So 
   (a test may point it elsewhere, or remove it to test the real paths' names, which it then must
   not write to);
 - a fresh in-memory secret store as keyring's backend, so `bark/husk` never reaches Windows
-  Credential Manager or the Secret Service. Tests of other backends pass theirs explicitly.
+  Credential Manager or the Secret Service. Tests of other backends pass theirs explicitly;
+- a Roblox lookup client (`bark/pollinator`) that never connects: every lookup a test doesn't
+  answer itself finds Roblox unreachable, so typing an asset ID never reaches the internet.
 
 It also fails a test that leaves the `verdra` logger changed (its level, propagation or
 handlers): a level left behind decides which records the next test sees, so a test that counts
@@ -22,11 +24,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 
+import httpx
 import keyring
 import pytest
 from keyring.backend import KeyringBackend
 from keyring.errors import PasswordDeleteError
 
+from verdra.bark import pollinator
 from verdra.soil import terrain
 
 
@@ -59,6 +63,7 @@ def isolated_system(
     monkeypatch.setenv(terrain.HOME_OVERRIDE_VARIABLE, str(tmp_path_factory.mktemp("home")))
     store = MemoryKeyring()
     keyring.set_keyring(store)
+    monkeypatch.setattr(pollinator, "_client", unreachable_roblox)
     before = logger_state()
     yield store
     after = logger_state()
@@ -74,6 +79,16 @@ def isolated_system(
             "logging (Rings.stop) before the test ends.",
             pytrace=False,
         )
+
+
+def unreachable_roblox() -> httpx.Client:
+    """A Roblox lookup client whose every request fails as if offline."""
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        msg = "tests never reach Roblox"
+        raise httpx.ConnectError(msg, request=request)
+
+    return httpx.Client(transport=httpx.MockTransport(refuse))
 
 
 def logger_state() -> tuple[int, bool, tuple[logging.Handler, ...]]:

@@ -12,10 +12,11 @@ with `bark/pollinator`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import QCoreApplication, QUrl, Signal
+from PySide6.QtCore import QCoreApplication, QTimer, QUrl, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -49,8 +50,16 @@ class Editor(QFrame):
 
     saved = Signal(object, object, str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    #: S-22: a lookup goes to Roblox once typing has paused this long.
+    LOOKUP_DELAY_MS = 400
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        lookup: Callable[[int, Callable[[str | None, str], None]], None] | None = None,
+    ) -> None:
         super().__init__(parent)
+        self._set_up_lookups(lookup)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setAcceptDrops(True)
         #: The profile's own folder: Local files inside it are stored as `./` paths.
@@ -92,7 +101,17 @@ class Editor(QFrame):
         self.problem.setWordWrap(True)
         column.addWidget(self.problem)
         column.addStretch(1)
+        column.addLayout(self._footer())
 
+        self.original.textChanged.connect(self._validate)
+        self.target.textChanged.connect(self._validate)
+        if lookup is not None:
+            self.original.textChanged.connect(self._pause.start)
+            self.target.textChanged.connect(self._pause.start)
+        self.kinds.idClicked.connect(self._kind_changed)
+        self._kind_changed()
+
+    def _footer(self) -> QHBoxLayout:
         footer = QHBoxLayout()
         footer.addStretch(1)
         self.cancel = QPushButton(self.tr("Cancel"), self)
@@ -102,12 +121,20 @@ class Editor(QFrame):
         self.save.clicked.connect(self._save)
         footer.addWidget(self.cancel)
         footer.addWidget(self.save)
-        column.addLayout(footer)
+        return footer
 
-        self.original.textChanged.connect(self._validate)
-        self.target.textChanged.connect(self._validate)
-        self.kinds.idClicked.connect(self._kind_changed)
-        self._kind_changed()
+    def _set_up_lookups(
+        self, lookup: Callable[[int, Callable[[str | None, str], None]], None] | None
+    ) -> None:
+        #: Asks Roblox what an asset is (trunk/branches/grafts `Grafts.lookup`); None: no check.
+        self.lookup = lookup
+        #: Asset ID -> (its asset type, or None if Roblox has none; the message to show).
+        self.types: dict[int, tuple[str | None, str]] = {}
+        self._asked: set[int] = set()
+        self._pause = QTimer(self)
+        self._pause.setSingleShot(True)
+        self._pause.setInterval(self.LOOKUP_DELAY_MS)
+        self._pause.timeout.connect(self._look_up)
 
     def start(self, folder: Path | None = None) -> None:
         """Open the drawer empty, with the cursor in the original's field."""
@@ -162,10 +189,39 @@ class Editor(QFrame):
                 return QCoreApplication.translate(
                     "M-EDIT-07", "An asset can't replace itself. Enter a different asset ID."
                 )
-            return ""
+            return self.type_problem()
         if not original_ok:
             return QCoreApplication.translate("M-EDIT-10", "Enter the asset ID to replace.")
-        return grafts.target_problem(kind, target, self.folder) or ""
+        return grafts.target_problem(kind, target, self.folder) or self.type_problem()
+
+    def type_problem(self) -> str:
+        """The asset type check (S-22): what Roblox said the original and an Asset ID target are.
+
+        An asset Roblox has no record of shows M-EDIT-01, a target of another type M-EDIT-02. Until
+        an answer arrives, and when Roblox can't be reached (M-EDIT-05), nothing is refused.
+        """
+        found = self.types.get(int(self.original.text().strip()))
+        if found is not None and found[0] is None:
+            return found[1]
+        original_type = found[0] if found is not None else ""
+        kind, target = self.kind(), self.value()
+        if kind == "asset_id":
+            answer = self.types.get(int(target))
+            if answer is not None and answer[0] is None:
+                return answer[1]
+            target_type = answer[0] if answer is not None else ""
+        elif kind == "file":
+            target_type = self.family()
+        else:
+            # A link's type is known once it's downloaded; Remove fits any picture or mesh.
+            return ""
+        return grafts.type_problem(original_type or "", target_type or "") or ""
+
+    def asset_type(self) -> str:
+        """The asset type to save: the original's, once Roblox said it, else the file's family."""
+        text = self.original.text().strip()
+        answer = self.types.get(int(text)) if text.isdigit() else None
+        return answer[0] if answer is not None and answer[0] else self.family()
 
     # --- Drag and drop (Qt API) --------------------------------------------------------------
 
@@ -221,13 +277,43 @@ class Editor(QFrame):
             host = QCoreApplication.translate("M-EDIT-11", "Downloads from {host}.").format(
                 host=QUrl(self.value()).host()
             )
-        self.detail.setText(host)
+        unreachable = [
+            message
+            for asset_id in self._ids()
+            if (answer := self.types.get(asset_id)) is not None and answer[0] == ""
+            for message in (answer[1],)
+            if message
+        ]
+        self.detail.setText("\n".join(filter(None, [host, *unreachable[:1]])))
+
+    def _ids(self) -> list[int]:
+        """The asset IDs to check: the original, and an Asset ID target."""
+        texts = [self.original.text().strip()]
+        if self.kind() == "asset_id":
+            texts.append(self.value())
+        return [int(text) for text in texts if text.isdigit() and int(text) > 0]
+
+    def _look_up(self) -> None:
+        """Ask Roblox about each ID not asked about yet (S-22 rule 2: on a worker)."""
+        if self.lookup is None:
+            return
+        for asset_id in self._ids():
+            if asset_id in self._asked:
+                continue
+            self._asked.add(asset_id)
+            self.lookup(
+                asset_id, lambda kind, message, i=asset_id: self._answered(i, kind, message)
+            )
+
+    def _answered(self, asset_id: int, kind: str | None, message: str) -> None:
+        self.types[asset_id] = (kind, message)
+        self._validate()
 
     def _save(self) -> None:
         if not self.problem_text():
             original = grafts.Original(asset_id=int(self.original.text().strip()))
             target = grafts.Target(kind=cast("grafts.TargetKind", self.kind()), value=self.value())
-            self.saved.emit(original, target, self.family())
+            self.saved.emit(original, target, self.asset_type())
 
 
 def _dropped_file(urls: list[QUrl]) -> Path | None:
