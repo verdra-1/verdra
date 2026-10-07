@@ -14,20 +14,24 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import threading
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
 import pytest
 from PySide6.QtWidgets import QApplication
+from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from tests.roots.test_grafter import BATCH, HOST, FakeSettings, http, warnings_logged
 from tests.roots.test_hyphae import FakeServer, Proxy, body_of, run
 from tools import fake_roblox
+from verdra.bark import rain
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
 from verdra.strata import ochre
+from verdra.trunk import tendrils
 from verdra.trunk.branches import grafts
 
 CDN = rules.ASSET_CONTENT_HOST
@@ -77,7 +81,7 @@ def play(
     cdn_server = FakeServer(tmp_path / "cdn", {f"{PATH}0?sig=secret".encode(): download}, host=CDN)
     pipeline = hyphae.Pipeline(request=[grafter], response=[grafter])
     for folder in (tmp_path / "batch", tmp_path / "cdn"):
-        folder.mkdir(exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
 
     async def batch() -> list[object]:
         async with Proxy(batch_server, pipeline) as proxy:
@@ -218,3 +222,119 @@ def test_a_picture_from_the_pc_replaces_one_in_game_end_to_end(
     ktx2 = ochre.write_ktx2(ochre.read_image(ORIGINAL_PNG))
     _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ktx2))
     assert ochre.read_ktx2(downloaded) == picture  # the file's own pixels, as KTX2
+
+
+# --- Links and Remove (S-21, step 3b) -----------------------------------------------------------
+
+
+def service_with(tmp_path: Path, target: grafts.Target, **kwargs: Any) -> grafts.Grafts:
+    profiles = tmp_path / "profiles"
+    service = grafts.Grafts(profiles, FakeSettings(), **kwargs)
+    profile = service.edit("create", "My replacements")
+    service.edit(
+        "add_replacement", profile.id, grafts.Original(asset_id=ABOVE_UINT32), target, "Image"
+    )
+    return service
+
+
+@pytest.mark.spec("S-21", 16)
+def test_remove_serves_a_transparent_picture_in_the_cdns_format(
+    tmp_path: Path,
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    service = service_with(tmp_path, grafts.Target(kind="remove"))
+    assert service.publish() == 1
+    assert service.warnings == {}
+    for name, original, read in (
+        ("png", ORIGINAL_PNG, ochre.read_image),
+        ("ktx2", ochre.write_ktx2(ochre.read_image(ORIGINAL_PNG)), ochre.read_ktx2),
+    ):
+        _items, downloaded, _server = play(tmp_path / name, Grafter(service.holder), http(original))
+        assert read(downloaded) == ochre.Pixels(1, 1, b"\0\0\0\0")  # fully transparent
+
+
+@pytest.mark.spec("S-21", 16)
+def test_a_link_is_downloaded_once_then_served(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    picture = ochre.Pixels(2, 1, bytes([9, 8, 7, 255, 6, 5, 4, 255]))
+    fetched: list[str] = []
+
+    def fetch(url: str, folder: Path, **_kwargs: object) -> bytes:
+        fetched.append(url)
+        data = ochre.to_png(picture)
+        rain.cache_path(url, folder).parent.mkdir(parents=True, exist_ok=True)
+        rain.cache_path(url, folder).write_bytes(data)
+        return data
+
+    monkeypatch.setattr(rain, "fetch", fetch)
+    link = "https://pictures.example/wall.png"
+    service = service_with(tmp_path, grafts.Target(kind="url", value=link))
+    assert service.publish() == 1
+    assert service.publish() == 1  # the second Apply now uses the cached download
+    assert fetched == [link]
+    assert service.holder.current.content[ABOVE_UINT32].source == "url"
+    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ORIGINAL_PNG))
+    assert ochre.read_image(downloaded) == picture
+
+
+@pytest.mark.spec("S-21", 16)
+def test_a_link_downloads_on_a_worker_and_applies_when_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot: QtBot
+) -> None:
+    gate = threading.Event()
+
+    def fetch(url: str, folder: Path, **_kwargs: object) -> bytes:
+        gate.wait(5)
+        data = ochre.to_png(ochre.Pixels(1, 1, b"\1\2\3\xff"))
+        rain.cache_path(url, folder).parent.mkdir(parents=True, exist_ok=True)
+        rain.cache_path(url, folder).write_bytes(data)
+        return data
+
+    monkeypatch.setattr(rain, "fetch", fetch)
+    pool = tendrils.Tendrils(workers=1)
+    service = service_with(
+        tmp_path, grafts.Target(kind="url", value="https://pictures.example/a.png"), pool=pool
+    )
+    try:
+        service.publish()
+        [reason] = service.warnings.values()
+        assert reason == "Downloading this replacement. It applies as soon as it's ready."
+        assert ABOVE_UINT32 not in service.holder.current.content  # the original passes for now
+        with qtbot.waitSignal(service.changed, timeout=5000):
+            gate.set()
+        assert service.warnings == {}
+        assert ABOVE_UINT32 in service.holder.current.content  # published without Apply now
+    finally:
+        pool.shutdown(grace=1)
+
+
+@pytest.mark.spec("S-21", 16)
+def test_a_failed_download_says_why_and_apply_now_tries_again(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    answers = [rain.RainError("the server answered 404")]
+
+    def fetch(url: str, folder: Path, **_kwargs: object) -> bytes:
+        if answers:
+            raise answers.pop()
+        data = ochre.to_png(ochre.Pixels(1, 1, b"\1\2\3\xff"))
+        rain.cache_path(url, folder).parent.mkdir(parents=True, exist_ok=True)
+        rain.cache_path(url, folder).write_bytes(data)
+        return data
+
+    monkeypatch.setattr(rain, "fetch", fetch)
+    service = service_with(
+        tmp_path, grafts.Target(kind="url", value="https://pictures.example/a.png")
+    )
+    service.publish()
+    assert list(service.warnings.values()) == [
+        "The replacement from pictures.example couldn't be downloaded: the server answered 404."
+    ]
+    service.publish()  # Apply now again
+    assert service.warnings == {}
+    assert ABOVE_UINT32 in service.holder.current.content

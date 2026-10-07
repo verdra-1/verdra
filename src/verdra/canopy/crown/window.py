@@ -236,6 +236,13 @@ class ApplyText(QObject):
     def restarted(self, count: int) -> str:
         return self.tr("Applied %n replacements. Roblox is restarting.", "M-APPLY-01", count)
 
+    def not_prepared(self, count: int) -> str:
+        return self.tr(
+            "%n replacements couldn't be prepared. See the warnings in Replacements.",
+            "M-GRAFT-01",
+            count,
+        )
+
     def restarted_cached(self, count: int) -> str:
         return self.tr(
             "Applied %n replacements. Assets Roblox already saved may change only after it "
@@ -443,6 +450,8 @@ class Shell:
         if grafts is None:
             return
         count = grafts.publish()
+        if grafts.warnings:  # S-21: a replacement that can't be prepared is never silent
+            self.window.dew.show(ApplyText().not_prepared(len(grafts.warnings)), Kind.WARNING)
         if sprout is None:
             self.window.dew.show(ApplyText().next_time(count))
             return

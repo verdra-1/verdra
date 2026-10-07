@@ -67,6 +67,11 @@ Make Roblox receive the replacement instead of the original asset.
   doesn't serve replacements on, so the original may show."
 - M-GRAFT-08 (Activity, new) "Roblox downloaded asset <asset> in a format Verdra can't make yet
   (<format>), so the original shows."
+- M-GRAFT-09 (Replacement warning and job name, new) "Downloading this replacement. It applies as
+  soon as it's ready." Job: "Downloading a replacement"
+- M-GRAFT-10 (Replacement warning and Activity, new) "The replacement from <host> couldn't be
+  downloaded: <reason>."
+- M-GRAFT-11 (Activity, new) "Downloaded the replacement from <host>. It applies from now on."
 - M-GRAFT-05 (Activity, new) "Roblox asked for the replaced asset <asset> by its content hash,
   which Verdra can't replace yet, so the original may show."
 - M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so
@@ -107,6 +112,12 @@ Make Roblox receive the replacement instead of the original asset.
     when the CDN's answer is compressed), with the file's own pixels; other downloads pass byte
     for byte; a format Verdra can't make and a host it doesn't decrypt pass the original with a
     warning and Degraded.
+16. Remove serves a transparent picture as PNG or KTX2; a link is downloaded once (on a worker
+    when there is one), left out with M-GRAFT-09 until then, applied without another Apply now
+    when ready, and served like a file; a failed download says why (M-GRAFT-10) and Apply now
+    tries again; Apply now shows M-GRAFT-01 when a replacement couldn't be prepared. bark/rain
+    fetches HTTPS only, refuses a redirect to anything else, stops at its limit and caches by
+    the link's SHA-256.
 
 ## Lives in
 
@@ -131,7 +142,7 @@ Make Roblox receive the replacement instead of the original asset.
   `assetdelivery.roblox.com` and real traffic is unchanged while the first real-machine test of
   Asset ID swaps runs (maintainer, 2026-10-04: "Keep the grafter's real-traffic behaviour as it
   is until my test result is in"). Lifted for Local file images on 2026-10-07, after the first
-  swap worked (plan 16.2, "Next steps", item 3); links and Remove follow.
+  swap worked (plan 16.2, "Next steps", item 3), and for links and Remove the same day.
 - **Local file images (2026-10-07).** When the snapshot is built, the file is read and decoded
   once (strata/ochre, plan 10.7 limits) and written as PNG and as uncompressed RGBA8 KTX2, the
   two formats an image download can come in (`grafts.prepare_content`, rule 2). The batch item is
@@ -143,6 +154,17 @@ Make Roblox receive the replacement instead of the original asset.
   example WebP), and a file that can't be used (M-GRAFT-06, left out). Meshes, sounds and slots
   stay M-SOON-01 until their steps. Not verified yet: that the Player accepts an uncompressed
   KTX2 in place of the CDN's own; the owner's test session for files, links and Remove shows it.
+- **Links and Remove (2026-10-07).** A link is downloaded by bark/rain (HTTPS only, a redirect
+  to anything else refused, 64 MB at most, kept under the SHA-256 of the link in
+  `<config>/Downloads`) on a worker the first time Apply now publishes it; until then it is left
+  out with M-GRAFT-09 and the original passes. Once downloaded, the snapshot is published again
+  and the replacement applies from the next connection without another Apply now (M-GRAFT-11).
+  A failed download is left out with M-GRAFT-10 and tried again at the next Apply now. Its
+  picture is prepared like a Local file's. Remove serves a fully transparent picture in
+  whichever image format the CDN answers with; it is made in memory (1 × 1 pixel), not at build
+  time into `assets/`, because it is a handful of bytes. Remove for meshes, sounds and
+  animations comes with those steps (a download in another format gives M-GRAFT-08). Apply now
+  shows M-GRAFT-01 when any replacement couldn't be prepared.
 - **After the first swap test (2026-10-05).** The Asset ID kind also covers single-asset
   requests: `GET /v1/asset/?id=…` and `/v2/asset/?id=…` (seen in the test's log) and
   `/v1/assetId/<id>` and `/v2/assetId/<id>` (from the service's public API description) ask for

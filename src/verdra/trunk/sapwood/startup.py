@@ -267,7 +267,9 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     )
     settings.save_in_background(services.tendrils.submit)
     assert services.routing is not None  # noqa: S101 - set just above
-    services.grafts = grafts_.Grafts(terrain.config_dir() / "profiles", settings)
+    services.grafts = grafts_.Grafts(
+        terrain.config_dir() / "profiles", settings, pool=services.tendrils
+    )
     services.grafts.publish()  # replacements saved last time apply from the first launch
     services.sprout = sprout_.Sprout(
         settings,

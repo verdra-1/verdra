@@ -283,11 +283,9 @@ def test_unusable_replacements_are_left_out_with_their_reason(tmp_path: Path) ->
     }
 
 
-def test_content_targets_stay_out_of_the_snapshot_until_the_grafter_serves_them(
-    tmp_path: Path,
-) -> None:
-    # Routing must decrypt no more than the snapshot needs: links and Remove aren't served yet,
-    # and a Local file that can't be read is left out with its reason.
+def test_content_targets_that_arent_ready_stay_out_of_the_snapshot(tmp_path: Path) -> None:
+    # Routing must decrypt no more than the snapshot needs: a Local file that can't be read and a
+    # link that hasn't been downloaded are left out with their reason; Remove is always ready.
     made = store(tmp_path)
     profile = made.create("A")
     left = [
@@ -295,16 +293,17 @@ def test_content_targets_stay_out_of_the_snapshot_until_the_grafter_serves_them(
         for n, target in (
             (1, Target(kind="file", value="./a.png")),
             (2, Target(kind="url", value="https://cdn.example/a.png")),
-            (3, Target(kind="remove")),
         )
     ]
+    made.add_replacement(profile.id, Original(asset_id=3), Target(kind="remove"))
     made.add_replacement(profile.id, *swap(4, 5))
-    compiled = made.compile()
+    compiled = made.compile(lambda _url: "not downloaded")
     assert compiled.snapshot.swaps() == {4: 5}
-    assert compiled.snapshot.hosts() == {rules.ASSET_BATCH_HOST}
-    soon = "This part of Verdra isn't built yet. It will arrive in a later version."
+    assert set(compiled.snapshot.content) == {3}
+    assert compiled.snapshot.content[3].source == "remove"
+    assert compiled.snapshot.hosts() == {rules.ASSET_BATCH_HOST, rules.ASSET_CONTENT_HOST}
     missing = f"The file for this replacement is missing: {tmp_path / 'A' / 'a.png'}."
-    assert dict(compiled.left_out) == {left[0].id: missing, left[1].id: soon, left[2].id: soon}
+    assert dict(compiled.left_out) == {left[0].id: missing, left[1].id: "not downloaded"}
     everything = grafts.compile_snapshot(made.profiles, grafts.ALL_KINDS).snapshot
     assert len(everything.grafts) == 4
 

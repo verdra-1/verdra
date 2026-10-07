@@ -527,3 +527,21 @@ def test_a_save_the_profile_refuses_shows_why_in_the_drawer(
     service = made[0].services.grafts
     assert service is not None
     assert len(service.profiles[0].replacements) == 1
+
+
+@pytest.mark.spec("S-21", 16)
+def test_apply_now_says_when_replacements_couldnt_be_prepared(
+    made: tuple[Shell, StubSprout],
+) -> None:
+    shell, _stub = made
+    service = shell.services.grafts
+    assert service is not None
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="file", value="./gone.png"),
+    )
+    shell.window.header.apply_now.click()
+    assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
