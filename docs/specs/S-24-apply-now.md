@@ -40,6 +40,13 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
    cache stayed (M-CACHE-02, M-CACHE-03) and still publishes. Reset everything puts the cache
    back, all of it or nothing: if Roblox has made any of the same files since, the backup is
    kept and its folder named (M-CACHE-05).
+5. Only the newest cache backup is kept. After a successful move, every older backup is
+   deleted on a worker: each one's ledger entry is marked removed first (`deleted`), so Reset
+   everything restores the newest backup and never a half-deleted one. A backup whose entry
+   isn't done (a move a crash interrupted) is kept, because Reset everything still needs it;
+   a folder left by a crash while deleting goes with the next deletion (M-CACHE-07,
+   M-CACHE-08). Settings › System changes shows the space the backups use and "Delete backups…",
+   which asks first (M-CACHE-09 to M-CACHE-11).
 
 ## Messages
 
@@ -57,6 +64,15 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   Nothing was changed."
 - M-CACHE-05 (Reset everything, new) "Roblox has made new saved assets since, so Verdra kept the
   old ones in <folder>. You can delete that folder."
+- M-CACHE-06 (Job name, new) "Deleting backups of Roblox's saved assets"
+- M-CACHE-07 (Activity, new) "Deleted <n> backups of Roblox's saved assets (<size>)."
+- M-CACHE-08 (Activity, new) "Verdra couldn't delete every backup of Roblox's saved assets
+  (<reason>). It tries again after the next Apply now."
+- M-CACHE-09 (Settings, new) "Backups of Roblox's saved assets use <size>."
+- M-CACHE-10 (Settings, new) "There are no backups of Roblox's saved assets."
+- M-CACHE-11 (Dialog, new) "Delete the backups of Roblox's saved assets?" Button "Delete
+  backups". Body "Reset everything can't put them back after this. Roblox downloads what it
+  needs again."
 - M-LAUNCH-03 (Dialog, S-12) "Restart Roblox now? Unsaved progress in your game may be lost."
 
 ## Acceptance tests
@@ -79,6 +95,10 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 9. A crash part-way through the move loses nothing: every file is in place or in the backup, the
    ledger holds the move, and Reset everything puts it back. A failed move puts back at once
    what had moved.
+10. Only the newest backup stays after each Apply now, the older one's ledger entry removed;
+    Reset everything restores the newest; a crash part-way through deleting an old backup
+    leaves Reset everything correct and the leftover goes with the next deletion; a backup
+    Reset still needs is never deleted; "Delete backups…" asks first, then deletes them all.
 
 ## Lives in
 
@@ -101,3 +121,6 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - "The last join" is the place ID of the last `gamejoin.roblox.com` join Verdra saw. Reading it
   needs `gamejoin.roblox.com` in the interception set while Replacements are on (plan 10.2:
   "per-game detection"); only the place ID is kept, in memory.
+- **Only the newest backup (owner, 2026-10-07).** Each Apply now kept every backup (the first
+  was about 2.4 GB). Rule 5 and test 10 keep only the newest; the owner asked for it in plan
+  16.2 ("Next steps", item 1).

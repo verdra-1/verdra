@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import psutil
-from PySide6.QtCore import QCoreApplication, QObject, Signal
+from PySide6.QtCore import QCoreApplication, QLocale, QObject, Signal
 
 from verdra.bark import husk, resin, scar
 from verdra.roots import gardener, hyphae, mycelium, rules, taproot
@@ -277,6 +277,66 @@ def restore_cache(entry: scar.Entry, ledger: scar.Ledger) -> None:
     ledger.mark(entry.id, "removed")
 
 
+def prune_backups(ledger: scar.Ledger, keep: Path | None, root: Path | None = None) -> list[Path]:
+    """Forget every cache backup but `keep` (all of them when None); return the folders to delete.
+
+    Write-ahead (S-16): each backup's ledger entry is marked removed first, so Reset everything
+    never tries to put back a backup that is being deleted. A backup whose entry isn't done (a
+    move a crash interrupted, or one that failed) is kept: Reset everything still needs it.
+    Folders no open entry names (left by a crash while deleting) are deleted too. Nothing is
+    deleted here: `delete_folders` does that, on a worker.
+    """
+    base = root or cache_backup_root()
+    keep_name = keep.name if keep is not None else None
+    needed: set[str] = set()
+    for entry in ledger.open_entries():
+        if entry.kind != "roblox_cache_moved":
+            continue
+        folder = Path(entry.details["backup"])
+        if folder.parent != base:
+            continue
+        if entry.state != "done" or folder.name == keep_name:
+            needed.add(folder.name)
+            continue
+        ledger.mark(entry.id, "removed", deleted=True)
+    if not base.is_dir():
+        return []
+    return sorted(
+        folder
+        for folder in base.iterdir()
+        if folder.is_dir() and folder.name not in needed and folder.name != keep_name
+    )
+
+
+def delete_folders(folders: list[Path]) -> int:
+    """Delete the given backup folders and return how many bytes that freed.
+
+    Raises:
+        OSError: a folder couldn't be deleted completely (what remains goes next time).
+    """
+    freed = 0
+    for folder in folders:
+        size = folder_size(folder)
+        shutil.rmtree(folder)
+        freed += size
+    return freed
+
+
+def folder_size(folder: Path) -> int:
+    """Return the total size of the files in `folder`, 0 if it's gone."""
+    total = 0
+    for current, _folders, files in os.walk(folder):
+        for name in files:
+            with contextlib.suppress(OSError):
+                total += (Path(current) / name).stat().st_size
+    return total
+
+
+def backups_size(root: Path | None = None) -> int:
+    """Return how much space the cache backups use."""
+    return folder_size(root or cache_backup_root())
+
+
 def cache_moved_text(moved: CacheMove) -> str:
     """M-CACHE-01: what Apply now moved and where."""
     return QCoreApplication.translate(
@@ -377,10 +437,12 @@ class Sprout(QObject):
     Signals:
         refused(str): Why routing or a launch didn't happen, as the sentence to show.
         other_tool(str): Another routing tool was found (M-COEX-01); `retry` tries again.
+        backups_changed(): Cache backups were deleted, or deleting them failed.
     """
 
     refused = Signal(str)
     other_tool = Signal(str)
+    backups_changed = Signal()
 
     def __init__(
         self,
@@ -617,7 +679,59 @@ class Sprout(QObject):
             return None
         if moved is not None:
             log.info("%s", cache_moved_text(moved))
+            self._prune(moved.backup)
         return moved
+
+    def delete_backups(self) -> None:
+        """Delete every cache backup (Settings › "Delete backups"); Reset can't restore them."""
+        self._prune(None)
+
+    def _prune(self, keep: Path | None) -> None:
+        """Keep only the newest backup (or none): the ledger first, the folders on a worker."""
+        try:
+            folders = prune_backups(self.ledger(), keep)
+        except (OSError, scar.LedgerError) as error:
+            self._prune_failed(str(error))
+            return
+        if not folders:
+            return
+        if self.pool is None:
+            self._delete(folders)
+            return
+        job = self.pool.submit(
+            QCoreApplication.translate("M-CACHE-06", "Deleting backups of Roblox's saved assets"),
+            lambda _handle: delete_folders(folders),
+        )
+        job.succeeded.connect(lambda freed: self._deleted(len(folders), freed))
+        job.failed.connect(self._prune_failed)
+
+    def _delete(self, folders: list[Path]) -> None:
+        try:
+            freed = delete_folders(folders)
+        except OSError as error:
+            self._prune_failed(error.strerror or type(error).__name__)
+            return
+        self._deleted(len(folders), freed)
+
+    def _deleted(self, count: int, freed: int) -> None:
+        log.info(
+            "%s",
+            self.tr(
+                "Deleted %n backups of Roblox's saved assets ({size}).", "M-CACHE-07", count
+            ).format(size=QLocale().formattedDataSize(freed)),
+        )
+        self.backups_changed.emit()
+
+    def _prune_failed(self, reason: str) -> None:
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-CACHE-08",
+                "Verdra couldn't delete every backup of Roblox's saved assets ({reason}). It tries "
+                "again after the next Apply now.",
+            ).format(reason=reason),
+        )
+        self.backups_changed.emit()
 
     def quit(self) -> None:
         """Shutdown's routing steps: close Roblox if the setting says so, then stop routing."""

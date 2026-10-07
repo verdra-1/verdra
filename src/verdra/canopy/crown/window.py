@@ -139,6 +139,7 @@ class MainWindow(QMainWindow):
                 self.stack,
                 pool=services.tendrils,
                 on_erase=self.erase_requested.emit,
+                routing=services.sprout,
             )
         for screen in self.screens.values():
             self.stack.addWidget(screen)

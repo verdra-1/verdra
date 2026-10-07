@@ -13,11 +13,12 @@ import subprocess
 import sys
 import threading
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PySide6.QtCore import QLocale
 from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
@@ -1004,5 +1005,170 @@ def test_sprout_reports_every_cache_outcome_in_activity(
     assert caplog.messages[-1] == (
         "Verdra couldn't move Roblox's saved assets aside (Access is denied). Nothing was changed."
     )
+    made.deleteLater()
+    status.deleteLater()
+
+
+# --- Only the newest backup is kept (owner, 7 October 2026) ------------------------------------
+
+
+def refill(roblox: Path, text: bytes) -> None:
+    """Roblox makes its cache again, as during a join."""
+    (roblox / "rbx-storage").mkdir(exist_ok=True)
+    (roblox / "rbx-storage" / "n.bin").write_bytes(text)
+    for name in ("rbx-storage.db", "rbx-storage.db-shm", "rbx-storage.db-wal"):
+        (roblox / name).write_bytes(text + name.encode())
+
+
+def cache_sprout(
+    platform: CachePlatform, ledger: scar.Ledger, monkeypatch: pytest.MonkeyPatch, root: Path
+) -> tuple[sprout.Sprout, Any]:
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    times = iter(NOW + timedelta(minutes=minute) for minute in range(100))
+    made = sprout.Sprout(
+        FakeSettings(),  # type: ignore[arg-type]
+        status,
+        platform=platform,  # type: ignore[arg-type]
+        ledger=lambda: ledger,
+        clock=lambda: next(times),
+    )
+    monkeypatch.setattr(sprout, "cache_backup_root", lambda: root)
+    return made, status
+
+
+@pytest.mark.spec("S-24", 10)
+def test_each_apply_now_keeps_only_the_newest_backup(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: Any
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    root = tmp_path / "backup"
+    made, status = cache_sprout(platform, ledger, monkeypatch, root)
+    caplog.set_level("INFO", logger="verdra.trunk.branches.sprout")
+    first = made.clear_cache()
+    assert first is not None
+    refill(roblox_folder, b"second")
+    second = made.clear_cache()
+    assert second is not None
+    assert sorted(p.name for p in root.iterdir()) == [second.backup.name]  # the older one is gone
+    old, new = ledger.entries()
+    assert (old.state, old.details["deleted"]) == ("removed", True)  # recorded in the ledger
+    assert new.state == "done"
+    assert (
+        caplog.messages[-1]
+        # The source text; the catalogue's singular form, loaded by the app, reads "1 backup".
+        == "Deleted 1 backups of Roblox's saved assets ("
+        + (QLocale().formattedDataSize(sum(len(n.encode()) for n in W06_NAMES if is_cache(n))))
+        + ")."
+    )
+    made.deleteLater()
+    status.deleteLater()
+
+
+@pytest.mark.spec("S-24", 10)
+def test_reset_everything_restores_the_newest_backup(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    ledger = scar.Ledger(ledger_file)
+    made, status = cache_sprout(platform, ledger, monkeypatch, tmp_path / "backup")
+    assert made.clear_cache() is not None
+    refill(roblox_folder, b"newest")
+    newest = snapshot(roblox_folder)
+    assert made.clear_cache() is not None
+    summary = fallow.reset(
+        ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt"
+    )
+    assert summary.removed == 1 and summary.failed == []
+    assert snapshot(roblox_folder) == newest  # the newest backup, byte- and date-identical
+    assert not (tmp_path / "backup").exists()
+    made.deleteLater()
+    status.deleteLater()
+
+
+@pytest.mark.spec("S-24", 10)
+def test_a_crash_while_deleting_old_backups_loses_nothing_reset_needs(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    ledger = scar.Ledger(ledger_file)
+    root = tmp_path / "backup"
+    made, status = cache_sprout(platform, ledger, monkeypatch, root)
+    assert made.clear_cache() is not None
+    refill(roblox_folder, b"newest")
+    newest = snapshot(roblox_folder)
+    real_rmtree = sprout.shutil.rmtree
+
+    def crash_halfway(folder: Path, *_args: object, **_kwargs: object) -> None:
+        next(Path(folder).rglob("*.db")).unlink()  # part of the old backup is gone ...
+        raise KeyboardInterrupt  # ... and the process dies here
+
+    monkeypatch.setattr(sprout.shutil, "rmtree", crash_halfway)
+    with pytest.raises(KeyboardInterrupt):
+        made.clear_cache()
+    monkeypatch.setattr(sprout.shutil, "rmtree", real_rmtree)
+    # The old backup's entry was marked removed before deleting started: Reset never touches the
+    # half-deleted folder, and puts the newest backup back.
+    assert [e.state for e in scar.Ledger(ledger_file).entries()] == ["removed", "done"]
+    assert len(list(root.iterdir())) == 2  # the half-deleted folder is still there
+    summary = fallow.reset(
+        ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt"
+    )
+    assert summary.failed == []
+    assert snapshot(roblox_folder) == newest
+    # The leftover goes with the next deletion (here "Delete backups").
+    made.delete_backups()
+    assert not root.exists() or list(root.iterdir()) == []
+    made.deleteLater()
+    status.deleteLater()
+
+
+@pytest.mark.spec("S-24", 10)
+def test_a_backup_reset_still_needs_is_never_deleted(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A move a crash interrupted ("pending") keeps its backup: Reset puts those files back."""
+    platform = CachePlatform(roblox_folder.parent)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    root = tmp_path / "backup"
+    made, status = cache_sprout(platform, ledger, monkeypatch, root)
+    interrupted = root / "interrupted"
+    (interrupted / "rbx-storage").mkdir(parents=True)
+    entry = ledger.begin(
+        "roblox_cache_moved", str(roblox_folder), {"backup": str(interrupted), "items": []}
+    )
+    moved = made.clear_cache()
+    assert moved is not None
+    assert sorted(p.name for p in root.iterdir()) == sorted([moved.backup.name, "interrupted"])
+    assert ledger.entries()[0].id == entry.id and ledger.entries()[0].state == "pending"
+    made.deleteLater()
+    status.deleteLater()
+
+
+@pytest.mark.spec("S-24", 10)
+def test_delete_backups_removes_them_all_and_reset_then_has_none_to_restore(
+    roblox_folder: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform = CachePlatform(roblox_folder.parent)
+    ledger_file = tmp_path / "changes.json"
+    ledger = scar.Ledger(ledger_file)
+    root = tmp_path / "backup"
+    made, status = cache_sprout(platform, ledger, monkeypatch, root)
+    assert made.clear_cache() is not None
+    assert sprout.backups_size(root) > 0
+    changed: list[bool] = []
+    made.backups_changed.connect(lambda: changed.append(True))
+    made.delete_backups()
+    assert sprout.backups_size(root) == 0
+    assert changed == [True]
+    assert [e.state for e in scar.Ledger(ledger_file).entries()] == ["removed"]
+    summary = fallow.reset(
+        ledger_file, vault=husk.Husk(MemoryKeyring()), cert_file=tmp_path / "ca.crt"
+    )
+    assert summary.removed == 0 and summary.failed == []
     made.deleteLater()
     status.deleteLater()

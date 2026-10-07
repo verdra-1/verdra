@@ -46,7 +46,7 @@ from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.leaves.progress import ProgressBar
 from verdra.canopy.leaves.switch import Switch
 from verdra.trunk import tendrils
-from verdra.trunk.branches import fallow
+from verdra.trunk.branches import fallow, sprout
 from verdra.trunk.sapwood import startup
 
 log = logging.getLogger(__name__)
@@ -475,6 +475,8 @@ class SettingsScreen(QWidget):
         list_changes: Callable[[], list[fallow.Change]] = fallow.system_changes,
         pool: tendrils.Tendrils | None = None,
         on_erase: Callable[[], None] | None = None,
+        routing: sprout.Sprout | None = None,
+        backups_size: Callable[[], int] = sprout.backups_size,
     ) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -544,6 +546,7 @@ class SettingsScreen(QWidget):
         self.reset_everything.clicked.connect(self.start_reset)
         self.reset_dialog: ResetDialog | None = None
         changes.layout().addWidget(self.reset_everything, alignment=Qt.AlignmentFlag.AlignLeft)  # type: ignore[union-attr]
+        self._cache_backups(changes, routing, backups_size)
         self.column.addWidget(changes)
         self.column.addStretch()
 
@@ -704,6 +707,81 @@ class SettingsScreen(QWidget):
         self._changes_layout.addWidget(self.changes_empty)
         self._changes_layout.addWidget(self.changes_table)
 
+    def _cache_backups(
+        self, panel: QFrame, routing: sprout.Sprout | None, size: Callable[[], int]
+    ) -> None:
+        """The space Apply now's cache backups use, and "Delete backups…" (S-24)."""
+        self.routing = routing
+        self._backups_size = size
+        self.backups_label = QLabel(panel)
+        self.backups_label.setWordWrap(True)
+        self.backups_label.setProperty("muted", True)
+        self.delete_backups_button = QPushButton(
+            QCoreApplication.translate("Settings", "Delete backups…"), panel
+        )
+        self.delete_backups_button.setEnabled(False)
+        self.delete_backups_button.setToolTip(
+            QCoreApplication.translate(
+                "M-CACHE-10", "There are no backups of Roblox's saved assets."
+            )
+        )
+        self.delete_backups_button.clicked.connect(self.delete_backups)
+        layout = cast(QVBoxLayout, panel.layout())
+        layout.addWidget(self.backups_label)
+        layout.addWidget(self.delete_backups_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        if routing is not None:
+            routing.backups_changed.connect(self.refresh_backups)
+        self.refresh_backups()
+
+    def refresh_backups(self) -> None:
+        """Measure the backups (on a worker when there is one) and show the space they use."""
+        if self.pool is None:
+            self._show_backups(self._backups_size())
+            return
+        job = self.pool.submit(
+            QCoreApplication.translate("Settings", "Measuring backups"),
+            lambda _handle: self._backups_size(),
+        )
+        job.succeeded.connect(self._show_backups)
+
+    def _show_backups(self, size: int) -> None:
+        if size:
+            text = QCoreApplication.translate(
+                "M-CACHE-09", "Backups of Roblox's saved assets use {size}."
+            ).format(size=QLocale().formattedDataSize(size))
+        else:
+            text = QCoreApplication.translate(
+                "M-CACHE-10", "There are no backups of Roblox's saved assets."
+            )
+        self.backups_label.setText(text)
+        enabled = bool(size) and self.routing is not None
+        self.delete_backups_button.setEnabled(enabled)
+        # A disabled control says why (plan 12.5).
+        self.delete_backups_button.setToolTip(
+            "" if enabled else soon() if self.routing is None else text
+        )
+
+    def delete_backups(self) -> bool:
+        """Ask M-CACHE-11, then delete every cache backup; return whether it was asked to."""
+        if self.routing is None:
+            return False
+        question = DestructiveConfirmation(
+            QCoreApplication.translate(
+                "M-CACHE-11", "Delete the backups of Roblox's saved assets?"
+            ),
+            QCoreApplication.translate("M-CACHE-11", "Delete backups"),
+            QCoreApplication.translate(
+                "M-CACHE-11",
+                "Reset everything can't put them back after this. Roblox downloads what it "
+                "needs again.",
+            ),
+            self,
+        )
+        if question.exec() != QDialog.DialogCode.Accepted:
+            return False
+        self.routing.delete_backups()
+        return True
+
     def refresh_changes(self) -> None:
         """Read the system changes again and show them (on build and whenever shown)."""
         try:
@@ -764,6 +842,7 @@ class SettingsScreen(QWidget):
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's name
         """Show the ledger as it is now: routing may have changed it since the last visit."""
         self.refresh_changes()
+        self.refresh_backups()
         super().showEvent(event)
 
     def _load_all(self) -> None:

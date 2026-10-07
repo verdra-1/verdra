@@ -319,6 +319,49 @@
     </message>
 </context>
 <context>
+    <name>M-CACHE-06</name>
+    <message>
+        <source>Deleting backups of Roblox&apos;s saved assets</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-08</name>
+    <message>
+        <source>Verdra couldn&apos;t delete every backup of Roblox&apos;s saved assets ({reason}). It tries again after the next Apply now.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-09</name>
+    <message>
+        <source>Backups of Roblox&apos;s saved assets use {size}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-10</name>
+    <message>
+        <source>There are no backups of Roblox&apos;s saved assets.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-CACHE-11</name>
+    <message>
+        <source>Delete the backups of Roblox&apos;s saved assets?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete backups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset everything can&apos;t put them back after this. Roblox downloads what it needs again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-COEX-01</name>
     <message>
         <source>Try again</source>
@@ -1722,6 +1765,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Delete backups…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Measuring backups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Withdraw</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1863,6 +1914,17 @@
     <message>
         <source>Version {version}</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Sprout</name>
+    <message numerus="yes">
+        <source>Deleted %n backups of Roblox&apos;s saved assets ({size}).</source>
+        <comment>M-CACHE-07</comment>
+        <translation>
+            <numerusform>Deleted %n backup of Roblox&apos;s saved assets ({size}).</numerusform>
+            <numerusform>Deleted %n backups of Roblox&apos;s saved assets ({size}).</numerusform>
+        </translation>
     </message>
 </context>
 <context>
