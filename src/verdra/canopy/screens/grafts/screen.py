@@ -77,7 +77,7 @@ class ReplacementsScreen(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.addLayout(self._build_profiles(host), 1)
         row.addLayout(self._build_table(host), 3)
-        self.editor = Editor(host)
+        self.editor = Editor(host, self.service.lookup if self.service is not None else None)
         self.editor.saved.connect(self._save)
         self.editor.hide()
         row.addWidget(self.editor, 2)

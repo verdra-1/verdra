@@ -40,7 +40,7 @@ Add and edit a replacement without knowing file formats.
 ## Messages
 
 - M-EDIT-01 (inline) "No asset with ID <id> was found."
-- M-EDIT-02 (inline) "A <type> can't replace a <type>."
+- M-EDIT-02 (inline) "A <target> can't replace a <original>."
 - M-EDIT-03 (inline) "Only HTTPS links are allowed."
 - M-EDIT-04 (inline) "This file type isn't supported for <type>. Use PNG, JPEG, KTX2, OBJ, MESH,
   OGG or MP3 as fits."
@@ -92,3 +92,18 @@ Add and edit a replacement without knowing file formats.
   M-EDIT-07); Local file, URL and Remove stay disabled with M-SOON-01 until the codecs land, and
   the Roblox lookup (M-EDIT-01, M-EDIT-02, M-EDIT-05) comes with `bark/pollinator`. The drawer
   sits beside the table on the Replacements screen.
+- Third step (2026-10-07), the type check: `bark/pollinator` asks Roblox's public asset details
+  (`economy.roblox.com/v2/assets/<id>/details`, no sign-in, no cookie, a User-Agent naming
+  Verdra only) what the original and an Asset ID target are, 400 ms after typing pauses, as a
+  background job (M-EDIT-13 names it). Each ID is asked once per drawer and the answer is kept
+  under that ID, so a slow answer about an earlier input only ever describes that earlier ID and
+  never overrides the newer one (rule 2, test 4): nothing needs canceling. An Asset ID target must
+  have the original's type; a file or a link must fit its family (Image, Mesh, Audio), so a
+  picture can't replace a sound (M-EDIT-02, whose types are named in plain words: picture,
+  sound, mesh, decal, model…). A link's type is known only once it's downloaded, so it is
+  checked when the snapshot is built: a replacement whose content doesn't fit the saved type is
+  left out with M-EDIT-02 as its reason (S-21 rule 3). Remove fits any picture or mesh. The
+  original's type, once Roblox says it, is saved as the replacement's asset type, else the
+  file's family; with Roblox unreachable nothing is refused and M-EDIT-05 shows under the field.
+  M-EDIT-04 (a file type unsupported for a known type) is folded into M-EDIT-02 for now.
+- M-EDIT-13 (job name, new) "Checking an asset ID"

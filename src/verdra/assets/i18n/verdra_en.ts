@@ -443,9 +443,23 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-02</name>
+    <message>
+        <source>A {target} can&apos;t replace a {original}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-03</name>
     <message>
         <source>Only HTTPS links are allowed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-05</name>
+    <message>
+        <source>Roblox couldn&apos;t be reached to check this ID. You can save it anyway.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -495,6 +509,13 @@
     <name>M-EDIT-12</name>
     <message>
         <source>Choose a file to use instead.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-13</name>
+    <message>
+        <source>Checking an asset ID</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

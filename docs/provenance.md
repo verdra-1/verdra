@@ -16,7 +16,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/bark/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/bark/husk.py` | Master plan 9.1, 10.6, spec S-10, Reference R3, decision record 0018 (the Linux key file removed, 2026-10-05); `keyring` documentation (backends, errors) | keyring | 2026-10-03 |
 | `verdra/bark/nectar.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
-| `verdra/bark/pollinator.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/bark/pollinator.py` | Reference R1, Master plan 10.6 (timeouts; "asset lookups the user triggers"), spec S-22; Roblox's public `Enum.AssetType` documentation and its public asset details endpoint; httpx documentation (Client, MockTransport) | httpx, truststore | 2026-10-07 |
 | `verdra/bark/rain.py` | Reference R1, Master plan 10.6, 10.7 ("Downloads (bark/rain)"), spec S-21; Python `urllib.request` (HTTPSHandler, HTTPRedirectHandler), `ssl` and `hashlib` documentation; RFC 9110 (redirects) | truststore | 2026-10-07 |
 | `verdra/bark/resin.py` | Master plan 10.2, 10.3, spec S-10; RFC 5280 (4.2.1.1, 4.2.1.2, 4.2.1.3, 4.2.1.6, 4.2.1.9, 4.2.1.10, 4.2.1.12); `cryptography` X.509 and verification documentation | cryptography | 2026-10-03 |
 | `verdra/bark/scar.py` | Master plan 9.1, 9.3, 9.4, spec S-10 (test 7); `msgspec` documentation | msgspec | 2026-10-03 |

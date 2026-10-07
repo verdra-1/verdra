@@ -8,6 +8,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- The replacement editor checks with Roblox what the asset you replace is, a moment after you
+  stop typing, and won't save a replacement of another kind (a picture for a sound). If Roblox
+  can't be reached, you can still save, and the editor says the ID wasn't checked.
 - A picture from your PC can replace one in game: choose Local file in the replacement editor.
   Verdra prepares it when you click Apply now and sends it when Roblox downloads the original.
 - A picture from an HTTPS link can replace one in game, and Remove makes one invisible. A link
