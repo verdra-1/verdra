@@ -124,6 +124,28 @@ V1 is now Observed on the PC for requests and responses: response items carry `l
 `requestId`, `assetTypeId`, `contentRepresentationSpecifier`, `assetMetadatas`, `isArchived` and
 `isRecordable` (field names only).
 
+## Asset type check works; in-game swaps blocked by a stray Player (maintainer's PC, 2026-10-07)
+
+From Guide B with Windows test build #6: the maintainer's `verdra.log` and a screenshot,
+anonymised in `evidence/windows/type-check-and-stray-player-2026-10-07.txt`.
+
+| Check | Evidence | Result |
+|---|---|---|
+| Type check (M-EDIT-02) | A sound's ID for picture 15553230204: Save greyed out, "A sound can't replace a picture." | **Pass** |
+| Roblox's public asset details without sign-in | Both lookups answered (the message names both types) | **Pass** |
+| File, link and Remove in game | No asset batch reached Verdra in the whole run | Not tested (blocked) |
+
+The block: a Roblox Player that Verdra didn't start was already running before Verdra started.
+Every Apply now said so and didn't move the cache, and the join from the browser most likely went
+to that Player, which never used Verdra; the maintainer saw no Roblox window. Verdra showed this
+only as an Activity line, which is fixed next (a banner, a notice on a join, and the outcome of
+each launch in Activity).
+
+W-09 changes: Windows refused to show the environment of that Player ("AccessDenied"), while
+earlier runs the same evening could read the environment of Players Verdra started. Verdra
+doesn't try any other way to read it (plan 3.1, S-15 rule 2); it relies on its own record of the
+Players it started instead.
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

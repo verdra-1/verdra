@@ -107,3 +107,6 @@ Add and edit a replacement without knowing file formats.
   file's family; with Roblox unreachable nothing is refused and M-EDIT-05 shows under the field.
   M-EDIT-04 (a file type unsupported for a known type) is folded into M-EDIT-02 for now.
 - M-EDIT-13 (job name, new) "Checking an asset ID"
+- Verified on Windows (2026-10-07): the type check refused a sound's ID for a picture with
+  M-EDIT-02 on the maintainer's PC, so Roblox's public asset details answer without signing in
+  (`docs/platforms/windows.md`).
