@@ -27,5 +27,6 @@ new record that supersedes the old one; the old record stays, with its status up
 | [0019](0019-windows-test-build.md) | A Windows test build (Verdra-windows-test.zip) as a workflow artifact on every push to main; the build check runs on that exact ZIP; no release or installer | Accepted, amended by 0021 |
 | [0020](0020-roblox-running-without-verdra.md) | A Roblox Player Verdra didn't start is shown (banner, Degraded (e)); a launch asks first; it is closed only on the user's yes; a record of the Players Verdra started | Accepted |
 | [0021](0021-real-machine-tests-from-source.md) | Real-machine tests run from source: one command, tools\run-latest.ps1, fast-forwards main (never resets), syncs with uv and starts Verdra; the test build stays but isn't needed; release distribution open | Accepted |
+| [0022](0022-roblox-texture-layout.md) | Verdra's pictures in Roblox's CDN layout: BC1 or BC3 KTX2, one zstd level, the CDN's descriptor and 19 keys, sides multiples of 64; Verdra's own numpy block encoder, no new dependency | Accepted |
 
 New records copy [template.md](template.md).
