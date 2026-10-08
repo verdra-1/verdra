@@ -25,16 +25,18 @@ the test build.
 ## Every time: one command
 
 1. Quit Verdra if it runs (tray icon › Quit Verdra), and any test build of it.
-2. Open the `Documents\verdra` folder in File Explorer, click the address bar, type
-   `powershell` and press Enter. PowerShell opens in that folder.
-3. Run:
+2. Open PowerShell (Start menu, type `powershell`, press Enter) and run:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File tools\run-latest.ps1
+   powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1"
    ```
 
-   It says which commit it is at, sets up Python and Verdra's packages (a few minutes the first
-   time, seconds after that) and starts Verdra. Keep that window open while you test: closing it
-   closes Verdra. A guide that needs a diagnostic option adds it at the end of the same command.
+   The full path works whichever folder PowerShell is in. It says which commit it is at, sets
+   up Python and Verdra's packages (a few minutes the first time, seconds after that) and
+   starts Verdra. Keep that window open while you test: closing it closes Verdra. A guide that
+   needs a diagnostic option adds it at the end of the same command.
+
+   The first time after setting up an older copy, update it once by hand:
+   `cd "$env:USERPROFILE\Documents\verdra"`, then `git pull --ff-only`.
 
 If it stops with a yellow message, it changed nothing; send the window's text to the maintainer.

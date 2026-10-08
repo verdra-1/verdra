@@ -1,0 +1,42 @@
+Format capture and control experiment on the maintainer's PC (Windows 11), 2026-10-08, Verdra
+run from source with tools\run-latest.ps1: the maintainer's verdra.log, two screenshots and two
+text reports. Counts, message wording, format facts and the public asset IDs of the test only:
+no user name, place, universe or session IDs, query values, timestamps, hashes or content bytes
+(plan 16.2). The captured bodies are other creators' content and stay off the repository.
+
+(a) Control, asset ID swap 15553230204 -> 11473800131: the wall showed 11473800131. Pass.
+(b) Format capture of 15553230204 (replacement off): report written.
+(c) Control experiment, --control-swap 15553230204=11473800131, no replacement rows
+    ("Applied 0 replacements"): 2 x "Control experiment: Roblox's download of asset
+    15553230204 gets asset 11473800131's real bytes from the CDN." The wall showed
+    11473800131. Pass.
+1 | "Roblox updated. Verdra added its certificate to the new version." (Player 0.741 -> 0.742)
+8 | "Started Roblox through Verdra (process <pid>)."
+10 | "Moved Roblox's saved assets (...)" (one per Apply now)
+
+What the CDN sends for a picture (both captures, the same layout):
+- HTTP 200, Content-Type application/octet-stream, Content-Encoding zstd (the Player sends
+  Accept-Encoding: deflate, gzip, zstd). After HTTP decoding the body is a KTX2 file.
+- KTX2: typeSize 1, layers 0, faces 1, levels 1, supercompressionScheme 2 (Zstandard; the
+  level is one zstd frame with its content size and no checksum), DFD at offset 104 right
+  after a one-entry level index, key/value data right after the DFD, the level right after
+  the key/value data, no supercompression global data.
+- Opaque picture (average alpha 255): vkFormat 131 BC1_RGB_UNORM; DFD colour model 128 (BC1A),
+  primaries 1, transfer 1 (linear), flags 0, texel block 4x4, 8 bytes a block, 1 sample
+  (bits 0-63, channel 0).
+- Picture with alpha (average alpha 148): vkFormat 137 BC3_UNORM; DFD colour model 130 (BC3),
+  the same primaries, transfer and flags, 16 bytes a block, 2 samples (bits 0-63 channel 15
+  alpha, bits 64-127 channel 0 colour).
+- Sizes: 1023 x 682 became 960 x 640, 500 x 500 became 448 x 448 (each side rounded down to a
+  multiple of 64).
+- 19 keys, sorted: RobloxOriginalHeight, RobloxOriginalWidth, acrVersion ("7rdo"), avgAlpha,
+  avgBlue, avgGreen, avgRed, colorSpace ("Linear"), constantColor ("0"), contentHash (32 hex
+  digits; not the MD5 of the file or of the level), packIndex ("2"), pack_0 ("4,6" for the
+  960 x 640 picture, "4,5" for the 448 x 448 one), pack_1 ("1,3"), pack_2 ("0,1"),
+  transcodedHeight, transcodedWidth, weightedAvgBlue, weightedAvgGreen, weightedAvgRed (equal
+  to the plain averages for the opaque picture, higher for the one with alpha).
+- The batch answer's contentRepresentationSpecifier: format ktx2, majorVersion 7rdo. Its
+  assetMetadatas size (30108) differed from what Roblox drew in (c) (65113 bytes), without harm.
+
+Verdra's answer on 8 October (the grey wall) was an uncompressed RGBA8 KTX2 (4194512 bytes for
+1024 x 1024: no block compression, no supercompression, no Roblox keys).
