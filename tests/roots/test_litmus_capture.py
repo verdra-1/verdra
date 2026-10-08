@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import logging
 import struct
 from pathlib import Path
 from types import MappingProxyType
@@ -27,13 +28,17 @@ from tests.roots.test_hyphae import FakeServer, Proxy, body_of, run
 from tools import fake_roblox
 from verdra.roots import hyphae, litmus, rules
 from verdra.roots.symbionts.grafter import Grafter
-from verdra.strata import ochre
+from verdra.strata import clay, ochre
 from verdra.trunk.sapwood import cli
 
 CDN = rules.ASSET_CONTENT_HOST
 PATH = "/sc3/0123456789abcdef0123456789abcdef"
 QUERY = "?encoding=zstd&version=1&Signature=invented-secret"
 PLACE = 9876543210  # an invented place ID: never in a report
+#: Invented per-session and per-request values (the 8 October captures showed real ones).
+SESSION = "11111111-2222-4333-8444-555555555555"
+TRACE = "fedcba9876543210fedcba9876543210"
+EDGE = "invented-edge-request-id"
 
 
 def ktx2(*, vk_format: int = 146, levels: int = 2, scheme: int = 2) -> bytes:
@@ -143,6 +148,7 @@ def capture_run(
     download = (
         b"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Encoding: zstd\r\n"
         b"Set-Cookie: session=invented\r\nRoblox-Place-Id: " + str(PLACE).encode() + b"\r\n"
+        b"X-Amz-Cf-Id: " + EDGE.encode() + b"\r\nAkamai-GRN: " + EDGE.encode() + b"\r\n"
         b"Content-Length: " + str(len(texture)).encode() + b"\r\n\r\n" + texture
     )
     holder = rules.SnapshotHolder()
@@ -172,7 +178,11 @@ def capture_run(
     async def fetch() -> list[object]:
         async with Proxy(cdn_server, pipeline) as proxy:
             client = await proxy.connect()
-            request = f"GET {PATH}{QUERY} HTTP/1.1\r\nHost: {CDN}\r\n\r\n".encode()
+            request = (
+                f"GET {PATH}{QUERY} HTTP/1.1\r\nHost: {CDN}\r\n"
+                f"Roblox-Play-Session-Id: {SESSION}\r\ntraceparent: 00-{TRACE}-0011223344556677-00"
+                f"\r\nRoblox-Place-Id: 12\r\n\r\n"
+            ).encode()
             _raw, events = await client.send(request)
             return events
 
@@ -198,9 +208,57 @@ def test_a_captured_download_passes_unchanged_and_is_reported(tmp_path: Path) ->
     assert "starts with the zstd magic 28 B5 2F FD: no" in text  # Verdra undid the encoding
     assert "vkFormat: 146 (BC7_SRGB)" in text
     # Nothing that names the player, the place or a secret.
-    for private in (str(PLACE), "invented-secret", "session=invented", '"r1"'):
+    for private in (str(PLACE), "invented-secret", "session=invented", '"r1"', SESSION, TRACE):
         assert private not in text
+    assert EDGE not in text
     assert "serverPlaceId: (hidden)" in text
+    for name in ("Roblox-Play-Session-Id", "traceparent", "Roblox-Place-Id", "X-Amz-Cf-Id"):
+        assert f"{name}: (hidden)" in text  # a short place ID too, not just long numbers
+
+
+def test_reports_are_numbered_per_asset_and_never_overwritten(tmp_path: Path) -> None:
+    """On 8 October every report was "-1": the number restarted with each batch."""
+    folder = tmp_path / "diagnostics"
+    folder.mkdir()
+    (folder / f"format-capture-{ABOVE_UINT32}-1.txt").write_text("an earlier run", "utf-8")
+    capture = litmus.FormatCapture(frozenset({ABOVE_UINT32}), folder, save_bodies=True)
+    request = hyphae.Request(CDN, b"GET", PATH.encode(), ())
+    response = hyphae.Response(200, (), b"OK", b"body")
+    for _batch in range(3):  # each batch notes the asset anew
+        capture._write(litmus._Watched(ABOVE_UINT32, {}), request, response)  # noqa: SLF001
+    capture._write(litmus._Watched(ABOVE_INT32, {}), request, response)  # noqa: SLF001
+    assert [path.name for path in capture.reports] == [
+        f"format-capture-{ABOVE_UINT32}-2.txt",
+        f"format-capture-{ABOVE_UINT32}-3.txt",
+        f"format-capture-{ABOVE_UINT32}-4.txt",
+        f"format-capture-{ABOVE_INT32}-1.txt",
+    ]
+    assert (folder / f"format-capture-{ABOVE_UINT32}-1.txt").read_text("utf-8") == "an earlier run"
+    assert (folder / f"format-capture-{ABOVE_UINT32}-4.bin").read_bytes() == b"body"
+
+
+def test_a_mesh_body_is_described() -> None:
+    mesh = clay.write_filemesh(clay.Mesh((), ()))
+    text = "\n".join(litmus.body_lines(mesh))
+    assert "FileMesh:" in text
+    assert "version: 2.00" in text
+    assert "header size: 12" in text
+    assert "not a KTX2 file" not in text
+    assert "version: 1.00" in "\n".join(litmus.body_lines(b"version 1.00\n0\n"))
+
+
+def test_a_download_on_another_host_is_never_silent(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    capture = litmus.FormatCapture(frozenset({ABOVE_UINT32}), tmp_path)
+    items = [{"assetId": ABOVE_UINT32, "assetType": "Mesh", "requestId": "r1"}]
+    batch = hyphae.Request(HOST, b"POST", BATCH, (), json.dumps(items).encode())
+    capture.on_request(batch)
+    located = [{"requestId": "r1", "location": "https://c0.example.invalid/mesh?x=1"}]
+    with caplog.at_level(logging.WARNING, logger="verdra.roots.litmus"):
+        capture.on_response(batch, hyphae.Response(200, (), b"OK", json.dumps(located).encode()))
+    [line] = [r.getMessage() for r in caplog.records]
+    assert f"asset {ABOVE_UINT32} downloads from c0.example.invalid" in line
 
 
 def test_an_asset_not_chosen_is_not_reported(tmp_path: Path) -> None:

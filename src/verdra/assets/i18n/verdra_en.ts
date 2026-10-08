@@ -497,6 +497,13 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-09</name>
+    <message>
+        <source>Format capture: asset {asset} downloads from {host}, which Verdra doesn&apos;t read, so its format can&apos;t be captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>
