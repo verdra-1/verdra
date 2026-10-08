@@ -5,10 +5,11 @@
 Qt's own arguments (such as `-platform offscreen`) are left for Qt; anything else unknown is
 ignored rather than refused, so a launcher passing extra arguments can't stop Verdra starting.
 
-The one exception is `--diagnose-interception` (spec S-11, plan 16.2): it is offered only while
-Verdra runs from source, where its module (roots/litmus.py) is present. A frozen build doesn't
-have that module, so there argparse rejects the flag as unknown and Verdra exits with code 2
-before anything starts (decision record 0015).
+The exceptions are the diagnostics `--diagnose-interception` (spec S-11, plan 16.2) and
+`--format-capture <asset IDs>` with `--save-bodies` (spec S-21, plan 16.2 of 8 October 2026):
+they are offered only while Verdra runs from source, where their module (roots/litmus.py) is
+present. A frozen build doesn't have that module, so there argparse rejects the flag as unknown
+and Verdra exits with code 2 before anything starts (decision record 0015).
 """
 
 from __future__ import annotations
@@ -31,9 +32,17 @@ class Arguments:
     minimized: bool = False
     link: str | None = None
     diagnose_interception: bool = False
+    #: Asset IDs whose CDN downloads a format capture reports (roots/litmus); () when off.
+    format_capture: tuple[int, ...] = ()
+    #: Also save each captured body next to its report.
+    save_bodies: bool = False
 
 
 DIAGNOSE_FLAG = "--diagnose-interception"
+CAPTURE_FLAG = "--format-capture"
+BODIES_FLAG = "--save-bodies"
+#: Every flag that needs the source-only diagnostic module.
+DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG)
 #: The source-only module the flag needs (roots/litmus.py); frozen builds leave it out.
 DIAGNOSTIC_SOURCE = "litmus.py"
 
@@ -56,9 +65,13 @@ def parse(argv: list[str]) -> Arguments:
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--minimized", action="store_true")
     diagnose = DIAGNOSE_FLAG in argv
-    if diagnose and not diagnosis_available():
+    asked = [flag for flag in DIAGNOSTIC_FLAGS if any(_is_flag(item, flag) for item in argv)]
+    if asked and not diagnosis_available():
         # argparse's own "unrecognized arguments" error, then exit code 2.
-        parser.parse_args([DIAGNOSE_FLAG])
+        parser.parse_args([asked[0]])
+    if diagnosis_available():
+        parser.add_argument(CAPTURE_FLAG, type=_asset_ids, default=())
+        parser.add_argument(BODIES_FLAG, action="store_true")
     known, rest = parser.parse_known_args([item for item in argv if item != DIAGNOSE_FLAG])
     scheme = terrain.URL_SCHEME + ":"
     link = next((item for item in rest if item.lower().startswith(scheme)), None)
@@ -68,4 +81,19 @@ def parse(argv: list[str]) -> Arguments:
         minimized=known.minimized,
         link=link,
         diagnose_interception=diagnose,
+        format_capture=getattr(known, "format_capture", ()),
+        save_bodies=getattr(known, "save_bodies", False),
     )
+
+
+def _is_flag(item: str, flag: str) -> bool:
+    return item == flag or item.startswith(flag + "=")
+
+
+def _asset_ids(text: str) -> tuple[int, ...]:
+    """`15553230204,11473800131` as asset IDs (argparse turns a ValueError into exit code 2)."""
+    ids = tuple(int(part) for part in text.replace(" ", "").split(",") if part)
+    if not ids or any(asset_id <= 0 for asset_id in ids):
+        msg = "give one or more asset IDs, separated by commas"
+        raise ValueError(msg)
+    return ids

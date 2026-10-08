@@ -346,6 +346,16 @@ def cache_moved_text(moved: CacheMove) -> str:
     ).format(names=", ".join(moved.names), folder=moved.backup)
 
 
+def capture_text(ids: tuple[int, ...]) -> str:
+    """M-DIAG-03: a format capture is on (source runs only, roots/litmus)."""
+    return QCoreApplication.translate(
+        "M-DIAG-03",
+        "Format capture is on for {ids}. Their replacements are off while it runs, and what "
+        "Roblox's CDN sends for them is written to {folder}. Restart Verdra without "
+        "--format-capture to turn it off.",
+    ).format(ids=", ".join(str(i) for i in ids), folder=terrain.diagnostics_dir())
+
+
 def other_player_text() -> str:
     """M-LAUNCH-08: a Player Verdra didn't start is running (banner and routing status)."""
     return QCoreApplication.translate(
@@ -519,6 +529,8 @@ class Sprout(QObject):
         connect: mycelium.Connector | None = None,
         pool: tendrils.Tendrils | None = None,
         diagnose: bool = False,
+        capture: tuple[int, ...] = (),
+        save_bodies: bool = False,
         snapshots: rules.SnapshotHolder | None = None,
         schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
@@ -543,6 +555,10 @@ class Sprout(QObject):
         self.launches = launches or Launches(platform=self.platform)
         self.connector = connect or self._open_tunnel
         self.diagnose = diagnose
+        #: A format capture (roots/litmus, source runs only): these assets' downloads are
+        #: reported and their replacements are left alone.
+        self.capture = capture
+        self.save_bodies = save_bodies
         self.router = gardener.Router(status, self)
         self.pool = pool
         self.client: humus.RobloxClient | None = None
@@ -1012,11 +1028,26 @@ class Sprout(QObject):
 
     def _features(self, authority: resin.Authority) -> mycelium.Interceptor:
         """Decrypt only the hosts the current snapshot needs (plan 10.1, 10.2; S-21)."""
-        grafter = Grafter(self.snapshots, on_unreadable=self.router.report_unreadable_assets)
+        grafter = Grafter(
+            self.snapshots,
+            on_unreadable=self.router.report_unreadable_assets,
+            leave=frozenset(self.capture),
+        )
         pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
+        extra: frozenset[str] = frozenset()
+        if self.capture:
+            from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision 0015)
+
+            capture = litmus.FormatCapture(
+                frozenset(self.capture), terrain.diagnostics_dir(), save_bodies=self.save_bodies
+            )
+            # After the grafter on the way out (it sees the IDs as sent), first on the way back
+            # (it sees the CDN's own answer).
+            pipeline = hyphae.Pipeline(request=(grafter, capture), response=(capture, grafter))
+            extra = litmus.CAPTURE_HOSTS
         return hyphae.Interception(
             hyphae.LeafContexts(authority),
-            lambda: self.snapshots.current.hosts(),  # noqa: PLW0108 - read the newest snapshot
+            lambda: self.snapshots.current.hosts() | extra,
             self._open_upstream,
             lambda: pipeline,
             on_verification_failure=self.router.report_certificate_failure,

@@ -42,7 +42,7 @@ from verdra.canopy.screens.rings import ActivityScreen
 from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
-from verdra.trunk.branches.sprout import cache_moved_text, other_player_text
+from verdra.trunk.branches.sprout import cache_moved_text, capture_text, other_player_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -352,9 +352,18 @@ class Shell:
             self.show_routing(services.routing.current)
         for notice in services.settings.notices:
             self.show_settings_notice(notice)
-        if services.arguments.diagnose_interception:
-            self.show_diagnostic_notice()
+        self._show_diagnostics()
         self.window.restore_state()
+
+    def _show_diagnostics(self) -> None:
+        """M-DIAG-01 and M-DIAG-03, for as long as a source-only diagnostic is on."""
+        arguments = self.services.arguments
+        if arguments.diagnose_interception:
+            self.show_diagnostic_notice()
+        if arguments.format_capture:
+            self.window.notices.addWidget(
+                Notice(capture_text(arguments.format_capture), Tone.WARNING, self.window)
+            )
 
     def _report_job_end(self, job: Job) -> None:
         """Show M-JOB-01 or M-JOB-02 when any job is canceled or fails (spec S-04)."""

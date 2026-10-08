@@ -455,6 +455,27 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-03</name>
+    <message>
+        <source>Format capture is on for {ids}. Their replacements are off while it runs, and what Roblox&apos;s CDN sends for them is written to {folder}. Restart Verdra without --format-capture to turn it off.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-04</name>
+    <message>
+        <source>Format capture of asset {asset} written to {file}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-05</name>
+    <message>
+        <source>Format capture of asset {asset} couldn&apos;t be written: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>
