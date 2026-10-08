@@ -203,6 +203,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Pictures from your PC or a link, and Remove, are sent in the texture format Roblox's own
+  servers use (compressed BC1 or BC3 blocks, the same layout and compression), so Roblox can
+  draw them; before, they were sent in a format Roblox didn't show.
 - Activity and the log files show a hidden value as "•••• (redacted)" once, not "•••• (redacted)
   (redacted)".
 - The signature of a Discord attachment link (`ex`, `is`, `hm`) or a Google Cloud signed link is

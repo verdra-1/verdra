@@ -15,6 +15,7 @@ import gzip
 import json
 import logging
 import threading
+from compression import zstd
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Final
@@ -74,9 +75,17 @@ def get(target: str) -> bytes:
 
 
 def play(
-    tmp_path: Path, grafter: Grafter, download: bytes, *, host: str = CDN
+    tmp_path: Path,
+    grafter: Grafter,
+    download: bytes,
+    *,
+    host: str = CDN,
+    heads: list[bytes] | None = None,
 ) -> tuple[list[dict[str, Any]], bytes, FakeServer]:
-    """The Player's two steps: the batch, then downloading the first item's content."""
+    """The Player's two steps: the batch, then downloading the first item's content.
+
+    The download's response head is added to `heads` when given.
+    """
     batch_server = FakeServer(tmp_path / "batch", {BATCH: located(ITEMS, host)}, host=HOST)
     cdn_server = FakeServer(tmp_path / "cdn", {f"{PATH}0?sig=secret".encode(): download}, host=CDN)
     pipeline = hyphae.Pipeline(request=[grafter], response=[grafter])
@@ -92,7 +101,9 @@ def play(
     async def fetch() -> bytes:
         async with Proxy(cdn_server, pipeline) as proxy:
             client = await proxy.connect()
-            _raw, events = await client.send(get(f"{PATH}0?sig=secret"))
+            raw, events = await client.send(get(f"{PATH}0?sig=secret"))
+            if heads is not None:
+                heads.append(raw.split(b"\r\n\r\n")[0])
             return body_of(events)
 
     answer = body_of(run(batch))
@@ -207,7 +218,7 @@ def test_a_picture_from_the_pc_replaces_one_in_game_end_to_end(
     service = grafts.Grafts(profiles, FakeSettings())
     profile = service.edit("create", "My replacements")
     (profiles / profile.name).mkdir(parents=True)
-    picture = ochre.Pixels(3, 1, bytes([1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255]))
+    picture = ochre.Pixels(8, 4, bytes([120, 60, 30, 255] * 32))
     (profiles / profile.name / "wall.png").write_bytes(ochre.to_png(picture))
     service.edit(
         "add_replacement",
@@ -219,9 +230,20 @@ def test_a_picture_from_the_pc_replaces_one_in_game_end_to_end(
     assert service.publish() == 1  # Apply now
     assert service.warnings == {}
     assert service.holder.current.hosts() == {rules.ASSET_BATCH_HOST, CDN}
-    ktx2 = ochre.write_ktx2(ochre.read_image(ORIGINAL_PNG))
-    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ktx2))
-    assert ochre.read_ktx2(downloaded) == picture  # the file's own pixels, as KTX2
+    # The CDN's answer as captured on 8 October 2026: a KTX2, zstd-compressed, octet-stream.
+    ktx2 = zstd.compress(ochre.write_roblox_ktx2(ochre.read_image(ORIGINAL_PNG)))
+    original = http(ktx2, extra=b"Content-Type: application/octet-stream\r\n"
+                    b"Content-Encoding: zstd\r\n")  # fmt: skip
+    heads: list[bytes] = []
+    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), original, heads=heads)
+    assert b"Content-Encoding: zstd" in heads[0]  # sent the way the CDN sent the original
+    assert b"Content-Type: application/octet-stream" in heads[0]
+    assert f"Content-Length: {len(downloaded)}".encode() in heads[0]
+    served = zstd.decompress(downloaded)
+    layout = ochre.ktx2_layout(served)
+    assert (layout.vk_format, layout.width, layout.height) == (ochre.VK_BC1_RGB_UNORM, 8, 4)
+    decoded = ochre.read_ktx2(served)  # the file's own pixels (within RGB565's precision)
+    assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba, picture.rgba, strict=True))
 
 
 # --- Links and Remove (S-21, step 3b) -----------------------------------------------------------
@@ -250,7 +272,11 @@ def test_remove_serves_a_transparent_picture_in_the_cdns_format(
         ("ktx2", ochre.write_ktx2(ochre.read_image(ORIGINAL_PNG)), ochre.read_ktx2),
     ):
         _items, downloaded, _server = play(tmp_path / name, Grafter(service.holder), http(original))
-        assert read(downloaded) == ochre.Pixels(1, 1, b"\0\0\0\0")  # fully transparent
+        clear = read(downloaded)
+        assert set(clear.rgba[3::4]) == {0}  # fully transparent
+        assert (clear.width, clear.height) == ((1, 1) if name == "png" else (4, 4))
+    remove = service.holder.current.content[ABOVE_UINT32].ktx2
+    assert ochre.ktx2_layout(remove).vk_format == ochre.VK_BC3_UNORM  # the smallest BC3 texture
 
 
 @pytest.mark.spec("S-21", 16)

@@ -263,4 +263,6 @@ Make Roblox receive the replacement instead of the original asset.
   uncompressed level); within 1024 pixels a side, each side rounded down to a multiple of 64
   (of 4 under 64); colors stored as they are, no gamma either way. Remove is the smallest fully
   transparent BC3 texture. The block encoder is Verdra's own (numpy, no new dependency).
-  Serving it with Content-Encoding zstd follows in the next step.
+  The grafter sends it the way the CDN sent the original: with Content-Encoding: zstd when
+  the CDN's answer had it (roots/hyphae compresses a changed body when a symbiont sets
+  `Response.coding`), with the CDN's Content-Type and a correct Content-Length.

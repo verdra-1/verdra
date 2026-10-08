@@ -306,6 +306,30 @@ def test_a_modified_response_is_sent_decoded_with_its_length(tmp_path: Path) -> 
     run(body)
 
 
+def test_a_modified_response_can_be_sent_as_zstd(tmp_path: Path) -> None:
+    """The asset CDN answers pictures with Content-Encoding: zstd; a replacement can be too."""
+    server = FakeServer(tmp_path, {b"/gzip": GZIPPED})
+    rewrite = Recorder(
+        wants_body=True,
+        on_response=lambda r: replace(r, body=b"replaced" * 100, coding="zstd"),  # type: ignore[arg-type]
+    )
+
+    async def body() -> None:
+        async with Proxy(server, hyphae.Pipeline((), [rewrite])) as proxy:
+            client = await proxy.connect()
+            raw, events = await client.send(get(b"/gzip"))
+            head = raw.split(b"\r\n\r\n")[0]
+            sent = body_of(events)
+            assert head.count(b"Content-Encoding") == 1  # the upstream's gzip is gone
+            assert b"Content-Encoding: zstd" in head
+            assert f"Content-Length: {len(sent)}".encode() in head
+            assert b"Content-Type: application/json" in head
+            assert sent.startswith(b"\x28\xb5\x2f\xfd")
+            assert zstd.decompress(sent) == b"replaced" * 100
+
+    run(body)
+
+
 def test_request_symbionts_can_change_or_answer_a_request(tmp_path: Path) -> None:
     server = FakeServer(tmp_path, {b"/plain": PLAIN})
 
