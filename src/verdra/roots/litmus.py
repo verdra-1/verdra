@@ -5,7 +5,8 @@
 
 Format capture (`--format-capture <asset IDs>`, plan 16.2 of 8 October 2026, spec S-21 test 18):
 `FormatCapture` reports what Roblox's CDN really sends for chosen assets, which the grafter
-leaves alone meanwhile (see the class).
+leaves alone meanwhile (see the class). Its control experiment (`--control-swap ORIGINAL=DONOR`,
+test 19), `ControlSwap`, answers the original's download with the donor's real CDN bytes.
 
 Diagnostic interception:
 
@@ -25,7 +26,7 @@ import json
 import logging
 import ssl
 from collections.abc import Callable, Collection, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -393,3 +394,127 @@ def _is_download(request: hyphae.Request) -> bool:
 
 #: The hosts a format capture needs decrypted, whatever the replacements are.
 CAPTURE_HOSTS: Final = frozenset({rules.ASSET_BATCH_HOST, rules.ASSET_CONTENT_HOST})
+
+
+# --- Control experiment (--control-swap ORIGINAL=DONOR, plan 16.2, 8 October 2026) -----------
+
+#: The request ID suffix of the item the control experiment adds to a batch.
+_DONOR_SUFFIX: Final = "-verdra-donor"
+
+
+@dataclass
+class _Control:
+    """A batch carrying the original, by the original's request ID."""
+
+    request_id: str
+
+
+class ControlSwap:
+    """A symbiont that answers the original's download with the donor's real CDN bytes.
+
+    The test of hypothesis H4 (docs/m2/notes.md): does Roblox draw bytes that don't match the
+    address it asked for? For each batch asking for `original`, it adds an item asking for
+    `donor` (the same fields, its own request ID), takes that item's answer out again before
+    Roblox sees it, and when Roblox downloads the original's content, sends the download to the
+    donor's address instead: the CDN's real answer for the donor, with its real headers, reaches
+    Roblox unchanged. Nothing is made up and nothing else changes. Source runs only.
+    """
+
+    name = "control swap"
+
+    def __init__(self, original: int, donor: int) -> None:
+        self.original = original
+        self.donor = donor
+        #: How many downloads were answered with the donor's bytes.
+        self.swapped = 0
+        #: The original's request ID -> its batch, until the answer comes (matched by request ID,
+        #: so another symbiont changing the same batch doesn't lose it).
+        self._waiting: dict[str, _Control] = {}
+        self._redirects: dict[str, tuple[str, str]] = {}
+
+    def wants_request_body(self, request: hyphae.Request) -> bool:
+        """Asset batches only."""
+        return _is_batch(request)
+
+    def on_request(self, request: hyphae.Request) -> hyphae.Request | None:
+        """Ask for the donor beside the original; send the original's download to the donor."""
+        if _is_batch(request) and request.body is not None:
+            return self._batch(request, request.body)
+        if _is_download(request):
+            return self._download(request)
+        return None
+
+    def _batch(self, request: hyphae.Request, body: bytes) -> hyphae.Request | None:
+        items = _json_items(body)
+        found = next((i for i in items if _asset_id(i) == self.original and "requestId" in i), None)
+        if found is None:
+            return None
+        control = _Control(str(found["requestId"]))
+        added = dict(found)
+        added["assetId"] = str(self.donor) if isinstance(found["assetId"], str) else self.donor
+        added["requestId"] = control.request_id + _DONOR_SUFFIX
+        self._waiting[control.request_id] = control
+        while len(self._waiting) > 64:  # noqa: PLR2004 - answers that never came
+            self._waiting.pop(next(iter(self._waiting)))
+        return replace(request, body=json.dumps([*items, added]).encode())
+
+    def _download(self, request: hyphae.Request) -> hyphae.Request | None:
+        redirect = self._redirects.get(rules.canonical_path(request.target))
+        if redirect is None:
+            return None
+        host, target = redirect
+        if rules.host_name(host) != rules.host_name(request.host):
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-DIAG-07",
+                    "Control experiment: asset {donor} downloads from {host}, not from the "
+                    "original's host, so it couldn't be swapped in.",
+                ).format(donor=self.donor, host=host),
+            )
+            return None
+        self.swapped += 1
+        log.info(
+            "%s",
+            QCoreApplication.translate(
+                "M-DIAG-06",
+                "Control experiment: Roblox's download of asset {original} gets asset {donor}'s "
+                "real bytes from the CDN.",
+            ).format(original=self.original, donor=self.donor),
+        )
+        return replace(request, target=target.encode("latin-1"))
+
+    def wants_response_body(self, request: hyphae.Request, response: hyphae.Response) -> bool:
+        """Batch answers, while a batch it added the donor to waits for its answer."""
+        return _is_batch(request) and bool(self._waiting)
+
+    def on_response(
+        self, request: hyphae.Request, response: hyphae.Response
+    ) -> hyphae.Response | None:
+        """Note both addresses and take the donor's item out of the answer."""
+        if response.body is None:
+            return None
+        items = _json_items(response.body)
+        found = {str(item.get("requestId")): item for item in items}
+        control = next((c for key, c in self._waiting.items() if key in found), None)
+        if control is None:
+            return None
+        del self._waiting[control.request_id]
+        donor = found.get(control.request_id + _DONOR_SUFFIX)
+        original = found[control.request_id]
+        donor_at, original_at = _address(donor), _address(original)
+        if donor_at is not None and original_at is not None:
+            self._redirects[rules.canonical_path(original_at[1])] = donor_at
+        kept = [item for item in items if item is not donor]
+        if len(kept) == len(items):
+            return None
+        return replace(response, body=json.dumps(kept).encode())
+
+
+def _address(item: dict[str, Any] | None) -> tuple[str, str] | None:
+    """An item's content address as (host, path and query), or None."""
+    location = item.get("location") if item is not None else None
+    if not isinstance(location, str):
+        return None
+    parts = urlsplit(location)
+    return parts.hostname or "", (parts.path or "/") + (f"?{parts.query}" if parts.query else "")

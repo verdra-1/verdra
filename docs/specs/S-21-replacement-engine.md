@@ -64,6 +64,13 @@ Make Roblox receive the replacement instead of the original asset.
 - M-DIAG-04 (Activity, source runs only) "Format capture of asset <asset> written to <file>."
 - M-DIAG-05 (Activity, source runs only) "Format capture of asset <asset> couldn't be written:
   <reason>."
+- M-DIAG-06 (Activity, source runs only) "Control experiment: Roblox's download of asset
+  <original> gets asset <donor>'s real bytes from the CDN."
+- M-DIAG-07 (Activity, source runs only) "Control experiment: asset <donor> downloads from
+  <host>, not from the original's host, so it couldn't be swapped in."
+- M-DIAG-08 (Notice and Activity, source runs only) "Control experiment is on: when Roblox
+  downloads asset <original>, it gets asset <donor>'s real bytes from the CDN, and replacements
+  of <original> are off. Restart Verdra without --control-swap to turn it off."
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
@@ -134,6 +141,10 @@ Make Roblox receive the replacement instead of the original asset.
     batch item and its answer (place and request IDs hidden, query values left out), the
     download's status and redacted headers, whether the body is a zstd frame, and the KTX2
     layout inside (vkFormat, size, levels, supercompression, descriptor, keys, level index).
+19. (diagnostic, source runs only) With `--control-swap ORIGINAL=DONOR`, the batch also asks for
+    the donor (an extra item Roblox never sees in the answer), and Roblox's download of the
+    original's address gets the CDN's real answer for the donor, headers included; a donor on
+    another host is never swapped in (M-DIAG-07).
 
 ## Lives in
 
@@ -232,4 +243,15 @@ Make Roblox receive the replacement instead of the original asset.
   in `roots/litmus` with the other source-only diagnostic: frozen builds refuse the flags (exit
   code 2) and leave the module out (decision record 0015). Nothing in a report names the player
   or the place; the reports stay on the PC.
+- **Control experiment (2026-10-08).** `--control-swap 15553230204=11473800131` tests H4 (docs/m2/
+  notes.md): Roblox asks for the wall's picture at its own content address and gets
+  11473800131's real CDN bytes and headers there, nothing made up.
+  - **11473800131 shows on the wall:** Roblox doesn't check the bytes against the address, so
+    serving at the CDN address works and only Verdra's own file is wrong (H1 to H3). The fix
+    makes Verdra's answer match the captured format exactly (framing, KTX2 layout, levels,
+    headers).
+  - **The wall stays grey (or shows the original):** Roblox rejects bytes that don't match the
+    address it asked for (H4), so no content can be served at the original's address. The fix
+    changes the route instead: the batch answer for a replaced asset names an address for the
+    replacement's own content, which Verdra answers itself.
 
