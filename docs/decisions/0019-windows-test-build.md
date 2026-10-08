@@ -1,6 +1,6 @@
 # 0019. A Windows test build the owner can download, as a workflow artifact
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by 0021 (tests run from source; the test build stays)
 - **Date:** 2026-10-07
 - **Plan sections:** 13.5, 13.6, 16.2 ("Next steps", item 2, 7 October 2026), Reference R3
 

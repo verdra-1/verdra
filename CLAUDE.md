@@ -25,6 +25,10 @@ You run day-to-day work and move on to the next milestone by yourself after an e
   settings. Branch protection is optional; CI and these rules stand in for it until the
   maintainer sets it up.
 - If a check fails after a merge, stop and tell the maintainer in plain words.
+- Real-machine tests run Verdra from source: the maintainer runs
+  `powershell -ExecutionPolicy Bypass -File tools\run-latest.ps1` in their clone before each test
+  (guide `docs/guides/run-from-source.md`, decision record 0021). The test-build ZIP stays but
+  isn't needed. How releases are distributed is an open item, decided before 0.1.0.
 - Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.
