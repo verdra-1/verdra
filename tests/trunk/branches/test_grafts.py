@@ -457,13 +457,18 @@ def file_graft(value: str, slot: str | None = None) -> rules.Graft:
 
 
 def test_a_local_picture_is_prepared_as_png_and_ktx2_with_the_same_pixels(tmp_path: Path) -> None:
-    pixels = ochre.Pixels(2, 2, bytes(range(16)))
+    pixels = ochre.Pixels(4, 4, bytes([200, 40, 90, 255] * 16))
     (tmp_path / "wall.png").write_bytes(ochre.to_png(pixels))
     content = grafts.prepare_content(file_graft("./wall.png"), tmp_path)
     assert isinstance(content, rules.Content)
     assert content.source == "file"
     assert ochre.read_image(content.png) == pixels
-    assert ochre.read_ktx2(content.ktx2) == pixels
+    # The KTX2 is in the CDN's texture layout (decision record 0022): BC1 for an opaque picture.
+    layout = ochre.ktx2_layout(content.ktx2)
+    assert (layout.vk_format, layout.supercompression) == (ochre.VK_BC1_RGB_UNORM, 2)
+    decoded = ochre.read_ktx2(content.ktx2)
+    assert (decoded.width, decoded.height) == (4, 4)
+    assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba, pixels.rgba, strict=True))  # RGB565
 
 
 @pytest.mark.parametrize(

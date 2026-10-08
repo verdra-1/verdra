@@ -16,7 +16,8 @@ and answers the client.
   and each symbiont that asked for it hears why through its optional `on_unread`.
 - Unmodified messages keep their status, headers (names, case, order) and body bytes, including
   their content encoding; chunked bodies keep their chunk sizes. Modified bodies are sent decoded
-  (no Content-Encoding) with a correct Content-Length.
+  (no Content-Encoding) with a correct Content-Length, unless the symbiont asks for zstd
+  (`Response.coding`): then they are sent as one zstd frame with Content-Encoding: zstd.
 - An exception in a symbiont is logged, redacted, and that symbiont is skipped for that message;
   the request still completes (S-11 rule 3).
 - An upstream certificate that doesn't verify answers the client with HTTP 502, writes M-PROXY-02
@@ -86,12 +87,17 @@ class Request:
 
 @dataclass(frozen=True, slots=True)
 class Response:
-    """An HTTP response as symbionts see it. `body` is the decoded content when buffered."""
+    """An HTTP response as symbionts see it. `body` is the decoded content when buffered.
+
+    `coding` is how a changed body is sent: "" decoded, or "zstd" (the only coding Verdra
+    sends, for a client that asked for it), whatever coding the upstream answer had.
+    """
 
     status: int
     headers: Headers
     reason: bytes = b""
     body: bytes | None = None
+    coding: Literal["", "zstd"] = ""
 
 
 class Symbiont(Protocol):
@@ -685,17 +691,24 @@ _DECODERS: Final[dict[str, Callable[[bytes, int], bytes]]] = {
 }
 
 
+def _unframed(headers: Headers) -> list[tuple[bytes, bytes]]:
+    return [(name, value) for name, value in headers if name.lower() not in _FRAMING]
+
+
 def _with_length(headers: Headers, length: int) -> list[tuple[bytes, bytes]]:
-    kept = [(name, value) for name, value in headers if name.lower() not in _FRAMING]
-    return [*kept, (b"Content-Length", str(length).encode())]
+    return [*_unframed(headers), (b"Content-Length", str(length).encode())]
 
 
 def _complete(response: Response, *, head_only: bool) -> tuple[h11.Event, ...]:
-    """A whole response with a decoded body and a correct Content-Length."""
+    """A whole response with its body (decoded, or zstd if asked) and a correct Content-Length."""
     body = response.body or b""
+    headers = _unframed(response.headers)
+    if response.coding == "zstd" and body:
+        body = zstd.compress(body)
+        headers.append((b"Content-Encoding", b"zstd"))
     head = h11.Response(
         status_code=response.status,
-        headers=_with_length(response.headers, len(body)),
+        headers=[*headers, (b"Content-Length", str(len(body)).encode())],
         reason=response.reason,
     )
     if head_only or not body:

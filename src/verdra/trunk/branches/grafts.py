@@ -383,9 +383,10 @@ def prepare_content(
     """Read and convert a content replacement's target ahead of time; or say why it can't be used.
 
     S-21 rule 2: the proxy only picks prepared bytes. A Local file or a link's image is decoded
-    once (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2, the formats the CDN
-    sends images in; Remove is a transparent picture in both. Meshes and sounds follow with their
-    own steps (M-SOON-01 until then). A link's bytes come from `fetched` (bark/rain's cache).
+    once (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2 in the CDN's own texture
+    layout (decision record 0022), the formats the CDN sends images in; Remove is a transparent
+    picture in both. Meshes and sounds follow with their own steps (M-SOON-01 until then). A
+    link's bytes come from `fetched` (bark/rain's cache).
     """
     if graft.slot is not None:
         return _soon()
@@ -402,7 +403,7 @@ def _prepare(graft: rules.Graft, folder: Path, fetched: Fetched | None) -> rules
     if graft.kind == "remove":
         return rules.Content(
             ochre.to_png(_CLEAR),
-            ochre.write_ktx2(_CLEAR),
+            ochre.write_roblox_ktx2(_CLEAR),  # the smallest BC3 texture, all transparent
             "remove",
             clay.write_filemesh(clay.Mesh((), ())),  # an empty mesh: nothing drawn
         )
@@ -453,7 +454,7 @@ def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
         return QCoreApplication.translate(
             "M-GRAFT-06", "This file couldn't be used: {reason}."
         ).format(reason=error)
-    return rules.Content(ochre.to_png(pixels), ochre.write_ktx2(pixels), source)
+    return rules.Content(ochre.to_png(pixels), ochre.write_roblox_ktx2(pixels), source)
 
 
 def _mesh(data: bytes, kind: str, source: str) -> rules.Content | str:

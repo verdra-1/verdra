@@ -420,7 +420,10 @@ class Grafter:
             content.source,
         )
         headers = tuple((n, v) for n, v in response.headers if n.lower() not in _STALE_HEADERS)
-        return replace(response, headers=headers, body=served)
+        # Sent the way the CDN sent the original: zstd if it was (Roblox asks for it), else
+        # decoded; the Content-Type stays the CDN's.
+        coding = "zstd" if _content_coding(response.headers) == b"zstd" else ""
+        return replace(response, headers=headers, body=served, coding=coding)
 
     def _hash_answered(self, pending: _Pending, item: dict[str, Any]) -> None:
         """Log which asset a hash item turned out to be; never silent if it is a replaced one."""
@@ -496,6 +499,13 @@ def _is_download(request: hyphae.Request) -> bool:
         rules.host_name(request.host) == rules.ASSET_CONTENT_HOST
         and request.method == b"GET"
         and not rules.is_protected(request.host, request.target)
+    )
+
+
+def _content_coding(headers: hyphae.Headers) -> bytes:
+    """The response's Content-Encoding, lower case ("" for none)."""
+    return b",".join(
+        value.strip().lower() for name, value in headers if name.lower() == b"content-encoding"
     )
 
 

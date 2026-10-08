@@ -55,7 +55,8 @@ with Windows wheels, or Verdra's own in numpy.
 - Measured on the session machine (Linux, one core): 0.44 to 0.73 s for a 1024 × 1024 picture;
   pictures are prepared once, when Apply now builds the snapshot. Quality on synthetic photos:
   color PSNR 42.7 to 44.9 dB, alpha 54.2 dB through texture2ddecoder.
-- Serving it (Content-Encoding zstd, the CDN's Content-Type, a correct Content-Length) is the next
-  step in roots/hyphae and grafts; the owner's next test shows whether Roblox draws it.
+- It is served with Content-Encoding: zstd when the CDN's answer had it, the CDN's Content-Type
+  and a correct Content-Length (roots/hyphae, `Response.coding`); the owner's next test shows
+  whether Roblox draws it.
 - If a later capture shows other formats (for example mipmaps or another vkFormat), this record
   is amended with the evidence.
