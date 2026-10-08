@@ -278,6 +278,8 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         # The Players Verdra started, kept so a restarted Verdra still knows them (S-12).
         launches=sprout_.Launches(record=terrain.config_dir() / "players.json"),
         diagnose=arguments.diagnose_interception,
+        capture=arguments.format_capture,
+        save_bodies=arguments.save_bodies,
         snapshots=services.grafts.holder,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
@@ -287,6 +289,9 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
             version=verdra.__version__, system=humus.system_name()
         ),
     )
+    if arguments.format_capture:
+        # The window shows the same sentence as a Notice for as long as the capture is on.
+        log.warning("%s", sprout_.capture_text(arguments.format_capture))
     if arguments.diagnose_interception:
         # The window shows the same sentence as a Notice for as long as the flag is on.
         log.warning(

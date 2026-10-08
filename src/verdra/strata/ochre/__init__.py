@@ -159,6 +159,118 @@ def ktx2_info(data: bytes) -> Ktx2Info:
     return Ktx2Info(vk_format, width, max(height, 1), max(levels, 1), scheme)
 
 
+@dataclass(frozen=True, slots=True)
+class Ktx2Level:
+    """One entry of a KTX2 level index."""
+
+    offset: int
+    length: int
+    uncompressed_length: int
+
+
+@dataclass(frozen=True, slots=True)
+class Ktx2Layout:
+    """Everything a KTX2 file's header, index and descriptor say, for a diagnostic report.
+
+    Unlike `ktx2_info`, nothing is refused: a cube map, an array or an unknown format is
+    described as it is. `dfd` is the first descriptor block's fields; `keys` the key/value
+    data's keys (values aren't read).
+    """
+
+    vk_format: int
+    type_size: int
+    width: int
+    height: int
+    depth: int
+    layers: int
+    faces: int
+    levels: int
+    supercompression: int
+    dfd_offset: int
+    dfd_length: int
+    kvd_offset: int
+    kvd_length: int
+    sgd_offset: int
+    sgd_length: int
+    level_index: tuple[Ktx2Level, ...]
+    dfd: dict[str, int]
+    samples: int
+    keys: tuple[str, ...]
+
+
+#: KTX 2.0 supercompressionScheme values.
+SUPERCOMPRESSION_NAMES: Final = {0: "none", 1: "BasisLZ", 2: "Zstandard", 3: "ZLIB"}
+_DFD_BLOCK = struct.Struct("<IHHBBBB4B8B")
+
+
+def ktx2_layout(data: bytes) -> Ktx2Layout:
+    """Describe a KTX2 file's layout (header, level index, descriptor, keys) without decoding.
+
+    Raises:
+        OchreError: not a KTX2 file, or it ends inside its header or level index.
+    """
+    if len(data) < _HEADER.size + _INDEX.size or not data.startswith(KTX2_IDENTIFIER):
+        msg = "it isn't a KTX2 file"
+        raise OchreError(msg)
+    (_, vk_format, type_size, width, height, depth, layers, faces, levels, scheme) = (
+        _HEADER.unpack_from(data, 0)
+    )
+    dfd_offset, dfd_length, kvd_offset, kvd_length, sgd_offset, sgd_length = _INDEX.unpack_from(
+        data, _HEADER.size
+    )
+    start = _HEADER.size + _INDEX.size
+    count = max(levels, 1)
+    if count > 32 or len(data) < start + _LEVEL.size * count:  # noqa: PLR2004
+        msg = "the file ends inside its level index"
+        raise OchreError(msg)
+    index = tuple(
+        Ktx2Level(*_LEVEL.unpack_from(data, start + _LEVEL.size * n)) for n in range(count)
+    )
+    dfd, samples = _dfd_summary(data, dfd_offset, dfd_length)
+    keys = _kvd_keys(data, kvd_offset, kvd_length)
+    return Ktx2Layout(
+        vk_format, type_size, width, height, depth, layers, faces, levels, scheme,
+        dfd_offset, dfd_length, kvd_offset, kvd_length, sgd_offset, sgd_length,
+        index, dfd, samples, keys,
+    )  # fmt: skip
+
+
+def _dfd_summary(data: bytes, offset: int, length: int) -> tuple[dict[str, int], int]:
+    """The first descriptor block's fields (Khronos Data Format 1.3), and its sample count."""
+    if length < 4 + _DFD_BLOCK.size or offset + length > len(data):
+        return {}, 0
+    fields = _DFD_BLOCK.unpack_from(data, offset + 4)
+    first, version, block_size = fields[0], fields[1], fields[2]
+    summary = {
+        "vendorId": first & 0x1FFFF,
+        "descriptorType": first >> 17,
+        "versionNumber": version,
+        "descriptorBlockSize": block_size,
+        "colorModel": fields[3],
+        "colorPrimaries": fields[4],
+        "transferFunction": fields[5],
+        "flags": fields[6],
+        "texelBlockDimension0": fields[7],
+        "texelBlockDimension1": fields[8],
+        "bytesPlane0": fields[11],
+    }
+    return summary, max(0, (block_size - _DFD_BLOCK.size) // 16)
+
+
+def _kvd_keys(data: bytes, offset: int, length: int) -> tuple[str, ...]:
+    """The keys of the key/value data (each entry: length, key NUL value, padding to 4)."""
+    keys: list[str] = []
+    position, end = offset, min(offset + length, len(data))
+    while length and position + 4 <= end and len(keys) < 64:  # noqa: PLR2004
+        (size,) = struct.unpack_from("<I", data, position)
+        entry = data[position + 4 : position + 4 + size]
+        if not size or len(entry) < size:
+            break
+        keys.append(entry.split(b"\x00", 1)[0].decode("utf-8", "replace"))
+        position += 4 + size + (-size % 4)
+    return tuple(keys)
+
+
 def read_ktx2(data: bytes) -> Pixels:
     """Decode a KTX2 file's base level to RGBA pixels."""
     info = ktx2_info(data)

@@ -139,6 +139,11 @@ def logs_dir() -> Path:
     return Path(platformdirs.user_state_dir(DISTRIBUTION, appauthor=False)) / "logs"
 
 
+def diagnostics_dir() -> Path:
+    """Return the folder for diagnostic reports (source runs only; never sent anywhere)."""
+    return config_dir() / "diagnostics"
+
+
 def exports_dir() -> Path:
     """Return the default folder for exports and support bundles."""
     if (home := _override()) is not None:

@@ -142,8 +142,13 @@ class Grafter:
         self,
         holder: rules.SnapshotHolder,
         on_unreadable: Callable[[str], None] | None = None,
+        *,
+        leave: frozenset[int] = frozenset(),
     ) -> None:
         self.holder = holder
+        #: Originals left alone whatever the snapshot says (a format capture is watching them,
+        #: roots/litmus, source runs only): their batch items and downloads pass unchanged.
+        self.leave = leave
         #: Called (on the proxy's thread) with the reason whenever a batch couldn't be read while
         #: a replacement is active; the routing status turns Degraded (S-14).
         self.on_unreadable = on_unreadable
@@ -156,10 +161,19 @@ class Grafter:
 
     # --- Requests --------------------------------------------------------------------------
 
+    def _active(self) -> tuple[Mapping[int, int], Mapping[int, rules.Content]]:
+        """The snapshot's swaps and content, without the originals left alone."""
+        snapshot = self.holder.current
+        swaps, content = snapshot.swaps(), snapshot.content
+        if self.leave:
+            swaps = {k: v for k, v in swaps.items() if k not in self.leave}
+            content = {k: v for k, v in content.items() if k not in self.leave}
+        return swaps, content
+
     def wants_request_body(self, request: hyphae.Request) -> bool:
         """Only asset batches, and only while some asset has a replacement."""
-        snapshot = self.holder.current
-        return _is_batch(request) and bool(snapshot.swaps() or snapshot.content)
+        swaps, content = self._active()
+        return _is_batch(request) and bool(swaps or content)
 
     def on_request(self, request: hyphae.Request) -> hyphae.Request | None:
         """Ask for each replaced asset's target instead; None if nothing changes."""
@@ -172,9 +186,7 @@ class Grafter:
         return None
 
     def _batch_request(self, request: hyphae.Request) -> hyphae.Request | None:
-        snapshot = self.holder.current
-        swaps = snapshot.swaps()
-        content = snapshot.content
+        swaps, content = self._active()
         if not swaps and not content:
             return None
         if request.body is None:
@@ -211,7 +223,7 @@ class Grafter:
         return changed
 
     def _single_request(self, request: hyphae.Request) -> hyphae.Request | None:
-        swaps = self.holder.current.swaps()
+        swaps, _content = self._active()
         if not swaps:
             return None
         target = request.target.decode("latin-1")
@@ -299,7 +311,7 @@ class Grafter:
     ) -> None:
         """roots/hyphae couldn't read a body the grafter asked for (see `wants_*_body`)."""
         if response is None:
-            if _is_batch(request) and self.holder.current.swaps():
+            if _is_batch(request) and self._active()[0]:
                 self._unreadable("request", reason)
             return
         fetching = self._fetching.pop(id(request), None)

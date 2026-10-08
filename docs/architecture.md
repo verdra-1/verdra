@@ -132,7 +132,7 @@ src/verdra/
 │   ├── burrow.py            Hosts-file routing: keeper client calls, DNS pre-resolution (dnspython), 20 s lease heartbeat.
 │   ├── owl.py               Crash watchdog registration (scheduled task, launchd job or systemd unit) and its cleanup command.
 │   ├── rules.py             Immutable rule snapshot types shared by trunk and the proxy.
-│   ├── litmus.py            Diagnostic interception (--diagnose-interception): pass-through only, TLS details logged; source runs only, excluded from builds (decision 0015).
+│   ├── litmus.py            Diagnostics, source runs only, excluded from builds (decision 0015): diagnostic interception (TLS details logged) and format capture (what the CDN sends for chosen assets).
 │   └── symbionts/           Request and response handlers in the proxy pipeline. A crash in one never fails the request.
 │       ├── grafter.py       Rewrites asset batch requests and responses; serves replacement content.
 │       ├── forager.py       Copies downloaded assets into the library queue.

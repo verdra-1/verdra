@@ -58,6 +58,12 @@ Make Roblox receive the replacement instead of the original asset.
 
 ## Messages
 
+- M-DIAG-03 (Notice and Activity, source runs only) "Format capture is on for <ids>. Their
+  replacements are off while it runs, and what Roblox's CDN sends for them is written to
+  <folder>. Restart Verdra without --format-capture to turn it off."
+- M-DIAG-04 (Activity, source runs only) "Format capture of asset <asset> written to <file>."
+- M-DIAG-05 (Activity, source runs only) "Format capture of asset <asset> couldn't be written:
+  <reason>."
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
@@ -123,6 +129,11 @@ Make Roblox receive the replacement instead of the original asset.
 17. A FileMesh or OBJ from the PC is served as FileMesh 2.00 with the same triangles when the
     CDN answers with a FileMesh; Remove serves an empty mesh; a picture for a mesh, or a mesh for
     a picture, lets the original through with M-GRAFT-12 and Degraded.
+18. (diagnostic, source runs only) With `--format-capture <asset IDs>`, the CDN's answer for those
+    assets reaches Roblox unchanged, even with a replacement set, and a text report holds the
+    batch item and its answer (place and request IDs hidden, query values left out), the
+    download's status and redacted headers, whether the body is a zstd frame, and the KTX2
+    layout inside (vkFormat, size, levels, supercompression, descriptor, keys, level index).
 
 ## Lives in
 
@@ -210,3 +221,15 @@ Make Roblox receive the replacement instead of the original asset.
   editor. Bones, skinning and levels of detail beyond the first aren't kept (S-33). Not verified
   yet: that the Player draws a FileMesh 2.00 where the CDN's own was a newer version; the
   owner's mesh test session shows it.
+- **Format capture (2026-10-08, after Guide B on the maintainer's PC).** Replaced pictures were
+  served but not drawn, and every CDN download asked for `encoding=zstd&version=1`. To see what
+  the real answer looks like, `--format-capture <asset IDs>` (with `--save-bodies` to keep the
+  bodies too) reports each download of those assets to
+  `%LOCALAPPDATA%\Verdra\diagnostics\format-capture-<asset>-<n>.txt` and leaves their
+  replacements off, so the real answer reaches Roblox. It runs after the grafter on requests
+  (so it sees an Asset ID replacement's target as sent) and before it on responses (so it sees
+  the CDN's own answer), and decrypts the batch and CDN hosts even with no replacement. It lives
+  in `roots/litmus` with the other source-only diagnostic: frozen builds refuse the flags (exit
+  code 2) and leave the module out (decision record 0015). Nothing in a report names the player
+  or the place; the reports stay on the PC.
+

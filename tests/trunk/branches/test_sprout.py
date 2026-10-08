@@ -1335,3 +1335,36 @@ def test_closing_the_other_roblox_closes_only_players_verdra_didnt_start(
     finally:
         stop(ours, other)
         made.stop_watching()
+
+
+def test_a_format_capture_decrypts_the_asset_hosts_and_leaves_its_assets_alone(
+    tmp_path: Path, qapp: Any
+) -> None:
+    from verdra.bark import resin  # noqa: PLC0415
+    from verdra.roots import gardener, hyphae, litmus  # noqa: PLC0415
+    from verdra.roots.symbionts.grafter import Grafter as GrafterType  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=RoutingPlatform([]),  # type: ignore[arg-type]
+        capture=(15553230204,),
+        save_bodies=True,
+    )
+    interception = made._features(resin.create_authority(NOW))  # noqa: SLF001
+    assert isinstance(interception, hyphae.Interception)
+    assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)  # with no replacement at all
+    pipeline = interception.pipeline()
+    grafter, capture = pipeline.request
+    assert isinstance(grafter, GrafterType) and grafter.leave == {15553230204}
+    assert isinstance(capture, litmus.FormatCapture) and capture.save_bodies
+    assert list(pipeline.response) == [capture, grafter]  # the CDN's own answer is reported
+    without = sprout.Sprout(FakeSettings(), status, platform=RoutingPlatform([]))  # type: ignore[arg-type]
+    plain = without._features(resin.create_authority(NOW))  # noqa: SLF001
+    assert isinstance(plain, hyphae.Interception)
+    assert set(plain.hosts()) == set()
+    assert len(plain.pipeline().request) == 1
+    made.deleteLater()
+    without.deleteLater()
+    status.deleteLater()
