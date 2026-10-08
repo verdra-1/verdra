@@ -71,6 +71,8 @@ Make Roblox receive the replacement instead of the original asset.
 - M-DIAG-08 (Notice and Activity, source runs only) "Control experiment is on: when Roblox
   downloads asset <original>, it gets asset <donor>'s real bytes from the CDN, and replacements
   of <original> are off. Restart Verdra without --control-swap to turn it off."
+- M-DIAG-09 (Activity, source runs only) "Format capture: asset <asset> downloads from <host>,
+  which Verdra doesn't read, so its format can't be captured."
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
@@ -266,3 +268,11 @@ Make Roblox receive the replacement instead of the original asset.
   The grafter sends it the way the CDN sent the original: with Content-Encoding: zstd when
   the CDN's answer had it (roots/hyphae compresses a changed body when a symbiont sets
   `Response.coding`), with the CDN's Content-Type and a correct Content-Length.
+- **Capture fixes (2026-10-08).** The first captures were all numbered "-1": the number
+  restarted with each batch, so later downloads overwrote the report. Reports are now numbered
+  per asset across batches and runs, and an existing file is never overwritten. Header values
+  that name the play session, a request trace, the place or the universe
+  (`Roblox-Play-Session-Id`, `traceparent`, `Roblox-Place-Id`, CDN request IDs such as
+  `X-Amz-Cf-Id` and `Akamai-GRN`) are shown as "(hidden)". A FileMesh body is described by its
+  version and header, and a download address on a host Verdra doesn't read gives M-DIAG-09
+  instead of no report.

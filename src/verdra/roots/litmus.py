@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import ssl
 from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass, field, replace
@@ -38,7 +39,7 @@ from PySide6.QtCore import QCoreApplication
 import verdra
 from verdra.bark import veil
 from verdra.roots import hyphae, rules
-from verdra.strata import ochre
+from verdra.strata import clay, ochre
 
 log = logging.getLogger(__name__)
 
@@ -124,6 +125,12 @@ ZSTD_MAGIC: Final = b"\x28\xb5\x2f\xfd"
 _VALUE_LIMIT: Final = 2000
 #: Item fields whose values could name the player or the place; the report shows their names only.
 _PRIVATE_FIELDS: Final = frozenset({"serverplaceid", "requestid", "placeid", "universeid"})
+#: Headers whose values name the place, the play session or one request (a trace across Roblox's
+#: and the CDN's servers); the report shows their names only. Seen in the 8 October captures.
+_PRIVATE_HEADERS: Final = re.compile(
+    r"session|trace|request-?id|place-?id|universe-?id|game-?id|job-?id|^x-amz-cf-id$|^akamai-grn$",
+    re.IGNORECASE,
+)
 _VK_NAMES: Final = {
     0: "UNDEFINED (Basis Universal)", 23: "R8G8B8_UNORM", 29: "R8G8B8_SRGB",
     37: "R8G8B8A8_UNORM", 43: "R8G8B8A8_SRGB", 131: "BC1_RGB_UNORM", 132: "BC1_RGB_SRGB",
@@ -169,6 +176,8 @@ class FormatCapture:
         self.save_bodies = save_bodies
         #: The reports written so far.
         self.reports: list[Path] = []
+        #: The last number used for each asset's files in this run.
+        self._numbers: dict[int, int] = {}
         self._batches: dict[int, dict[str, _Watched]] = {}
         self._paths: dict[str, _Watched] = {}
         self._fetching: dict[int, _Watched] = {}
@@ -210,18 +219,38 @@ class FormatCapture:
                     parts = urlsplit(location)
                     found.location = f"{parts.hostname}{parts.path}"
                     self._paths[rules.canonical_path(parts.path or "/")] = found
+                    if rules.host_name(parts.hostname or "") != rules.ASSET_CONTENT_HOST:
+                        log.warning(
+                            "%s",
+                            QCoreApplication.translate(
+                                "M-DIAG-09",
+                                "Format capture: asset {asset} downloads from {host}, which "
+                                "Verdra doesn't read, so its format can't be captured.",
+                            ).format(asset=found.asset_id, host=parts.hostname or "no address"),
+                        )
         fetching = self._fetching.pop(id(request), None)
         if fetching is not None:
             self._write(fetching, request, response)
 
+    def _stem(self, asset_id: int) -> str:
+        """The next free file name for `asset_id`: numbered per asset across batches and runs."""
+        number = self._numbers.get(asset_id, 0)
+        while True:
+            number += 1
+            stem = f"format-capture-{asset_id}-{number}"
+            if not any((self.folder / f"{stem}{end}").exists() for end in (".txt", ".bin")):
+                self._numbers[asset_id] = number
+                return stem
+
     def _write(self, watched: _Watched, request: hyphae.Request, response: hyphae.Response) -> None:
         watched.downloads += 1
-        stem = f"format-capture-{watched.asset_id}-{watched.downloads}"
         text = report(watched, request, response)
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
+            stem = self._stem(watched.asset_id)
             path = self.folder / f"{stem}.txt"
-            path.write_text(text, encoding="utf-8")
+            with path.open("x", encoding="utf-8") as file:  # never over an earlier report
+                file.write(text)
             if self.save_bodies and response.body is not None:
                 (self.folder / f"{stem}.bin").write_bytes(response.body)
         except OSError as error:
@@ -290,6 +319,8 @@ def body_lines(body: bytes | None) -> list[str]:
             f"  decompressed (zstd): {len(inner)} bytes",
             f"  first 16 bytes after: {inner[:16].hex(' ')}",
         ]
+    if inner.startswith(b"version "):
+        return lines + mesh_lines(inner)
     if not inner.startswith(ochre.KTX2_IDENTIFIER):
         return [*lines, "  not a KTX2 file"]
     try:
@@ -297,6 +328,26 @@ def body_lines(body: bytes | None) -> list[str]:
     except ochre.OchreError as error:
         return [*lines, f"  KTX2: {error}"]
     return lines + ktx2_lines(layout, inner)
+
+
+def mesh_lines(data: bytes) -> list[str]:
+    """A FileMesh's version and, from version 2.00, its header (public FileMesh format)."""
+    try:
+        version = clay.mesh_version(data)
+    except clay.ClayError:
+        return ['  starts with "version " but isn\'t a FileMesh']
+    lines = ["FileMesh:", f"  version: {version}"]
+    body = data[data.index(b"\n") + 1 :]
+    if version.startswith("1.") or len(body) < 2:  # noqa: PLR2004
+        return [*lines, "  text format (no binary header)"]
+    size = int.from_bytes(body[:2], "little")
+    header = body[:size] if 2 <= size <= 64 else body[:16]  # noqa: PLR2004
+    return [
+        *lines,
+        f"  header size: {size}",
+        f"  header bytes: {header.hex(' ')}",
+        f"  bytes after the version line: {len(body)}",
+    ]
 
 
 def ktx2_lines(layout: ochre.Ktx2Layout, data: bytes) -> list[str]:
@@ -366,9 +417,13 @@ def _pairs(fields: dict[str, str]) -> list[str]:
 
 
 def _headers(headers: hyphae.Headers) -> list[tuple[str, str]]:
-    """Header names and values, redacted, with long numbers (place or user IDs) hidden."""
+    """Header names and values, redacted, with session, trace and place values and long numbers
+    (place or user IDs) hidden."""
     pairs = [(n.decode("latin-1"), v.decode("latin-1", "replace")) for n, v in headers]
-    return [(name, veil.anonymize_text(value)) for name, value in veil.redact_headers(pairs)]
+    return [
+        (name, "(hidden)" if _PRIVATE_HEADERS.search(name) else veil.anonymize_text(value))
+        for name, value in veil.redact_headers(pairs)
+    ]
 
 
 def _hidden(path: str) -> str:
