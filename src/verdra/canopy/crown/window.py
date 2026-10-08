@@ -45,6 +45,7 @@ from verdra.canopy.screens.streams import TrafficScreen
 from verdra.trunk.branches.sprout import (
     cache_moved_text,
     capture_text,
+    check_text,
     control_text,
     other_player_text,
 )
@@ -361,7 +362,7 @@ class Shell:
         self.window.restore_state()
 
     def _show_diagnostics(self) -> None:
-        """M-DIAG-01, -03 and -08, for as long as a source-only diagnostic is on."""
+        """M-DIAG-01, -03, -08 and -10, for as long as a source-only diagnostic is on."""
         arguments = self.services.arguments
         if arguments.diagnose_interception:
             self.show_diagnostic_notice()
@@ -370,6 +371,8 @@ class Shell:
             texts.append(capture_text(arguments.format_capture))
         if arguments.control_swap:
             texts.append(control_text(*arguments.control_swap))
+        if arguments.format_check:
+            texts.append(check_text(arguments.format_check))
         for text in texts:
             self.window.notices.addWidget(Notice(text, Tone.WARNING, self.window))
 

@@ -1370,6 +1370,33 @@ def test_a_format_capture_decrypts_the_asset_hosts_and_leaves_its_assets_alone(
     status.deleteLater()
 
 
+def test_a_format_check_runs_after_the_grafter_and_keeps_replacements_on(
+    tmp_path: Path, qapp: Any
+) -> None:
+    from verdra.bark import resin  # noqa: PLC0415
+    from verdra.roots import gardener, hyphae, litmus  # noqa: PLC0415
+    from verdra.roots.symbionts.grafter import Grafter as GrafterType  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=RoutingPlatform([]),  # type: ignore[arg-type]
+        check=(15553230204,),
+    )
+    interception = made._features(resin.create_authority(NOW))  # noqa: SLF001
+    assert isinstance(interception, hyphae.Interception)
+    assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)
+    pipeline = interception.pipeline()
+    grafter, check = pipeline.request
+    assert isinstance(grafter, GrafterType) and grafter.leave == frozenset()  # replacements on
+    assert isinstance(check, litmus.FormatCheck)
+    # The observer notes the CDN's answer, the grafter replaces it, the check reports the result.
+    assert list(pipeline.response) == [check.observer, grafter, check]
+    made.deleteLater()
+    status.deleteLater()
+
+
 def test_the_control_experiment_runs_first_and_leaves_the_original_alone(
     tmp_path: Path, qapp: Any
 ) -> None:

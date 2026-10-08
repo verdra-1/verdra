@@ -169,6 +169,8 @@ class FormatCapture:
     """
 
     name = "format capture"
+    #: The start of each report's file name.
+    prefix = "format-capture"
 
     def __init__(self, ids: frozenset[int], folder: Path, *, save_bodies: bool = False) -> None:
         self.ids = ids
@@ -237,45 +239,150 @@ class FormatCapture:
         number = self._numbers.get(asset_id, 0)
         while True:
             number += 1
-            stem = f"format-capture-{asset_id}-{number}"
+            stem = f"{self.prefix}-{asset_id}-{number}"
             if not any((self.folder / f"{stem}{end}").exists() for end in (".txt", ".bin")):
                 self._numbers[asset_id] = number
                 return stem
 
     def _write(self, watched: _Watched, request: hyphae.Request, response: hyphae.Response) -> None:
         watched.downloads += 1
-        text = report(watched, request, response)
+        self._save(watched, report(watched, request, response), response.body)
+
+    def _save(self, watched: _Watched, text: str, body: bytes | None) -> None:
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
             stem = self._stem(watched.asset_id)
             path = self.folder / f"{stem}.txt"
             with path.open("x", encoding="utf-8") as file:  # never over an earlier report
                 file.write(text)
-            if self.save_bodies and response.body is not None:
-                (self.folder / f"{stem}.bin").write_bytes(response.body)
+            if self.save_bodies and body is not None:
+                (self.folder / f"{stem}.bin").write_bytes(body)
         except OSError as error:
             log.warning(
-                "%s",
-                QCoreApplication.translate(
-                    "M-DIAG-05", "Format capture of asset {asset} couldn't be written: {reason}."
-                ).format(asset=watched.asset_id, reason=error.strerror or type(error).__name__),
+                "%s", self._failed(watched.asset_id, error.strerror or type(error).__name__)
             )
             return
         self.reports.append(path)
-        log.info(
-            "%s",
-            QCoreApplication.translate(
-                "M-DIAG-04", "Format capture of asset {asset} written to {file}."
-            ).format(asset=watched.asset_id, file=path),
-        )
+        log.info("%s", self._written(watched.asset_id, path))
+
+    def _written(self, asset: int, path: Path) -> str:
+        return QCoreApplication.translate(
+            "M-DIAG-04", "Format capture of asset {asset} written to {file}."
+        ).format(asset=asset, file=path)
+
+    def _failed(self, asset: int, reason: str) -> str:
+        return QCoreApplication.translate(
+            "M-DIAG-05", "Format capture of asset {asset} couldn't be written: {reason}."
+        ).format(asset=asset, reason=reason)
+
+
+class FormatCheck(FormatCapture):
+    """A symbiont that writes what Verdra itself sends Roblox for chosen assets (source runs only).
+
+    The counterpart of `FormatCapture`: it runs after the grafter both ways, so its report shows
+    the download as Verdra answers it (the replacement's headers as sent, its Content-Encoding
+    and the KTX2 layout inside), or says that the CDN's answer passed unchanged. `observer` must
+    run before the grafter on responses: it notes the CDN's own body, to tell the two apart. It
+    covers Local file, link and Remove replacements (an Asset ID replacement asks the batch for
+    the other asset, which the CDN serves itself).
+    """
+
+    name = "format check"
+    prefix = "format-check"
+
+    def __init__(self, ids: frozenset[int], folder: Path, *, save_bodies: bool = False) -> None:
+        super().__init__(ids, folder, save_bodies=save_bodies)
+        self._originals: dict[int, bytes | None] = {}
+        self.observer = _Observer(self)
+
+    def _write(self, watched: _Watched, request: hyphae.Request, response: hyphae.Response) -> None:
+        watched.downloads += 1
+        original = self._originals.pop(id(request), None)
+        if response.body is not None and response.body != original:
+            headers, body = hyphae.encoded(response)
+            sent = replace(response, headers=tuple(headers))
+            text = check_report(watched, request, sent, body, replaced=True)
+        else:
+            body = response.body
+            text = check_report(watched, request, response, body, replaced=False)
+        self._save(watched, text, body)
+
+    def _written(self, asset: int, path: Path) -> str:
+        return QCoreApplication.translate(
+            "M-DIAG-11", "Format check of asset {asset} written to {file}."
+        ).format(asset=asset, file=path)
+
+    def _failed(self, asset: int, reason: str) -> str:
+        return QCoreApplication.translate(
+            "M-DIAG-12", "Format check of asset {asset} couldn't be written: {reason}."
+        ).format(asset=asset, reason=reason)
+
+
+class _Observer:
+    """Notes the CDN's own body for a format check, before the grafter changes it."""
+
+    name = "format check (before replacements)"
+
+    def __init__(self, check: FormatCheck) -> None:
+        self._check = check
+
+    def wants_request_body(self, request: hyphae.Request) -> bool:  # noqa: ARG002
+        return False
+
+    def on_request(self, request: hyphae.Request) -> None:
+        return None
+
+    def wants_response_body(self, request: hyphae.Request, response: hyphae.Response) -> bool:  # noqa: ARG002
+        return id(request) in self._check._fetching  # noqa: SLF001
+
+    def on_response(self, request: hyphae.Request, response: hyphae.Response) -> None:
+        if id(request) in self._check._fetching:  # noqa: SLF001
+            self._check._originals[id(request)] = response.body  # noqa: SLF001
 
 
 def report(watched: _Watched, request: hyphae.Request, response: hyphae.Response) -> str:
     """The text report of one captured download (no personal values: see `_shown`)."""
+    lines = [
+        *_download_lines(watched, request, "format capture"),
+        f"Response: {response.status} {response.reason.decode('latin-1', 'replace')}",
+        *(f"  < {name}: {value}" for name, value in _headers(response.headers)),
+        "",
+        *body_lines(response.body),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def check_report(
+    watched: _Watched,
+    request: hyphae.Request,
+    response: hyphae.Response,
+    body: bytes | None,
+    *,
+    replaced: bool,
+) -> str:
+    """The text report of what Verdra sent Roblox for one download (`body` as sent)."""
+    said = (
+        "Verdra answered with the replacement (headers and body as sent to Roblox):"
+        if replaced
+        else "Verdra passed the CDN's answer on unchanged: no replacement was applied (is it "
+        "saved, and was Apply now clicked after Verdra started?)"
+    )
+    lines = [
+        *_download_lines(watched, request, "format check"),
+        said,
+        f"Response: {response.status} {response.reason.decode('latin-1', 'replace')}",
+        *(f"  < {name}: {value}" for name, value in _headers(response.headers)),
+        "",
+        *body_lines(body, sent=replaced),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _download_lines(watched: _Watched, request: hyphae.Request, kind: str) -> list[str]:
     path, _mark, query = request.target.decode("latin-1").partition("?")
     names = [part.split("=", 1)[0] for part in query.split("&") if part]
-    lines = [
-        f"Verdra {verdra.__version__} format capture, {datetime.now(UTC):%Y-%m-%d %H:%M} UTC",
+    return [
+        f"Verdra {verdra.__version__} {kind}, {datetime.now(UTC):%Y-%m-%d %H:%M} UTC",
         "",
         f"Asset {watched.asset_id}",
         "",
@@ -289,21 +396,22 @@ def report(watched: _Watched, request: hyphae.Request, response: hyphae.Response
         f"  query names: {', '.join(names) or '(none)'}",
         *(f"  > {name}: {value}" for name, value in _headers(request.headers)),
         "",
-        f"Response: {response.status} {response.reason.decode('latin-1', 'replace')}",
-        *(f"  < {name}: {value}" for name, value in _headers(response.headers)),
-        "",
-        *body_lines(response.body),
     ]
-    return "\n".join(lines) + "\n"
 
 
-def body_lines(body: bytes | None) -> list[str]:
-    """What a downloaded body is: size, zstd framing, and the KTX2 layout inside."""
+def body_lines(body: bytes | None, *, sent: bool = False) -> list[str]:
+    """What a body is: size, zstd framing, and the KTX2 layout inside.
+
+    `sent`: the body as Verdra sends it (with its Content-Encoding), not as Verdra received it.
+    """
     if body is None:
         return ["Body: not read (over 64 MB, or in an encoding Verdra can't undo)"]
     framed = "yes" if body.startswith(ZSTD_MAGIC) else "no"
+    what = (
+        "as sent, with its Content-Encoding" if sent else "after Verdra undid any Content-Encoding"
+    )
     lines = [
-        f"Body (after Verdra undid any Content-Encoding): {len(body)} bytes",
+        f"Body ({what}): {len(body)} bytes",
         f"  first 16 bytes: {body[:16].hex(' ')}",
         f"  starts with the zstd magic 28 B5 2F FD: {framed}",
     ]

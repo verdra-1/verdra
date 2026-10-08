@@ -39,14 +39,17 @@ class Arguments:
     save_bodies: bool = False
     #: The control experiment (roots/litmus): (original, donor) asset IDs, or None when off.
     control_swap: tuple[int, int] | None = None
+    #: Asset IDs whose downloads a format check reports as Verdra answers them; () when off.
+    format_check: tuple[int, ...] = ()
 
 
 DIAGNOSE_FLAG = "--diagnose-interception"
 CAPTURE_FLAG = "--format-capture"
 BODIES_FLAG = "--save-bodies"
 CONTROL_FLAG = "--control-swap"
+CHECK_FLAG = "--format-check"
 #: Every flag that needs the source-only diagnostic module.
-DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG, CONTROL_FLAG)
+DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG, CONTROL_FLAG, CHECK_FLAG)
 #: The source-only module the flag needs (roots/litmus.py); frozen builds leave it out.
 DIAGNOSTIC_SOURCE = "litmus.py"
 
@@ -77,6 +80,7 @@ def parse(argv: list[str]) -> Arguments:
         parser.add_argument(CAPTURE_FLAG, type=_asset_ids, default=())
         parser.add_argument(BODIES_FLAG, action="store_true")
         parser.add_argument(CONTROL_FLAG, type=_asset_pair, default=None)
+        parser.add_argument(CHECK_FLAG, type=_asset_ids, default=())
     known, rest = parser.parse_known_args([item for item in argv if item != DIAGNOSE_FLAG])
     scheme = terrain.URL_SCHEME + ":"
     link = next((item for item in rest if item.lower().startswith(scheme)), None)
@@ -89,6 +93,7 @@ def parse(argv: list[str]) -> Arguments:
         format_capture=getattr(known, "format_capture", ()),
         save_bodies=getattr(known, "save_bodies", False),
         control_swap=getattr(known, "control_swap", None),
+        format_check=getattr(known, "format_check", ()),
     )
 
 

@@ -356,6 +356,15 @@ def capture_text(ids: tuple[int, ...]) -> str:
     ).format(ids=", ".join(str(i) for i in ids), folder=terrain.diagnostics_dir())
 
 
+def check_text(ids: tuple[int, ...]) -> str:
+    """M-DIAG-10: a format check is on (source runs only, roots/litmus)."""
+    return QCoreApplication.translate(
+        "M-DIAG-10",
+        "Format check is on for {ids}: what Verdra sends Roblox for them is written to {folder}. "
+        "Restart Verdra without --format-check to turn it off.",
+    ).format(ids=", ".join(str(i) for i in ids), folder=terrain.diagnostics_dir())
+
+
 def control_text(original: int, donor: int) -> str:
     """M-DIAG-08: the control experiment is on (source runs only, roots/litmus)."""
     return QCoreApplication.translate(
@@ -542,6 +551,7 @@ class Sprout(QObject):
         capture: tuple[int, ...] = (),
         save_bodies: bool = False,
         control: tuple[int, int] | None = None,
+        check: tuple[int, ...] = (),
         snapshots: rules.SnapshotHolder | None = None,
         schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
@@ -572,6 +582,8 @@ class Sprout(QObject):
         self.save_bodies = save_bodies
         #: The control experiment (roots/litmus, source runs only): (original, donor).
         self.control = control
+        #: A format check (roots/litmus, source runs only): what Verdra serves for these assets.
+        self.check = check
         self.router = gardener.Router(status, self)
         self.pool = pool
         self.client: humus.RobloxClient | None = None
@@ -1047,7 +1059,7 @@ class Sprout(QObject):
         )
         pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
         extra: frozenset[str] = frozenset()
-        if left:
+        if left or self.check:
             pipeline, extra = self._diagnostics(grafter)
         return hyphae.Interception(
             hyphae.LeafContexts(authority),
@@ -1058,7 +1070,7 @@ class Sprout(QObject):
         )
 
     def _diagnostics(self, grafter: Grafter) -> tuple[hyphae.Pipeline, frozenset[str]]:
-        """The source-only format capture and control experiment around the grafter."""
+        """The source-only capture, check and control experiment around the grafter."""
         from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision 0015)
 
         before: list[hyphae.Symbiont] = []
@@ -1073,10 +1085,20 @@ class Sprout(QObject):
                     save_bodies=self.save_bodies,
                 )
             )
+        checked: list[hyphae.Symbiont] = []
+        observed: list[hyphae.Symbiont] = []
+        if self.check:
+            check = litmus.FormatCheck(
+                frozenset(self.check), terrain.diagnostics_dir(), save_bodies=self.save_bodies
+            )
+            checked.append(check)
+            observed.append(check.observer)
         # The capture runs after the grafter on the way out (it sees the IDs as sent) and before
-        # it on the way back (it sees the CDN's own answer).
+        # it on the way back (it sees the CDN's own answer); the check runs after it both ways
+        # (it sees what Verdra sends), with its observer noting the CDN's answer before it.
         pipeline = hyphae.Pipeline(
-            request=(*before, grafter, *after), response=(*before, *after, grafter)
+            request=(*before, grafter, *after, *checked),
+            response=(*before, *observed, *after, grafter, *checked),
         )
         return pipeline, litmus.CAPTURE_HOSTS
 

@@ -281,6 +281,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         capture=arguments.format_capture,
         save_bodies=arguments.save_bodies,
         control=arguments.control_swap,
+        check=arguments.format_check,
         snapshots=services.grafts.holder,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
@@ -332,9 +333,11 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
 
 
 def _log_diagnostics(arguments: cli.Arguments) -> None:
-    """M-DIAG-03 and M-DIAG-08 in Activity; the window shows them as notices too."""
+    """M-DIAG-03, -08 and -10 in Activity; the window shows them as notices too."""
     if arguments.format_capture:
         # The window shows the same sentence as a Notice for as long as the capture is on.
         log.warning("%s", sprout_.capture_text(arguments.format_capture))
     if arguments.control_swap:
         log.warning("%s", sprout_.control_text(*arguments.control_swap))
+    if arguments.format_check:
+        log.warning("%s", sprout_.check_text(arguments.format_check))
