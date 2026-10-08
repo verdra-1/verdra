@@ -225,3 +225,27 @@ running all along, so no Roblox traffic reached Verdra. The fixes, one pull requ
 4. no toolbar label is cut off at the smallest window size;
 5. signed link values are never logged (checked).
 
+## Pictures from a file or a link aren't drawn yet (2026-10-08)
+
+Guide B steps 4 to 6 again, with test build #12 (evidence:
+`docs/platforms/evidence/windows/guide-b-rerun-2026-10-08.txt`). Everything up to the download
+works on the PC: launching through Verdra, Apply now waiting for a link, the cache move, the
+batch rewrite and the interception of the CDN download, which Verdra answered with its KTX2
+five times. The wall stayed plain grey every time.
+
+- **Known from the log and the code:** every CDN download asks for `encoding=zstd&version=1`.
+  Verdra's proxy already undoes any `Content-Encoding` (zstd included) before the grafter looks
+  at a body, and the grafter swapped only because the body it saw started with the KTX2
+  signature. So `encoding=zstd` most likely names KTX2's own supercompression (scheme 2,
+  Zstandard) inside the file, not HTTP compression. Verdra's answer is an uncompressed RGBA8
+  KTX2 with one level (4194512 = 1024 × 1024 × 4 + 336).
+- **Hypotheses, in order:** H1 the client wants zstd supercompression; H2 it wants another KTX2
+  layout (a GPU block format, mip levels, a particular data format descriptor); H3 a response
+  header differs in a way that matters; H4 the client checks the bytes against the content
+  hash in the CDN path, so no bytes but the original's can ever be served there.
+- **Next:** a format capture (what the CDN really sends, for the original and for 11473800131),
+  and a control experiment that answers 15553230204's download with 11473800131's real CDN
+  bytes. If 11473800131 shows, the route works and only the encoder is wrong (H1 to H3); if the
+  wall stays grey, H4 holds and the route must change. Then the fix, with the asset ID swap as
+  the control of the next test.
+
