@@ -146,6 +146,24 @@ earlier runs the same evening could read the environment of Players Verdra start
 doesn't try any other way to read it (plan 3.1, S-15 rule 2); it relies on its own record of the
 Players it started instead.
 
+## Guide B again: everything around the swap works, the served picture isn't drawn (2026-10-08)
+
+From Guide B steps 4 to 6 with Windows test build #12, anonymised in
+`evidence/windows/guide-b-rerun-2026-10-08.txt`.
+
+| Check | Evidence | Result |
+|---|---|---|
+| Roblox started through Verdra (verdra-1/verdra#102) | 5 × "Started Roblox through Verdra"; no warning about another Player | **Pass** |
+| "Restart Roblox now?" during Apply now | Answered twice; Roblox restarted through Verdra | **Pass** |
+| Apply now waits for a link (verdra-1/verdra#104) | 2 × "Downloading 1 replacement first…", then the cache move | **Pass** |
+| Cache moved, old backups deleted | 5 moves; "Deleted 3 backups … (2.49 GiB)" | **Pass** |
+| Batch rewritten, CDN download intercepted | 5 × "will be downloaded from fts.rbxcdn.com/sc3/…", 5 × "Served the replacement … (KTX2, …)" | **Pass** |
+| The wall shows the file's, the link's picture, or nothing for Remove | Plain grey wall in all four screenshots | **Fail** (Remove inconclusive) |
+
+Every CDN download (444 of 444) asks for `encoding=zstd&version=1`. Verdra's answer is an
+uncompressed RGBA8 KTX2. Next: a format capture of what the CDN really sends, and a control
+experiment that serves another asset's real CDN bytes (docs/m2/notes.md).
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

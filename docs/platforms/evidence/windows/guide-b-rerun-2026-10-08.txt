@@ -1,0 +1,30 @@
+Guide B steps 4 to 6 again on the maintainer's PC (Windows 11), 2026-10-08, with Windows test
+build #12: the maintainer's verdra.log of that afternoon and four screenshots. Counts, message
+wording, byte sizes and the public asset IDs of the test only: no user name, user-ID folders,
+process IDs, query values, timestamps or tokens (plan 16.2). Detailed logging was on.
+
+Launching and Apply now (fixes of 2026-10-08):
+5 | "Started Roblox through Verdra (process <pid>)."
+2 | "Restart Roblox now? ..." answered with Restart Roblox
+5 | "Moved Roblox's saved assets (...) to <backup folder>" (one per Apply now)
+1 | "Deleted 3 backups of Roblox's saved assets (2.49 GiB)."
+2 | "Downloading 1 replacement first. Apply now goes on when it's ready." (two links, on
+    cdn.discordapp.com and encrypted-tbn0.gstatic.com), each followed by the cache move
+0 | warnings about a Roblox Player Verdra didn't start
+
+Replacements of picture 15553230204 (the wall of the test place):
+5 | batches with the original in them, each "1 of n items replaced" (gzip-compressed)
+5 | "Asset 15553230204's content will be downloaded from fts.rbxcdn.com/sc3/<hash>; Verdra
+    serves its replacement" (the same content address each time)
+5 | "Served the replacement for asset 15553230204 (KTX2, <size> bytes, from its <source>)":
+    file 705808 and 4194512, remove 212, url 2697744 and 1226224
+
+CDN downloads in the log: 444 GET fts.rbxcdn.com /sc<n>/<hash>, every one with the query
+"encoding=zstd&version=1" (followed by the signed values, redacted).
+
+What the maintainer saw: in all four screenshots (file, link, remove) the wall is plain grey;
+neither the file's picture, the link's picture nor the original shows. So the served KTX2 isn't
+drawn. The asset ID swap (15553230204 -> 11473800131, 7 October) didn't run this time.
+
+The 4194512-byte answer is 1024 x 1024 x 4 + 336: an uncompressed RGBA8 KTX2 with one level.
+Hypotheses, tested next with a format capture and a control experiment (docs/m2/notes.md).
