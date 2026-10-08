@@ -278,3 +278,89 @@ def test_the_capture_flags_need_the_source(monkeypatch: pytest.MonkeyPatch) -> N
     with pytest.raises(SystemExit) as frozen:
         cli.parse([cli.CAPTURE_FLAG, str(ABOVE_UINT32)])
     assert frozen.value.code == 2
+
+
+# --- Format check: what Verdra itself sends (--format-check) ----------------------------------
+
+
+def check_run(tmp_path: Path, *, replaced: bool) -> tuple[litmus.FormatCheck, bytes]:
+    """A download of ABOVE_UINT32 through observer, grafter and check, as Sprout orders them."""
+    items = [{"assetId": ABOVE_UINT32, "assetType": "Image", "requestId": "r1"}]
+    texture = zstandard.ZstdCompressor().compress(ktx2())
+    download = (
+        b"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Encoding: zstd\r\n"
+        b'ETag: "cdn"\r\nContent-Length: ' + str(len(texture)).encode() + b"\r\n\r\n" + texture
+    )
+    holder = rules.SnapshotHolder()
+    if replaced:
+        graft = rules.Graft(ABOVE_UINT32, None, "file", "./a.png", "P", "r", "Image")
+        picture = ochre.Pixels(8, 8, bytes([10, 200, 30, 255] * 64))
+        content = rules.Content(b"", ochre.write_roblox_ktx2(picture), "file")
+        holder.publish(
+            rules.GraftSnapshot(
+                MappingProxyType({(ABOVE_UINT32, None): graft}),
+                content=MappingProxyType({ABOVE_UINT32: content}),
+            )
+        )
+    grafter = Grafter(holder)
+    check = litmus.FormatCheck(frozenset({ABOVE_UINT32}), tmp_path / "diagnostics")
+    pipeline = hyphae.Pipeline(request=[grafter, check], response=[check.observer, grafter, check])
+    for folder in (tmp_path / "batch", tmp_path / "cdn"):
+        folder.mkdir(parents=True, exist_ok=True)
+    batch_server = FakeServer(tmp_path / "batch", {BATCH: answer(items)}, host=HOST)
+    cdn_server = FakeServer(tmp_path / "cdn", {f"{PATH}{QUERY}".encode(): download}, host=CDN)
+
+    async def batch() -> None:
+        async with Proxy(batch_server, pipeline) as proxy:
+            client = await proxy.connect()
+            await client.send(fake_roblox.batch_request(items), method=b"POST")
+
+    async def fetch() -> list[object]:
+        async with Proxy(cdn_server, pipeline) as proxy:
+            client = await proxy.connect()
+            request = f"GET {PATH}{QUERY} HTTP/1.1\r\nHost: {CDN}\r\n\r\n".encode()
+            _raw, events = await client.send(request)
+            return events
+
+    run(batch)
+    return check, body_of(run(fetch))
+
+
+@pytest.mark.spec("S-21", 20)
+def test_a_format_check_reports_the_replacement_as_verdra_sends_it(tmp_path: Path) -> None:
+    check, served = check_run(tmp_path, replaced=True)
+    [path] = check.reports
+    assert path.name == f"format-check-{ABOVE_UINT32}-1.txt"
+    text = path.read_text(encoding="utf-8")
+    assert "format check" in text.splitlines()[0]
+    assert "Verdra answered with the replacement" in text
+    assert "< Content-Type: application/octet-stream" in text
+    assert "< Content-Encoding: zstd" in text
+    assert f"< Content-Length: {len(served)}" in text  # the length Roblox really got
+    assert "ETag" not in text  # dropped: it described the CDN's bytes
+    assert f"Body (as sent, with its Content-Encoding): {len(served)} bytes" in text
+    assert "starts with the zstd magic 28 B5 2F FD: yes" in text
+    assert "vkFormat: 131 (BC1_RGB_UNORM)" in text
+    assert "pixel size: 8 x 8 x 0" in text
+    assert "supercompressionScheme: 2 (Zstandard)" in text
+
+
+@pytest.mark.spec("S-21", 20)
+def test_a_format_check_says_when_the_cdns_answer_passed_unchanged(tmp_path: Path) -> None:
+    check, served = check_run(tmp_path, replaced=False)
+    assert zstandard.ZstdDecompressor().decompress(served, max_output_size=1 << 20) == ktx2()
+    [path] = check.reports
+    text = path.read_text(encoding="utf-8")
+    assert "Verdra passed the CDN's answer on unchanged" in text
+    assert "vkFormat: 146 (BC7_SRGB)" in text
+
+
+def test_the_format_check_flag_needs_the_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    arguments = cli.parse([cli.CHECK_FLAG, str(ABOVE_UINT32), cli.CAPTURE_FLAG, str(ABOVE_INT32)])
+    assert arguments.format_check == (ABOVE_UINT32,)
+    assert arguments.format_capture == (ABOVE_INT32,)
+    assert cli.parse([]).format_check == ()
+    monkeypatch.setattr(cli, "diagnosis_available", lambda: False)
+    with pytest.raises(SystemExit) as frozen:
+        cli.parse([cli.CHECK_FLAG, str(ABOVE_UINT32)])
+    assert frozen.value.code == 2

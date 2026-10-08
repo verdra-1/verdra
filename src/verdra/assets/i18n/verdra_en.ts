@@ -504,6 +504,27 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-10</name>
+    <message>
+        <source>Format check is on for {ids}: what Verdra sends Roblox for them is written to {folder}. Restart Verdra without --format-check to turn it off.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-11</name>
+    <message>
+        <source>Format check of asset {asset} written to {file}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-12</name>
+    <message>
+        <source>Format check of asset {asset} couldn&apos;t be written: {reason}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>

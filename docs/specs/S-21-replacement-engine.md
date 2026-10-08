@@ -73,6 +73,12 @@ Make Roblox receive the replacement instead of the original asset.
   of <original> are off. Restart Verdra without --control-swap to turn it off."
 - M-DIAG-09 (Activity, source runs only) "Format capture: asset <asset> downloads from <host>,
   which Verdra doesn't read, so its format can't be captured."
+- M-DIAG-10 (Notice and Activity, source runs only) "Format check is on for <ids>: what Verdra
+  sends Roblox for them is written to <folder>. Restart Verdra without --format-check to turn it
+  off."
+- M-DIAG-11 (Activity, source runs only) "Format check of asset <asset> written to <file>."
+- M-DIAG-12 (Activity, source runs only) "Format check of asset <asset> couldn't be written:
+  <reason>."
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not
@@ -147,6 +153,10 @@ Make Roblox receive the replacement instead of the original asset.
     the donor (an extra item Roblox never sees in the answer), and Roblox's download of the
     original's address gets the CDN's real answer for the donor, headers included; a donor on
     another host is never swapped in (M-DIAG-07).
+20. (diagnostic, source runs only) With `--format-check <asset IDs>`, replacements stay on and a
+    report per download says what Verdra sent Roblox for those assets: the replacement's headers
+    and body as sent (Content-Encoding, Content-Length, the KTX2 layout inside), or that the
+    CDN's answer passed unchanged.
 
 ## Lives in
 
@@ -276,3 +286,9 @@ Make Roblox receive the replacement instead of the original asset.
   `X-Amz-Cf-Id` and `Akamai-GRN`) are shown as "(hidden)". A FileMesh body is described by its
   version and header, and a download address on a host Verdra doesn't read gives M-DIAG-09
   instead of no report.
+- **Format check (2026-10-08).** `--format-check <asset IDs>` (source runs only, decision record
+  0015) is the format capture's counterpart: it runs after the grafter both ways, with an
+  observer before it that notes the CDN's own body, and writes
+  `format-check-<asset>-<n>.txt` (with `--save-bodies`, the body as sent next to it). The
+  replacement stays on. It covers Local file, link and Remove replacements; an Asset ID
+  replacement asks the batch for the other asset, which the CDN serves itself.
