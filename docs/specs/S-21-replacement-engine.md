@@ -250,8 +250,17 @@ Make Roblox receive the replacement instead of the original asset.
     serving at the CDN address works and only Verdra's own file is wrong (H1 to H3). The fix
     makes Verdra's answer match the captured format exactly (framing, KTX2 layout, levels,
     headers).
-  - **The wall stays grey (or shows the original):** Roblox rejects bytes that don't match the
+  - **The wall stays gray (or shows the original):** Roblox rejects bytes that don't match the
     address it asked for (H4), so no content can be served at the original's address. The fix
     changes the route instead: the batch answer for a replaced asset names an address for the
     replacement's own content, which Verdra answers itself.
 
+- **Roblox's texture layout (2026-10-08).** The control experiment ruled out H4 and the format
+  capture showed what the CDN sends for a picture (decision record 0022). strata/ochre now
+  writes Verdra's pictures that way (`write_roblox_ktx2`): BC1 when fully opaque, else BC3; one
+  level, Zstandard supercompression; the CDN's Data Format Descriptor and its 19 keys (real
+  averages; observed constants written as seen, meaning unknown; `contentHash` the MD5 of the
+  uncompressed level); within 1024 pixels a side, each side rounded down to a multiple of 64
+  (of 4 under 64); colors stored as they are, no gamma either way. Remove is the smallest fully
+  transparent BC3 texture. The block encoder is Verdra's own (numpy, no new dependency).
+  Serving it with Content-Encoding zstd follows in the next step.
