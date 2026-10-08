@@ -203,6 +203,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Activity and the log files show a hidden value as "•••• (redacted)" once, not "•••• (redacted)
+  (redacted)".
 - The signature of a Discord attachment link (`ex`, `is`, `hm`) or a Google Cloud signed link is
   never written to Activity, log files or support bundles. Verdra's own messages about a link
   name only its host.

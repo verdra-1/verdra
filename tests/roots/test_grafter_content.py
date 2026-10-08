@@ -17,7 +17,7 @@ import logging
 import threading
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -419,3 +419,36 @@ def test_a_replacement_of_another_type_lets_the_original_through_and_says_so(
         "type of asset, so the original shows."
     ]
     assert reasons == [f"asset {ABOVE_UINT32} replaced by another type"]
+
+
+#: The asset ID swap that drew 11473800131 on the maintainer's wall on 7 October 2026.
+WORKED_ON_7_OCTOBER: Final = (ABOVE_UINT32, 11473800131)
+
+
+@pytest.mark.spec("S-21", 1)
+def test_the_asset_id_swap_that_worked_stays_on_its_original_path(tmp_path: Path) -> None:
+    """The control of every picture test: an Asset ID swap never touches the CDN download.
+
+    With the 7 October swap and a content replacement for another asset in the same snapshot,
+    the batch asks for 11473800131 in place of 15553230204 and maps the answer back, and the
+    download of 11473800131's content passes byte for byte: no Verdra content is served for it.
+    """
+    original, target = WORKED_ON_7_OCTOBER
+    swap = rules.Graft(original, None, "asset_id", str(target), "P", "s", "Image")
+    content_graft = rules.Graft(ABOVE_INT32, None, "file", "./a.png", "P", "r", "Image")
+    holder = rules.SnapshotHolder()
+    holder.publish(
+        rules.GraftSnapshot(
+            MappingProxyType({(original, None): swap, (ABOVE_INT32, None): content_graft}),
+            content=MappingProxyType({ABOVE_INT32: CONTENT}),
+        )
+    )
+    real_bytes = ochre.write_ktx2(ochre.read_image(ORIGINAL_PNG))
+    items, served, batch_server = play(tmp_path, Grafter(holder), http(real_bytes))
+    [sent] = batch_server.received
+    asked = json.loads(gzip.decompress(sent.body) if sent.body[:2] == b"\x1f\x8b" else sent.body)
+    assert [item["assetId"] for item in asked] == [target, ABOVE_INT32]
+    assert [item["assetId"] for item in items] == [original, ABOVE_INT32]  # mapped back
+    assert served == real_bytes  # the swap's download is never replaced
+    only_swap = rules.GraftSnapshot(MappingProxyType({(original, None): swap}))
+    assert only_swap.hosts() == {rules.ASSET_BATCH_HOST}  # the CDN isn't even decrypted

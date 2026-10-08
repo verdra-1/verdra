@@ -105,4 +105,9 @@ One logging system for the app, readable in the Activity screen and safe to shar
   own messages about a link name only its host (M-EDIT-11, M-GRAFT-09 to -11); the query
   parameters that sign such links are redacted anyway, in case a link reaches a message some
   other way. `Expires` alone signs nothing and stays readable.
+- **Redacting twice changes nothing (2026-10-08).** The maintainer's log showed
+  "•••• (redacted) (redacted)" for every signed CDN value: a line redacted where it is written
+  (roots/hyphae) passed the log filter again, and the second pass took the placeholder for a
+  value. A value already replaced is now left as it is, and a whole `Cookie=` value is replaced
+  before the login cookie inside it, so redacting any text twice gives the same text as once.
 
