@@ -280,6 +280,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         diagnose=arguments.diagnose_interception,
         capture=arguments.format_capture,
         save_bodies=arguments.save_bodies,
+        control=arguments.control_swap,
         snapshots=services.grafts.holder,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
@@ -289,9 +290,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
             version=verdra.__version__, system=humus.system_name()
         ),
     )
-    if arguments.format_capture:
-        # The window shows the same sentence as a Notice for as long as the capture is on.
-        log.warning("%s", sprout_.capture_text(arguments.format_capture))
+    _log_diagnostics(arguments)
     if arguments.diagnose_interception:
         # The window shows the same sentence as a Notice for as long as the flag is on.
         log.warning(
@@ -330,3 +329,12 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
 
     app.aboutToQuit.connect(lambda: shutdown.run(services))
     return app.exec()
+
+
+def _log_diagnostics(arguments: cli.Arguments) -> None:
+    """M-DIAG-03 and M-DIAG-08 in Activity; the window shows them as notices too."""
+    if arguments.format_capture:
+        # The window shows the same sentence as a Notice for as long as the capture is on.
+        log.warning("%s", sprout_.capture_text(arguments.format_capture))
+    if arguments.control_swap:
+        log.warning("%s", sprout_.control_text(*arguments.control_swap))

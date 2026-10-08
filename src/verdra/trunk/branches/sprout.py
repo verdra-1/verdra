@@ -356,6 +356,16 @@ def capture_text(ids: tuple[int, ...]) -> str:
     ).format(ids=", ".join(str(i) for i in ids), folder=terrain.diagnostics_dir())
 
 
+def control_text(original: int, donor: int) -> str:
+    """M-DIAG-08: the control experiment is on (source runs only, roots/litmus)."""
+    return QCoreApplication.translate(
+        "M-DIAG-08",
+        "Control experiment is on: when Roblox downloads asset {original}, it gets asset "
+        "{donor}'s real bytes from the CDN, and replacements of {original} are off. Restart "
+        "Verdra without --control-swap to turn it off.",
+    ).format(original=original, donor=donor)
+
+
 def other_player_text() -> str:
     """M-LAUNCH-08: a Player Verdra didn't start is running (banner and routing status)."""
     return QCoreApplication.translate(
@@ -531,6 +541,7 @@ class Sprout(QObject):
         diagnose: bool = False,
         capture: tuple[int, ...] = (),
         save_bodies: bool = False,
+        control: tuple[int, int] | None = None,
         snapshots: rules.SnapshotHolder | None = None,
         schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
@@ -559,6 +570,8 @@ class Sprout(QObject):
         #: reported and their replacements are left alone.
         self.capture = capture
         self.save_bodies = save_bodies
+        #: The control experiment (roots/litmus, source runs only): (original, donor).
+        self.control = control
         self.router = gardener.Router(status, self)
         self.pool = pool
         self.client: humus.RobloxClient | None = None
@@ -1028,23 +1041,14 @@ class Sprout(QObject):
 
     def _features(self, authority: resin.Authority) -> mycelium.Interceptor:
         """Decrypt only the hosts the current snapshot needs (plan 10.1, 10.2; S-21)."""
+        left = frozenset(self.capture) | frozenset(self.control[:1] if self.control else ())
         grafter = Grafter(
-            self.snapshots,
-            on_unreadable=self.router.report_unreadable_assets,
-            leave=frozenset(self.capture),
+            self.snapshots, on_unreadable=self.router.report_unreadable_assets, leave=left
         )
         pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
         extra: frozenset[str] = frozenset()
-        if self.capture:
-            from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision 0015)
-
-            capture = litmus.FormatCapture(
-                frozenset(self.capture), terrain.diagnostics_dir(), save_bodies=self.save_bodies
-            )
-            # After the grafter on the way out (it sees the IDs as sent), first on the way back
-            # (it sees the CDN's own answer).
-            pipeline = hyphae.Pipeline(request=(grafter, capture), response=(capture, grafter))
-            extra = litmus.CAPTURE_HOSTS
+        if left:
+            pipeline, extra = self._diagnostics(grafter)
         return hyphae.Interception(
             hyphae.LeafContexts(authority),
             lambda: self.snapshots.current.hosts() | extra,
@@ -1052,6 +1056,29 @@ class Sprout(QObject):
             lambda: pipeline,
             on_verification_failure=self.router.report_certificate_failure,
         )
+
+    def _diagnostics(self, grafter: Grafter) -> tuple[hyphae.Pipeline, frozenset[str]]:
+        """The source-only format capture and control experiment around the grafter."""
+        from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision 0015)
+
+        before: list[hyphae.Symbiont] = []
+        after: list[hyphae.Symbiont] = []
+        if self.control:
+            before.append(litmus.ControlSwap(*self.control))
+        if self.capture:
+            after.append(
+                litmus.FormatCapture(
+                    frozenset(self.capture),
+                    terrain.diagnostics_dir(),
+                    save_bodies=self.save_bodies,
+                )
+            )
+        # The capture runs after the grafter on the way out (it sees the IDs as sent) and before
+        # it on the way back (it sees the CDN's own answer).
+        pipeline = hyphae.Pipeline(
+            request=(*before, grafter, *after), response=(*before, *after, grafter)
+        )
+        return pipeline, litmus.CAPTURE_HOSTS
 
     def _diagnostic(self, authority: resin.Authority) -> mycelium.Interceptor:
         from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision record 0015)

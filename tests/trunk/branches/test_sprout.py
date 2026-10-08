@@ -1368,3 +1368,30 @@ def test_a_format_capture_decrypts_the_asset_hosts_and_leaves_its_assets_alone(
     made.deleteLater()
     without.deleteLater()
     status.deleteLater()
+
+
+def test_the_control_experiment_runs_first_and_leaves_the_original_alone(
+    tmp_path: Path, qapp: Any
+) -> None:
+    from verdra.bark import resin  # noqa: PLC0415
+    from verdra.roots import gardener, hyphae, litmus  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=RoutingPlatform([]),  # type: ignore[arg-type]
+        control=(15553230204, 11473800131),
+        capture=(11473800131,),
+    )
+    interception = made._features(resin.create_authority(NOW))  # noqa: SLF001
+    assert isinstance(interception, hyphae.Interception)
+    pipeline = interception.pipeline()
+    control, grafter, capture = pipeline.request
+    assert isinstance(control, litmus.ControlSwap)
+    assert (control.original, control.donor) == (15553230204, 11473800131)
+    assert grafter.leave == {15553230204, 11473800131}  # type: ignore[attr-defined]
+    assert list(pipeline.response) == [control, capture, grafter]
+    assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)
+    made.deleteLater()
+    status.deleteLater()

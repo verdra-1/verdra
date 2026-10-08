@@ -6,7 +6,8 @@ Qt's own arguments (such as `-platform offscreen`) are left for Qt; anything els
 ignored rather than refused, so a launcher passing extra arguments can't stop Verdra starting.
 
 The exceptions are the diagnostics `--diagnose-interception` (spec S-11, plan 16.2) and
-`--format-capture <asset IDs>` with `--save-bodies` (spec S-21, plan 16.2 of 8 October 2026):
+`--format-capture <asset IDs>` with `--save-bodies`, and `--control-swap ORIGINAL=DONOR` (spec
+S-21, plan 16.2 of 8 October 2026):
 they are offered only while Verdra runs from source, where their module (roots/litmus.py) is
 present. A frozen build doesn't have that module, so there argparse rejects the flag as unknown
 and Verdra exits with code 2 before anything starts (decision record 0015).
@@ -36,13 +37,16 @@ class Arguments:
     format_capture: tuple[int, ...] = ()
     #: Also save each captured body next to its report.
     save_bodies: bool = False
+    #: The control experiment (roots/litmus): (original, donor) asset IDs, or None when off.
+    control_swap: tuple[int, int] | None = None
 
 
 DIAGNOSE_FLAG = "--diagnose-interception"
 CAPTURE_FLAG = "--format-capture"
 BODIES_FLAG = "--save-bodies"
+CONTROL_FLAG = "--control-swap"
 #: Every flag that needs the source-only diagnostic module.
-DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG)
+DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG, CONTROL_FLAG)
 #: The source-only module the flag needs (roots/litmus.py); frozen builds leave it out.
 DIAGNOSTIC_SOURCE = "litmus.py"
 
@@ -72,6 +76,7 @@ def parse(argv: list[str]) -> Arguments:
     if diagnosis_available():
         parser.add_argument(CAPTURE_FLAG, type=_asset_ids, default=())
         parser.add_argument(BODIES_FLAG, action="store_true")
+        parser.add_argument(CONTROL_FLAG, type=_asset_pair, default=None)
     known, rest = parser.parse_known_args([item for item in argv if item != DIAGNOSE_FLAG])
     scheme = terrain.URL_SCHEME + ":"
     link = next((item for item in rest if item.lower().startswith(scheme)), None)
@@ -83,6 +88,7 @@ def parse(argv: list[str]) -> Arguments:
         diagnose_interception=diagnose,
         format_capture=getattr(known, "format_capture", ()),
         save_bodies=getattr(known, "save_bodies", False),
+        control_swap=getattr(known, "control_swap", None),
     )
 
 
@@ -97,3 +103,12 @@ def _asset_ids(text: str) -> tuple[int, ...]:
         msg = "give one or more asset IDs, separated by commas"
         raise ValueError(msg)
     return ids
+
+
+def _asset_pair(text: str) -> tuple[int, int]:
+    """`15553230204=11473800131` as (original, donor) (a ValueError becomes exit code 2)."""
+    original, mark, donor = text.replace(" ", "").partition("=")
+    if not mark or not original.isdigit() or not donor.isdigit() or original == donor:
+        msg = "give ORIGINAL=DONOR, two different asset IDs"
+        raise ValueError(msg)
+    return int(original), int(donor)

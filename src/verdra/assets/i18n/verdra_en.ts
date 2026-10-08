@@ -476,6 +476,27 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-06</name>
+    <message>
+        <source>Control experiment: Roblox&apos;s download of asset {original} gets asset {donor}&apos;s real bytes from the CDN.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-07</name>
+    <message>
+        <source>Control experiment: asset {donor} downloads from {host}, not from the original&apos;s host, so it couldn&apos;t be swapped in.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-08</name>
+    <message>
+        <source>Control experiment is on: when Roblox downloads asset {original}, it gets asset {donor}&apos;s real bytes from the CDN, and replacements of {original} are off. Restart Verdra without --control-swap to turn it off.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>
