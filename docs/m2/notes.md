@@ -249,3 +249,18 @@ five times. The wall stayed plain grey every time.
   wall stays grey, H4 holds and the route must change. Then the fix, with the asset ID swap as
   the control of the next test.
 
+## The route works; Verdra's texture must match the CDN's (2026-10-08, evening)
+
+Format capture and control experiment on the maintainer's PC (evidence:
+`docs/platforms/evidence/windows/format-capture-and-control-2026-10-08.txt`).
+
+- **H4 is ruled out.** Answering 15553230204's download with 11473800131's real CDN bytes drew
+  11473800131 on the wall. Roblox doesn't check the bytes against the address, the content hash
+  or the size the batch answer gave. Verdra's route (the CDN download of the original) stays.
+- **H1 and H2 hold.** The CDN sends a KTX2 with BC1 (opaque) or BC3 (with alpha) blocks, one
+  level, Zstandard supercompression, Roblox's 19 keys, and the whole file zstd-encoded over
+  HTTP. Verdra sent an uncompressed RGBA8 KTX2. The fix makes Verdra's texture match that
+  layout (decision record 0022).
+- **Also verified:** after the Player updated (0.741 to 0.742) Verdra added its certificate
+  to the new version by itself.
+

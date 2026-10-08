@@ -164,6 +164,18 @@ Every CDN download (444 of 444) asks for `encoding=zstd&version=1`. Verdra's ans
 uncompressed RGBA8 KTX2. Next: a format capture of what the CDN really sends, and a control
 experiment that serves another asset's real CDN bytes (docs/m2/notes.md).
 
+## The route works; the texture format is known (maintainer's PC, 2026-10-08, evening)
+
+From the format capture and the control experiment, anonymised in
+`evidence/windows/format-capture-and-control-2026-10-08.txt`.
+
+| Check | Evidence | Result |
+|---|---|---|
+| Asset ID swap 15553230204 → 11473800131 (control) | 11473800131 on the wall | **Pass** |
+| 11473800131's real CDN bytes at 15553230204's address (`--control-swap`) | 11473800131 on the wall | **Pass**: Roblox doesn't check bytes against the address (H4 ruled out) |
+| Certificate after a Roblox update (0.741 → 0.742) | "Roblox updated. Verdra added its certificate to the new version." | **Pass** |
+| What the CDN sends for a picture | KTX2: BC1 or BC3, one level, Zstandard supercompression, 19 Roblox keys; HTTP Content-Encoding zstd | Recorded |
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and
