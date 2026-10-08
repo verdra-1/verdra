@@ -699,18 +699,20 @@ def _with_length(headers: Headers, length: int) -> list[tuple[bytes, bytes]]:
     return [*_unframed(headers), (b"Content-Length", str(length).encode())]
 
 
-def _complete(response: Response, *, head_only: bool) -> tuple[h11.Event, ...]:
-    """A whole response with its body (decoded, or zstd if asked) and a correct Content-Length."""
+def encoded(response: Response) -> tuple[list[tuple[bytes, bytes]], bytes]:
+    """The headers and body a changed response is sent with: decoded, or zstd if asked."""
     body = response.body or b""
     headers = _unframed(response.headers)
     if response.coding == "zstd" and body:
         body = zstd.compress(body)
         headers.append((b"Content-Encoding", b"zstd"))
-    head = h11.Response(
-        status_code=response.status,
-        headers=[*headers, (b"Content-Length", str(len(body)).encode())],
-        reason=response.reason,
-    )
+    return [*headers, (b"Content-Length", str(len(body)).encode())], body
+
+
+def _complete(response: Response, *, head_only: bool) -> tuple[h11.Event, ...]:
+    """A whole response with its body (decoded, or zstd if asked) and a correct Content-Length."""
+    headers, body = encoded(response)
+    head = h11.Response(status_code=response.status, headers=headers, reason=response.reason)
     if head_only or not body:
         return head, h11.EndOfMessage()
     return head, h11.Data(data=body), h11.EndOfMessage()
