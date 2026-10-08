@@ -272,3 +272,18 @@ def test_anonymize_data() -> None:
         "ids": ["<id>", 42, True],
         "C:\\Users\\<user>": {"Cookie": veil.REDACTED},
     }
+
+
+@pytest.mark.parametrize(
+    "text",
+    [text for text, _secret in SECRETS]
+    + [f"GET /sc3/abc?{name}={value}&next=1" for name, value in SIGNED],
+)
+def test_redacting_twice_changes_nothing_more(text: str) -> None:
+    """A line redacted at its source (roots/hyphae) passes the log filter again unchanged.
+
+    The maintainer's log of 8 October showed "•••• (redacted) (redacted)" for every signed value.
+    """
+    once = veil.redact_text(text)
+    assert veil.redact_text(once) == once
+    assert "(redacted) (redacted)" not in veil.redact_text(once)

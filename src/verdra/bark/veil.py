@@ -51,7 +51,7 @@ _VALUE_THEN_NAME = re.compile(
     rf"(\s*,\s*['\"]name['\"]\s*:\s*['\"](?:{_SECRET_FIELDS})['\"])"
 )
 # Cookie=value, as in a query string or keyword argument.
-_ASSIGNMENT = re.compile(rf"(?i)(?<![\w-])((?:{_HEADER_NAMES})=)([^\s&;,'\"]+)")
+_ASSIGNMENT = re.compile(rf"(?i)(?<![\w-])((?:{_HEADER_NAMES})=)(?!•)([^\s&;,'\"]+)")
 
 # The Roblox login token: its well-known warning prefix and the value that follows, and any value
 # of the cookie that carries it.
@@ -61,7 +61,9 @@ _COLON = r"(?::|%(?:25)?3[Aa])"
 _LOGIN_TOKEN = re.compile(
     rf"_{_BAR}WARNING{_COLON}-DO-NOT-SHARE-THIS\.(?:(?!{_BAR}).)*{_BAR}_[A-Za-z0-9+/=_.\-%]*"
 )
-_LOGIN_COOKIE = re.compile(r"(?i)(\.ROBLOSECURITY['\"]?\s*(?:=|:|%3[Dd])\s*['\"]?)([^;'\"\s,}&]+)")
+_LOGIN_COOKIE = re.compile(
+    r"(?i)(\.ROBLOSECURITY['\"]?\s*(?:=|:|%3[Dd])\s*['\"]?)(?!•)([^;'\"\s,}&]+)"
+)
 
 #: Query parameters that sign a URL or identify a person or device (plan 16.2), as seen in
 #: Roblox's CDN URLs: Akamai tokens (`__token__`, `hdnts`, `hmac`), CloudFront signatures
@@ -100,8 +102,11 @@ _QUERY_NAMES = "|".join(
 # may hold "~"), whitespace, quote or fragment, so a whole Akamai token goes at once.
 _SEP = r"(?:[?&;~]|%(?:25)?(?:26|3[Ff]|7[Ee]))"
 _EQUALS = r"(?:=|%(?:25)?3[Dd])"
+# A value already replaced (the filter runs again on text it made, as when a line redacted at
+# its source reaches the log filter) is left as it is, so redacting is idempotent.
+_DONE = "(?!" + re.escape(REDACTED) + ")"
 _SIGNED_QUERY = re.compile(
-    rf"(?i)({_SEP}(?:{_QUERY_NAMES}){_EQUALS})((?:(?!%(?:25)?26)[^&\s#'\"<>])+)"
+    rf"(?i)({_SEP}(?:{_QUERY_NAMES}){_EQUALS}){_DONE}((?:(?!%(?:25)?26)[^&\s#'\"<>])+)"
 )
 
 # Paths under a user's home folder: "C:\Users\<name>", "/home/<name>", "/Users/<name>", also with
@@ -122,6 +127,8 @@ NUMBER = "<id>"
 def redact_text(text: str) -> str:
     """Return `text` with every secret header value and login token replaced."""
     text = _LOGIN_TOKEN.sub(REDACTED, text)
+    # A whole "Cookie=…" value goes first, so the login cookie inside it isn't replaced twice.
+    text = _ASSIGNMENT.sub(lambda m: m.group(1) + REDACTED, text)
     text = _LOGIN_COOKIE.sub(lambda m: m.group(1) + REDACTED, text)
     text = _NAME_THEN_VALUE.sub(lambda m: m.group(1) + m.group(2) + REDACTED + m.group(4), text)
     text = _VALUE_THEN_NAME.sub(
@@ -129,8 +136,7 @@ def redact_text(text: str) -> str:
     )
     text = _QUOTED_PAIR.sub(lambda m: m.group(1) + m.group(2) + REDACTED + m.group(4), text)
     text = _HEADER_LINE.sub(lambda m: m.group(1) + REDACTED, text)
-    text = _SIGNED_QUERY.sub(lambda m: m.group(1) + REDACTED, text)
-    return _ASSIGNMENT.sub(lambda m: m.group(1) + REDACTED, text)
+    return _SIGNED_QUERY.sub(lambda m: m.group(1) + REDACTED, text)
 
 
 def anonymize_text(text: str, user_names: Iterable[str] = ()) -> str:
