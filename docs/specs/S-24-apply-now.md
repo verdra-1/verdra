@@ -57,6 +57,10 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - M-APPLY-04 (Toast, new) "Downloading <n> replacements first. Apply now goes on when they're
   ready." (singular: "Downloading 1 replacement first. Apply now goes on when it's ready.")
   Button "Cancel".
+- M-APPLY-05 (Toast, new 2026-10-11) "Nothing changed: <n> replacements couldn't be prepared,
+  so none were applied and Roblox wasn't restarted. Activity says why for each one." (singular:
+  "…1 replacement couldn't be prepared, so it wasn't applied … Activity says why.") When every
+  replacement failed, Apply now stops there: no "Restart Roblox now?", no cache move.
 - M-CACHE-01 (Toast and Activity, new) "Moved Roblox's saved assets (<names>) to <folder>. Reset
   everything puts them back."
 - M-CACHE-02 (Toast, new) "Roblox Studio is open, so Verdra didn't move Roblox's saved assets

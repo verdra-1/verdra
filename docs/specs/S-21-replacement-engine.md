@@ -97,6 +97,9 @@ Make Roblox receive the replacement instead of the original asset.
 - M-GRAFT-11 (Activity, new) "Downloaded the replacement from <host>. It applies from now on."
 - M-GRAFT-12 (Activity, new) "Roblox downloaded asset <asset> as a <kind>, but its replacement is
   another type of asset, so the original shows." (<kind> is "picture" or "mesh".)
+- M-GRAFT-13 (Activity, new 2026-10-11) "The replacement of asset <asset> in profile <profile>
+  (<target>) wasn't applied: <reason>" for each replacement Apply now left out; <target> is
+  "file <name>", "link on <host>", "Remove" or "asset <id>" (never a full path or link).
 - M-GRAFT-05 (Activity, new) "Roblox asked for the replaced asset <asset> by its content hash,
   which Verdra can't replace yet, so the original may show."
 - M-GRAFT-04 (Activity, new) "An asset batch <part> couldn't be read (<reason>), so

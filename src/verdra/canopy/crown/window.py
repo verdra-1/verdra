@@ -249,6 +249,14 @@ class ApplyText(QObject):
             count,
         )
 
+    def nothing_applied(self, count: int) -> str:
+        return self.tr(
+            "Nothing changed: %n replacements couldn't be prepared, so none were applied and "
+            "Roblox wasn't restarted. Activity says why for each one.",
+            "M-APPLY-05",
+            count,
+        )
+
     def waiting(self, count: int) -> str:
         return self.tr(
             "Downloading %n replacements first. Apply now goes on when they're ready.",
@@ -590,6 +598,10 @@ class Shell:
             self._wait_for_downloads(grafts.downloading)
             return
         self._stop_waiting()
+        if grafts.warnings and not count:
+            # Every replacement failed: nothing to restart Roblox or move its cache for.
+            self.window.dew.show(ApplyText().nothing_applied(len(grafts.warnings)), Kind.WARNING)
+            return
         if grafts.warnings:  # S-21: a replacement that can't be prepared is never silent
             self.window.dew.show(ApplyText().not_prepared(len(grafts.warnings)), Kind.WARNING)
         if sprout is None:

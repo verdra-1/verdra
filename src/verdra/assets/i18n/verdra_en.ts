@@ -140,6 +140,14 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>Nothing changed: %n replacements couldn&apos;t be prepared, so none were applied and Roblox wasn&apos;t restarted. Activity says why for each one.</source>
+        <comment>M-APPLY-05</comment>
+        <translation>
+            <numerusform>Nothing changed: %n replacement couldn&apos;t be prepared, so it wasn&apos;t applied and Roblox wasn&apos;t restarted. Activity says why.</numerusform>
+            <numerusform>Nothing changed: %n replacements couldn&apos;t be prepared, so none were applied and Roblox wasn&apos;t restarted. Activity says why for each one.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Downloading %n replacements first. Apply now goes on when they&apos;re ready.</source>
         <comment>M-APPLY-04</comment>
         <translation>
@@ -745,6 +753,29 @@
     <name>M-GRAFT-12</name>
     <message>
         <source>Roblox downloaded asset {asset} as a {kind}, but its replacement is another type of asset, so the original shows.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-GRAFT-13</name>
+    <message>
+        <source>file {name}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>link on {host}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>asset {asset}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The replacement of asset {asset} in profile {profile} ({target}) wasn&apos;t applied: {reason}</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
