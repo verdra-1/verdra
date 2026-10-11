@@ -15,6 +15,7 @@ import time
 
 import numpy as np
 import pytest
+import texture2ddecoder
 import zstandard
 
 from verdra.roots import litmus
@@ -76,8 +77,8 @@ def psnr(first: np.ndarray, second: np.ndarray) -> float:
         ((1024, 1024), (1024, 1024)),
         ((2048, 1024), (1024, 512)),  # over 1024: scaled down first
         ((4000, 300), (1024, 64)),
-        ((63, 10), (60, 8)),  # under 64: multiples of 4
-        ((1, 1), (4, 4)),  # never under one block
+        ((63, 10), (64, 64)),  # under 64: 64, so that all three packs exist
+        ((1, 1), (64, 64)),
     ],
 )
 def test_the_size_rule(size: tuple[int, int], expected: tuple[int, int]) -> None:
@@ -148,7 +149,7 @@ def test_colors_are_stored_as_they_are_no_gamma_either_way() -> None:
     gray = np.full((8, 8, 4), 128, np.uint8)
     gray[..., 3] = 255
     decoded = ochre.read_ktx2(ochre.write_roblox_ktx2(pixels(gray)))
-    values = np.frombuffer(decoded.rgba, np.uint8).reshape(8, 8, 4)[..., :3]
+    values = np.frombuffer(decoded.rgba, np.uint8)[: 8 * 8 * 4].reshape(8, 8, 4)[..., :3]
     # RGB565 keeps 5 or 6 bits a channel (128 comes back as 130 or 132); a gamma conversion
     # either way would move 128 by about 70.
     assert np.abs(values.astype(int) - 128).max() <= 5
@@ -177,7 +178,7 @@ def test_the_keys_hold_real_values() -> None:
 def test_remove_is_the_smallest_fully_transparent_bc3_texture() -> None:
     clear = ochre.write_roblox_ktx2(ochre.Pixels(4, 4, bytes(64)))
     layout = ochre.ktx2_layout(clear)
-    assert (layout.vk_format, layout.width, layout.height) == (ochre.VK_BC3_UNORM, 4, 4)
+    assert (layout.vk_format, layout.width, layout.height) == (ochre.VK_BC3_UNORM, 64, 64)
     assert keys(clear)["avgAlpha"] == "0"
     decoded = ochre.read_ktx2(clear)
     assert set(decoded.rgba[3::4]) == {0}
@@ -185,7 +186,7 @@ def test_remove_is_the_smallest_fully_transparent_bc3_texture() -> None:
 
 def test_tiny_and_very_large_pictures() -> None:
     tiny = ochre.ktx2_layout(ochre.write_roblox_ktx2(pixels(picture(1, 1))))
-    assert (tiny.vk_format, tiny.width, tiny.height) == (ochre.VK_BC1_RGB_UNORM, 4, 4)
+    assert (tiny.vk_format, tiny.width, tiny.height) == (ochre.VK_BC1_RGB_UNORM, 64, 64)
     started = time.perf_counter()
     large = ochre.ktx2_layout(ochre.write_roblox_ktx2(pixels(picture(4096, 2048))))
     assert (large.width, large.height) == (1024, 512)
@@ -202,5 +203,98 @@ def test_a_one_color_block_decodes_to_that_color() -> None:
     solid[..., :3] = (200, 40, 90)
     solid[..., 3] = 255
     decoded = ochre.read_ktx2(ochre.write_roblox_ktx2(pixels(solid)))
-    values = np.frombuffer(decoded.rgba, np.uint8).reshape(4, 4, 4)[..., :3]
+    values = np.frombuffer(decoded.rgba, np.uint8)[: 4 * 4 * 4].reshape(4, 4, 4)[..., :3]
     assert np.abs(values.astype(int) - (200, 40, 90)).max() <= 4  # RGB565 precision
+
+
+# --- The three packs (captured 11 October 2026) -------------------------------------------------
+
+#: What the format check showed for 15553230204 (500 × 500 with alpha, 448 × 448 on the CDN):
+#: (pack, size line, levels line, DFD line start, uncompressed level lengths).
+CAPTURED_PACKS = [
+    (0, "pixel size: 28 x 28 x 0", "levels: 5", "DFD: offset 200, length 60",
+     [784, 256, 64, 16, 16]),
+    (1, "pixel size: 224 x 224 x 0", "levels: 3", "DFD: offset 152, length 60",
+     [50176, 12544, 3136]),
+    (2, "pixel size: 448 x 448 x 0", "levels: 1", "DFD: offset 104, length 60", [200704]),
+]  # fmt: skip
+
+
+def level_rows(text: str) -> list[tuple[int, int, int]]:
+    """(offset, length, uncompressed length) of each level, as the report lists them."""
+    rows = text.split("starts with zstd magic):\n", 1)[1].splitlines()
+    return [tuple(int(part) for part in row.split(":")[1].split(",")[:3]) for row in rows]  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(("pack", "size", "levels", "dfd", "uncompressed"), CAPTURED_PACKS)
+def test_each_pack_has_the_captured_structure(
+    pack: int, size: str, levels: str, dfd: str, uncompressed: list[int]
+) -> None:
+    data = ochre.roblox_packs(pixels(picture(500, 500, alpha=148)))[pack]
+    text = "\n".join(litmus.body_lines(data))
+    for line in (size, levels, dfd, "vkFormat: 137 (BC3_UNORM)", "supercompressionScheme: 2"):
+        assert line in text, line
+    rows = level_rows(text)
+    assert [row[2] for row in rows] == uncompressed
+    # Stored smallest level first, right after the key/value data, with no gaps.
+    layout = ochre.ktx2_layout(data)
+    position = layout.kvd_offset + layout.kvd_length
+    for offset, length, _size in reversed(rows):
+        assert offset == position
+        position += length
+    assert position == len(data)
+    assert "keys: " + ", ".join(ROBLOX_KEYS) in text
+
+
+def test_the_pack_keys_say_which_levels_each_pack_holds() -> None:
+    for source, pack_0 in (((500, 500), "4,5"), ((1023, 682), "4,6")):  # both as captured
+        packs = ochre.roblox_packs(pixels(picture(*source)))
+        for number, data in enumerate(packs):
+            found = keys(data)
+            assert found["packIndex"] == str(number)
+            assert (found["pack_0"], found["pack_1"], found["pack_2"]) == (pack_0, "1,3", "0,1")
+            assert found["contentHash"] == keys(packs[2])["contentHash"]
+    sizes = [ochre.ktx2_layout(data) for data in ochre.roblox_packs(pixels(picture(1023, 682)))]
+    assert [(s.width, s.height, s.levels) for s in sizes] == [
+        (60, 40, 6),
+        (480, 320, 3),
+        (960, 640, 1),
+    ]
+
+
+def test_every_level_decodes_to_the_smaller_picture() -> None:
+    """Each level is the picture at that size (mip chain), not black and not another level."""
+    # Colors on one line in color space (what one BC1 block can hold), varying smoothly over
+    # the picture, so every level can be compared closely, down to 1 × 1.
+    y, x = np.mgrid[0:128, 0:256].astype(np.float64)
+    t = (np.sin(x / 23) * np.cos(y / 17) + 1) / 2
+    source = np.empty((128, 256, 4), np.uint8)
+    for channel, (start, end) in enumerate(((20, 230), (200, 40), (60, 180))):
+        source[..., channel] = start + t * (end - start)
+    source[..., 3] = 255
+    packs = ochre.roblox_packs(pixels(source))
+    reference = ochre.mip_chain(source)
+    for data in packs:
+        layout = ochre.ktx2_layout(data)
+        for number, entry in enumerate(layout.level_index):
+            raw = zstandard.ZstdDecompressor().decompress(
+                data[entry.offset : entry.offset + entry.length],
+                max_output_size=entry.uncompressed_length,
+            )
+            width, height = max(1, layout.width >> number), max(1, layout.height >> number)
+            padded = (-width % 4 + width, -height % 4 + height)
+            rgba = texture2ddecoder.decode_bc1(raw, *padded)
+            out = np.frombuffer(rgba, np.uint8).reshape(padded[1], padded[0], 4)[:height, :width]
+            expected = next(level for level in reference if level.shape[:2] == (height, width))
+            colors = out[..., 2::-1].astype(float)  # texture2ddecoder gives BGRA
+            assert np.abs(colors.mean((0, 1)) - expected[..., :3].mean((0, 1))).max() < 4
+            # Four palette entries a block: ~25 dB at the busiest small sizes; black would be ~6.
+            assert psnr(colors, expected[..., :3]) > 24, (width, height)
+
+
+def test_transparent_edges_dont_turn_dark_in_smaller_levels() -> None:
+    """Premultiplied averaging: a red shape on clear black stays red when made smaller."""
+    source = np.zeros((64, 64, 4), np.uint8)
+    source[:, :32] = (255, 0, 0, 255)
+    level = ochre.mip_chain(source)[5]  # 2 × 2
+    assert level[0, 0, 0] == 255 and level[0, 0, 3] == 255  # noqa: PLR2004

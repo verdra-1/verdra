@@ -467,8 +467,9 @@ def test_a_local_picture_is_prepared_as_png_and_ktx2_with_the_same_pixels(tmp_pa
     layout = ochre.ktx2_layout(content.ktx2)
     assert (layout.vk_format, layout.supercompression) == (ochre.VK_BC1_RGB_UNORM, 2)
     decoded = ochre.read_ktx2(content.ktx2)
-    assert (decoded.width, decoded.height) == (4, 4)
-    assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba, pixels.rgba, strict=True))  # RGB565
+    assert (decoded.width, decoded.height) == (64, 64)  # never under 64 a side
+    assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba[:64], pixels.rgba, strict=True))
+    assert [ochre.ktx2_layout(pack).levels for pack in content.ktx2_packs] == [3, 3, 1]
 
 
 @pytest.mark.parametrize(

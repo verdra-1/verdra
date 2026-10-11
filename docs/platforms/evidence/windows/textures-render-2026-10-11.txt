@@ -1,0 +1,38 @@
+Verdra texture test on the maintainer's PC, 11 October 2026 (source run).
+Command: run-latest.ps1 --format-check 15553230204 --format-capture <a public mesh ID>
+Anonymised: no user name, no place, universe or session IDs, no CDN addresses or content
+hashes, no content bytes. Asset IDs are public Toolbox assets.
+
+Seen in game (screenshots and videos kept by the maintainer, not in the repository)
+- Local file, PNG with transparency, served as BC3 384 x 384: drawn, transparency right.
+- Local file, opaque PNG 576 x 512 and 1024 x 1024, served as BC1: drawn.
+- Link (an HTTPS picture), served as BC1 832 x 576: drawn.
+- Remove, served as a transparent BC3 4 x 4: the decal is gone.
+- Verdra's contentHash (MD5 of its level) differs from what Roblox computes; Roblox drew the
+  texture anyway, so the client doesn't check it.
+- Remaining fault: the replaced texture is black at a distance and on first sight, and turns
+  right up close; a sharp boundary moves across the wall as the player walks up.
+
+Format check reports for 15553230204 (500 x 500 with alpha), without a replacement
+Roblox asked the batch for the asset three times, once per fidelity, each with its own CDN
+address, and downloaded all three within a second:
+  fidelity "/////AE=" (bytes ff ff ff ff fc 01): KTX2 BC3 28 x 28, 5 levels,
+    uncompressed level lengths 784, 256, 64, 16, 16 (28, 14, 7, 3, 1 pixels a side),
+    DFD at offset 200; level data stored smallest first right after the key/value data
+  fidelity "/////AI=" (... fc 02): KTX2 BC3 224 x 224, 3 levels (50176, 12544, 3136),
+    DFD at offset 152
+  fidelity "/////AM=" (... fc 03): KTX2 BC3 448 x 448, 1 level (200704), DFD at offset 104
+The keys of the full one (the 8 October capture): packIndex "2", pack_0 "4,5", pack_1 "1,3",
+pack_2 "0,1": each pack's first mip level and level count. 960 x 640 had pack_0 "4,6".
+So the three answers are packs 0, 1 and 2 of one mip chain: pack 2 = level 0, pack 1 =
+levels 1 to 3, pack 0 = levels 4 to the last (1 x 1). The last byte of the fidelity is the
+pack number plus one in every answer seen.
+
+With a replacement, in every run Roblox asked only for the fidelity "/////AE=" (pack 0) and
+Verdra answered it with one full-size level whose packIndex was "2"; no other pack was asked
+for. Cause of the black texture: Roblox had no data for the smaller levels.
+
+Mesh capture (a public Toolbox mesh)
+- Batch answer: format "fmd", majorVersion "1.0.1", fidelity "ALL", one representation.
+- Download: Content-Encoding zstd; the body starts "version 7.00" with a COREMESH chunk; two
+  different compressed sizes were seen for the same decoded size.

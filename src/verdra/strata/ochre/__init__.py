@@ -394,18 +394,20 @@ def to_png(pixels: Pixels) -> bytes:
 
 #: The longest side Verdra makes (Roblox's own pictures stay within 1024 pixels).
 ROBLOX_MAX_SIDE: Final = 1024
+#: The shortest side Verdra makes, so that every texture has all three packs (see below).
+ROBLOX_MIN_SIDE: Final = 64
 VK_BC1_RGB_UNORM: Final = 131
 VK_BC3_UNORM: Final = 137
-#: The level's zstd frame: Roblox's carried the content size and no checksum.
+#: Each level's zstd frame: Roblox's carried the content size and no checksum.
 _ZSTD_LEVEL: Final = 9
+#: The first mip level of pack 0 and pack 1 (pack 2 is level 0 alone), as captured on
+#: 11 October 2026: pack_2 "0,1", pack_1 "1,3", pack_0 "4,<the rest>".
+_PACK_STARTS: Final = (4, 1, 0)
 #: Observed values whose meaning isn't known; written as the CDN wrote them.
 _OBSERVED_KEYS: Final = {
     "acrVersion": "7rdo",
     "colorSpace": "Linear",
     "constantColor": "0",
-    "packIndex": "2",
-    "pack_1": "1,3",
-    "pack_2": "0,1",
 }
 
 
@@ -413,44 +415,132 @@ def roblox_size(width: int, height: int) -> tuple[int, int]:
     """The size Verdra's texture gets: within 1024 a side, each side a multiple of 64.
 
     Observed on the CDN: 1023 × 682 became 960 × 640 and 500 × 500 became 448 × 448, each side
-    rounded down to a multiple of 64. A side under 64 is rounded down to a multiple of 4 (the
-    block size), and never below 4.
+    rounded down to a multiple of 64. A side under 64 becomes 64 (Verdra's choice, not yet
+    seen on the CDN): then the mip chain has at least 7 levels, so all three packs exist.
     """
     scale = min(1.0, ROBLOX_MAX_SIDE / max(width, height, 1))
     return _roblox_side(round(width * scale)), _roblox_side(round(height * scale))
 
 
 def _roblox_side(side: int) -> int:
-    if side >= 64:  # noqa: PLR2004
-        return side // 64 * 64
-    return max(4, side // 4 * 4)
+    return max(ROBLOX_MIN_SIDE, side // 64 * 64)
+
+
+def mip_sizes(width: int, height: int) -> list[tuple[int, int]]:
+    """Every mip level's size, each side halved (rounded down) to 1 × 1 (KTX 2.0, section 4.1).
+
+    Captured: 448 × 448 has 9 levels (the last ones 28, 14, 7, 3 and 1 pixels a side).
+    """
+    count = max(width, height).bit_length()
+    return [(max(1, width >> level), max(1, height >> level)) for level in range(count)]
+
+
+def roblox_packs(pixels: Pixels) -> tuple[bytes, bytes, bytes]:
+    """Write `pixels` as the CDN's three packs: (pack 0, pack 1, pack 2) (decision record 0022).
+
+    Roblox asks for each texture three times, once per pack, and draws the levels each pack
+    holds (captured 11 October 2026): pack 2 is level 0, pack 1 levels 1 to 3, pack 0 levels 4
+    to the last (1 × 1). Each pack is a KTX2 whose size is its first level's, with its own
+    level index and `packIndex`; all three carry the same `pack_0`, `pack_1` and `pack_2` keys.
+    BC1 when the picture is fully opaque, else BC3, for every level. Color values are stored as
+    they are (UNORM, the "Linear" color space Roblox's files name): no gamma conversion.
+    """
+    width, height = roblox_size(pixels.width, pixels.height)
+    chain = mip_chain(_resized(pixels, width, height))
+    opaque = bool((chain[0][..., 3] == 255).all())  # noqa: PLR2004
+    encode = encode_bc1 if opaque else encode_bc3
+    levels = [encode(_padded(level)) for level in chain]
+    ranges = _pack_ranges(len(levels))
+    keys = _roblox_keys(chain[0], (pixels.width, pixels.height), levels[0])
+    keys |= {f"pack_{n}": f"{first},{count}" for n, (first, count) in enumerate(ranges)}
+    packs = [
+        _ktx2(levels[first : first + count], chain[first], keys | {"packIndex": str(n)}, opaque)
+        for n, (first, count) in enumerate(ranges)
+    ]
+    return packs[0], packs[1], packs[2]
 
 
 def write_roblox_ktx2(pixels: Pixels) -> bytes:
-    """Write `pixels` in the CDN's layout: BC1 if fully opaque, else BC3 (decision record 0022).
+    """Pack 2 of `pixels` (level 0 alone, the full-size texture): see `roblox_packs`."""
+    return roblox_packs(pixels)[2]
 
-    The color values are stored as they are (UNORM, the "Linear" color space Roblox's own
-    files name): no gamma conversion either way, so a pixel of 128 decodes as 128 again.
+
+def roblox_keys(data: bytes) -> dict[str, str]:
+    """A KTX2 file's key/value pairs (for `packIndex`); empty if there are none or it's damaged."""
+    try:
+        layout = ktx2_layout(data)
+    except OchreError:
+        return {}
+    found: dict[str, str] = {}
+    position, end = layout.kvd_offset, layout.kvd_offset + layout.kvd_length
+    while position + 4 <= end:
+        size = int.from_bytes(data[position : position + 4], "little")
+        key, _, value = data[position + 4 : position + 4 + size].partition(b"\x00")
+        found[key.decode("utf-8", "replace")] = value.rstrip(b"\x00").decode("utf-8", "replace")
+        position += 4 + size + (-size % 4)
+    return found
+
+
+def mip_chain(rgba: np.ndarray) -> list[np.ndarray]:
+    """Level 0 and every smaller level, each resized from level 0 with a box filter.
+
+    Averaging uses premultiplied alpha, so the color of fully transparent pixels doesn't bleed
+    into the edges of what is visible; values stay as they are (no gamma conversion).
     """
-    width, height = roblox_size(pixels.width, pixels.height)
-    rgba = _resized(pixels, width, height)
-    opaque = bool((rgba[..., 3] == 255).all())  # noqa: PLR2004
-    level = encode_bc1(rgba) if opaque else encode_bc3(rgba)
-    vk_format = VK_BC1_RGB_UNORM if opaque else VK_BC3_UNORM
+    height, width = rgba.shape[:2]
+    base = Image.fromarray(np.ascontiguousarray(rgba), "RGBA").convert("RGBa")
+    chain = [rgba]
+    for size in mip_sizes(width, height)[1:]:
+        smaller = base.resize(size, Image.Resampling.BOX).convert("RGBA")
+        chain.append(np.asarray(smaller, np.uint8))
+    return chain
+
+
+def _pack_ranges(count: int) -> list[tuple[int, int]]:
+    """(first level, level count) of pack 0, 1 and 2 for a chain of `count` levels."""
+    zero, one, _two = _PACK_STARTS
+    return [(zero, count - zero), (one, zero - one), (0, one)]
+
+
+def _padded(rgba: np.ndarray) -> np.ndarray:
+    """A level padded to whole 4 × 4 blocks by repeating its last row and column."""
+    height, width = rgba.shape[:2]
+    rows, columns = -height % 4, -width % 4
+    if not rows and not columns:
+        return rgba
+    return np.pad(rgba, ((0, rows), (0, columns), (0, 0)), mode="edge")
+
+
+def _ktx2(
+    levels: list[bytes],
+    first: np.ndarray,
+    keys: dict[str, str],
+    opaque: bool,  # noqa: FBT001
+) -> bytes:
+    """One pack: `levels` largest first, stored smallest first right after the key/value data."""
     dfd = _bc_dfd(opaque=opaque)
-    keys = _roblox_keys(rgba, (pixels.width, pixels.height), level)
     kvd = b"".join(_kvd_entry(key, value) for key, value in sorted(keys.items()))
-    packed = zstandard.ZstdCompressor(
+    compressor = zstandard.ZstdCompressor(
         level=_ZSTD_LEVEL, write_checksum=False, write_content_size=True
-    ).compress(level)
-    dfd_offset = _HEADER.size + _INDEX.size + _LEVEL.size
+    )
+    packed = [compressor.compress(level) for level in levels]
+    dfd_offset = _HEADER.size + _INDEX.size + _LEVEL.size * len(levels)
     kvd_offset = dfd_offset + len(dfd)
-    level_offset = kvd_offset + len(kvd)
+    offsets: list[int] = [0] * len(levels)
+    position = kvd_offset + len(kvd)
+    for number in reversed(range(len(levels))):  # the smallest level comes first in the file
+        offsets[number] = position
+        position += len(packed[number])
+    height, width = first.shape[:2]
+    vk_format = VK_BC1_RGB_UNORM if opaque else VK_BC3_UNORM
     header = _HEADER.pack(
-        KTX2_IDENTIFIER, vk_format, 1, width, height, 0, 0, 1, 1, _SUPERCOMPRESSION_ZSTD
+        KTX2_IDENTIFIER, vk_format, 1, width, height, 0, 0, 1, len(levels), _SUPERCOMPRESSION_ZSTD
     )
     index = _INDEX.pack(dfd_offset, len(dfd), kvd_offset, len(kvd), 0, 0)
-    return header + index + _LEVEL.pack(level_offset, len(packed), len(level)) + dfd + kvd + packed
+    entries = b"".join(
+        _LEVEL.pack(offsets[n], len(packed[n]), len(levels[n])) for n in range(len(levels))
+    )
+    return header + index + entries + dfd + kvd + b"".join(reversed(packed))
 
 
 def _resized(pixels: Pixels, width: int, height: int) -> np.ndarray:
@@ -465,9 +555,8 @@ def _roblox_keys(rgba: np.ndarray, original: tuple[int, int], level: bytes) -> d
     """Roblox's 19 keys. Averages are over the texture Verdra sends; weighted ones by alpha.
 
     contentHash: input unknown (Roblox's isn't the MD5 of the file or of the level). Verdra's is
-    the MD5 of the uncompressed level (the blocks), so equal textures get equal hashes. The
-    control experiment suggests the client doesn't check it; if Roblox doesn't draw Verdra's
-    texture, look here first (decision record 0022).
+    the MD5 of level 0's blocks, the same in all three packs. Roblox drew Verdra's textures on
+    11 October 2026 with this value, so the client doesn't check it (decision record 0022).
     """
     channels = rgba.reshape(-1, 4).astype(np.float64)
     means = channels.mean(axis=0)
@@ -488,8 +577,6 @@ def _roblox_keys(rgba: np.ndarray, original: tuple[int, int], level: bytes) -> d
         "weightedAvgRed": str(round(weighted[0])),
         "weightedAvgGreen": str(round(weighted[1])),
         "weightedAvgBlue": str(round(weighted[2])),
-        # Observed "4,6" for 960 × 640 and "4,5" for 448 × 448; meaning unknown.
-        "pack_0": "4,6" if max(width, height) > 512 else "4,5",  # noqa: PLR2004
         "contentHash": hashlib.md5(level, usedforsecurity=False).hexdigest(),
     }
     return keys

@@ -218,7 +218,7 @@ def test_a_picture_from_the_pc_replaces_one_in_game_end_to_end(
     service = grafts.Grafts(profiles, FakeSettings())
     profile = service.edit("create", "My replacements")
     (profiles / profile.name).mkdir(parents=True)
-    picture = ochre.Pixels(8, 4, bytes([120, 60, 30, 255] * 32))
+    picture = ochre.Pixels(128, 64, bytes([120, 60, 30, 255] * 128 * 64))
     (profiles / profile.name / "wall.png").write_bytes(ochre.to_png(picture))
     service.edit(
         "add_replacement",
@@ -230,20 +230,28 @@ def test_a_picture_from_the_pc_replaces_one_in_game_end_to_end(
     assert service.publish() == 1  # Apply now
     assert service.warnings == {}
     assert service.holder.current.hosts() == {rules.ASSET_BATCH_HOST, CDN}
-    # The CDN's answer as captured on 8 October 2026: a KTX2, zstd-compressed, octet-stream.
-    ktx2 = zstd.compress(ochre.write_roblox_ktx2(ochre.read_image(ORIGINAL_PNG)))
-    original = http(ktx2, extra=b"Content-Type: application/octet-stream\r\n"
-                    b"Content-Encoding: zstd\r\n")  # fmt: skip
-    heads: list[bytes] = []
-    _items, downloaded, _server = play(tmp_path, Grafter(service.holder), original, heads=heads)
-    assert b"Content-Encoding: zstd" in heads[0]  # sent the way the CDN sent the original
-    assert b"Content-Type: application/octet-stream" in heads[0]
-    assert f"Content-Length: {len(downloaded)}".encode() in heads[0]
-    served = zstd.decompress(downloaded)
-    layout = ochre.ktx2_layout(served)
-    assert (layout.vk_format, layout.width, layout.height) == (ochre.VK_BC1_RGB_UNORM, 8, 4)
-    decoded = ochre.read_ktx2(served)  # the file's own pixels (within RGB565's precision)
-    assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba, picture.rgba, strict=True))
+    # Roblox downloads the texture three times, once per pack (captured 11 October 2026); the
+    # CDN's answers are KTX2s, zstd-compressed, octet-stream.
+    originals = ochre.roblox_packs(ochre.read_image(ORIGINAL_PNG))
+    expected = [(8, 4, 4), (64, 32, 3), (128, 64, 1)]  # each pack's size and level count
+    for pack, original_pack in enumerate(originals):
+        original = http(zstd.compress(original_pack), extra=b"Content-Type: application/"
+                        b"octet-stream\r\nContent-Encoding: zstd\r\n")  # fmt: skip
+        heads: list[bytes] = []
+        _items, downloaded, _server = play(
+            tmp_path / f"pack{pack}", Grafter(service.holder), original, heads=heads
+        )
+        assert b"Content-Encoding: zstd" in heads[0]  # sent the way the CDN sent the original
+        assert b"Content-Type: application/octet-stream" in heads[0]
+        assert f"Content-Length: {len(downloaded)}".encode() in heads[0]
+        served = zstd.decompress(downloaded)
+        layout = ochre.ktx2_layout(served)
+        assert (layout.vk_format, layout.width, layout.height, layout.levels) == (
+            ochre.VK_BC1_RGB_UNORM, *expected[pack],
+        )  # fmt: skip
+        assert ochre.roblox_keys(served)["packIndex"] == str(pack)
+        decoded = ochre.read_ktx2(served)  # the file's own color (within RGB565's precision)
+        assert all(abs(a - b) <= 4 for a, b in zip(decoded.rgba[:4], picture.rgba[:4], strict=True))
 
 
 # --- Links and Remove (S-21, step 3b) -----------------------------------------------------------
@@ -274,9 +282,11 @@ def test_remove_serves_a_transparent_picture_in_the_cdns_format(
         _items, downloaded, _server = play(tmp_path / name, Grafter(service.holder), http(original))
         clear = read(downloaded)
         assert set(clear.rgba[3::4]) == {0}  # fully transparent
-        assert (clear.width, clear.height) == ((1, 1) if name == "png" else (4, 4))
+        assert (clear.width, clear.height) == ((1, 1) if name == "png" else (64, 64))
     remove = service.holder.current.content[ABOVE_UINT32].ktx2
     assert ochre.ktx2_layout(remove).vk_format == ochre.VK_BC3_UNORM  # the smallest BC3 texture
+    packs = service.holder.current.content[ABOVE_UINT32].ktx2_packs
+    assert [ochre.roblox_keys(pack)["avgAlpha"] for pack in packs] == ["0", "0", "0"]
 
 
 @pytest.mark.spec("S-21", 16)

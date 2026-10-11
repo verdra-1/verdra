@@ -1,6 +1,6 @@
 # 0022. Verdra's pictures in Roblox's own texture layout, with Verdra's own BC1/BC3 encoder
 
-- **Status:** Accepted
+- **Status:** Accepted, amended 2026-10-11 (three packs)
 - **Date:** 2026-10-08
 - **Plan sections:** 10.7, 12.3, 16.2 (Next steps, item 4); specs S-21, S-33
 
@@ -63,3 +63,28 @@ with Windows wheels, or Verdra's own in numpy.
   whether Roblox draws it.
 - If a later capture shows other formats (for example mipmaps or another vkFormat), this record
   is amended with the evidence.
+
+## Amendment, 11 October 2026: three packs of mip levels
+
+The real-machine test drew Verdra's textures (file, link, Remove) but black at a distance.
+The format check showed that Roblox asks for every texture three times, once per pack, each by
+its own fidelity and CDN address (`evidence/windows/textures-render-2026-10-11.txt`):
+
+- pack 2: level 0 (fidelity ending `AM=`); pack 1: levels 1 to 3 (`AI=`); pack 0: levels 4
+  to the last, 1 × 1 (`AE=`). Each is a KTX2 whose size is its first level's, with its own
+  level index (data stored smallest level first, right after the key/value data) and
+  `packIndex`; the keys `pack_0`, `pack_1` and `pack_2` give each pack's first level and level
+  count and are the same in all three. The fidelity is base64 for `ff ff ff ff fc 0N`, with N
+  the pack number plus one in every answer seen.
+- Verdra now builds the whole mip chain (box filter from level 0, premultiplied alpha, values
+  unchanged) and writes the three packs (`ochre.roblox_packs`). The grafter answers each
+  download with the pack the CDN's own answer names in its `packIndex` key, which doesn't
+  depend on reading the fidelity; an answer without one gets the full-size pack.
+- Each side is now at least 64 pixels (Verdra's choice, not seen on the CDN), so every
+  texture has at least 7 levels and all three packs exist; Remove is a transparent 64 × 64
+  BC3 texture (a few hundred bytes compressed).
+- Not yet seen: the keys of packs 0 and 1 (Verdra writes the same keys with their own
+  `packIndex`; the next capture saves all three bodies to compare). contentHash: Roblox drew
+  Verdra's textures with Verdra's own value, so the client doesn't check it; the question is
+  closed.
+- Measured on the session machine: 0.7 to 1.3 s for a 1024 × 1024 picture's three packs.

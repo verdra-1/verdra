@@ -203,6 +203,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- A replaced picture no longer looks black from a distance: Verdra now sends every size of it
+  that Roblox asks for, not only the full one.
 - When a replacement can't be prepared, Activity now says which one and why. If none could be
   applied, Apply now says nothing changed and no longer offers to restart Roblox.
 - Pictures from your PC or a link, and Remove, are sent in the texture format Roblox's own

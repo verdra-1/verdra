@@ -414,11 +414,13 @@ def prepare_content(
 
 def _prepare(graft: rules.Graft, folder: Path, fetched: Fetched | None) -> rules.Content | str:
     if graft.kind == "remove":
+        packs = ochre.roblox_packs(_CLEAR)  # the smallest BC3 texture, all transparent
         return rules.Content(
             ochre.to_png(_CLEAR),
-            ochre.write_roblox_ktx2(_CLEAR),  # the smallest BC3 texture, all transparent
+            packs[2],
             "remove",
             clay.write_filemesh(clay.Mesh((), ())),  # an empty mesh: nothing drawn
+            packs,
         )
     if graft.kind == "url":
         data = fetched(graft.value) if fetched is not None else _soon()
@@ -467,7 +469,8 @@ def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
         return QCoreApplication.translate(
             "M-GRAFT-06", "This file couldn't be used: {reason}."
         ).format(reason=error)
-    return rules.Content(ochre.to_png(pixels), ochre.write_roblox_ktx2(pixels), source)
+    packs = ochre.roblox_packs(pixels)
+    return rules.Content(ochre.to_png(pixels), packs[2], source, ktx2_packs=packs)
 
 
 def _mesh(data: bytes, kind: str, source: str) -> rules.Content | str:
