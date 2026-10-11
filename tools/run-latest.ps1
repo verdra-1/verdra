@@ -5,11 +5,12 @@
     Update this copy of Verdra to the newest main and start it (real-machine tests).
 
 .DESCRIPTION
-    Run from the verdra folder:
+    Run it from any folder:
 
-        powershell -ExecutionPolicy Bypass -File tools\run-latest.ps1
+        powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1"
 
-    It checks that this folder is the verdra repository and that git and uv are installed, switches
+    It checks that git and uv are installed and that its folder is a git copy of
+    github.com/verdra-1/verdra (saying exactly what to do if not), switches
     to main and takes the newest commits with a fast-forward only, sets up the Python Verdra pins
     (.python-version) and the locked packages with uv, then starts Verdra. Anything after the
     script's name goes to Verdra (for example a diagnostic option).
@@ -44,23 +45,35 @@ function Stop-Here([string]$Text) {
 
 $Root = Split-Path -Parent $PSScriptRoot
 
-# 1. This folder is the verdra repository.
+# 1. git and uv are installed.
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Stop-Here ('git is not installed. Install it with this command, then close PowerShell, ' +
+        "open it again and run this script again:`n" +
+        '    winget install --id Git.Git -e --source winget')
+}
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    Stop-Here ('uv is not installed. Install it with this command, then close PowerShell, ' +
+        "open it again and run this script again:`n" +
+        '    winget install --id astral-sh.uv -e')
+}
+
+# 2. This folder is a git copy of verdra-1/verdra.
+$Clone = ('To get one: rename this folder (for example to verdra-old; never delete it), then ' +
+    "run these two commands in PowerShell:`n" +
+    "    cd `"`$env:USERPROFILE\Documents`"`n" +
+    '    git clone https://github.com/verdra-1/verdra')
 $Project = Join-Path $Root 'pyproject.toml'
 if (-not (Test-Path (Join-Path $Root '.git')) -or -not (Test-Path $Project) -or
     -not (Select-String -Path $Project -Pattern '^name = "verdra"$' -Quiet)) {
-    Stop-Here ("This script must stay in the tools folder of your verdra folder (the one you " +
-        "downloaded with git). It is in $Root, which isn't one.")
+    Stop-Here ("This script must run from a copy of Verdra downloaded with git, in its tools " +
+        "folder. It is in $Root, which isn't one. $Clone")
 }
 Set-Location $Root
-
-# 2. git and uv are installed.
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Stop-Here ('git is not installed. Install it with: winget install --id Git.Git -e, then ' +
-        'close this window, open a new PowerShell in the verdra folder and run this again.')
-}
-if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    Stop-Here ('uv is not installed. Install it with: winget install --id astral-sh.uv -e, then ' +
-        'close this window, open a new PowerShell in the verdra folder and run this again.')
+$Origin = (git config --get remote.origin.url)
+if ($LASTEXITCODE -ne 0 -or
+    $Origin -notmatch '^(https://github\.com/|git@github\.com:)verdra-1/verdra(\.git)?/?$') {
+    Stop-Here ("This folder ($Root) wasn't downloaded from github.com/verdra-1/verdra (its " +
+        "origin is '$Origin'), so it can't be updated safely. $Clone")
 }
 
 # 3. No local changes: an update must never overwrite them.

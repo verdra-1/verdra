@@ -464,9 +464,10 @@ def _resized(pixels: Pixels, width: int, height: int) -> np.ndarray:
 def _roblox_keys(rgba: np.ndarray, original: tuple[int, int], level: bytes) -> dict[str, str]:
     """Roblox's 19 keys. Averages are over the texture Verdra sends; weighted ones by alpha.
 
-    contentHash: Roblox's isn't the MD5 of the file or of the level, and what it hashes isn't
-    known. Verdra's is the MD5 of the uncompressed level (the blocks), so equal textures get
-    equal hashes.
+    contentHash: input unknown (Roblox's isn't the MD5 of the file or of the level). Verdra's is
+    the MD5 of the uncompressed level (the blocks), so equal textures get equal hashes. The
+    control experiment suggests the client doesn't check it; if Roblox doesn't draw Verdra's
+    texture, look here first (decision record 0022).
     """
     channels = rgba.reshape(-1, 4).astype(np.float64)
     means = channels.mean(axis=0)

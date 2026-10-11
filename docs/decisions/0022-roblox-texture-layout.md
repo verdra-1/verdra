@@ -38,8 +38,11 @@ with Windows wheels, or Verdra's own in numpy.
   opaque picture, as on the CDN). `acrVersion` "7rdo", `colorSpace` "Linear", `constantColor`
   "0", `packIndex` "2", `pack_1` "1,3", `pack_2` "0,1" and `pack_0` ("4,6" above 512 pixels a
   side, "4,5" otherwise) are written as observed; their meaning is unknown. `contentHash` on the
-  CDN is 32 hex digits but not the MD5 of the file or of the level; Verdra writes the MD5 of the
-  uncompressed level (deterministic, the same picture gives the same file).
+  CDN is 32 hex digits but not the MD5 of the file or of the level: its input is unknown. Verdra
+  writes the MD5 of the uncompressed level (deterministic, the same picture gives the same
+  file). The control experiment suggests the client doesn't check it (a texture from another
+  asset was drawn at the original's address). If the next game test doesn't draw Verdra's
+  texture, contentHash is the first thing to look at again.
 - Colors are stored as they are: the descriptor says linear and the formats are UNORM, so no
   gamma conversion either way.
 - Remove is the smallest fully transparent BC3 texture (4 × 4, avgAlpha 0).

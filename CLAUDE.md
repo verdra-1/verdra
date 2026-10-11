@@ -29,6 +29,10 @@ You run day-to-day work and move on to the next milestone by yourself after an e
   `powershell -ExecutionPolicy Bypass -File tools\run-latest.ps1` in their clone before each test
   (guide `docs/guides/run-from-source.md`, decision record 0021). The test-build ZIP stays but
   isn't needed. How releases are distributed is an open item, decided before 0.1.0.
+- Every real-machine test guide starts with the checklist in `docs/guides/run-from-source.md`
+  (Detailed logging on, only the rows the step needs, "Moved…" in Activity before each join), and
+  puts every command in its own code block with the script's full path
+  (`"$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1"`).
 - Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.
