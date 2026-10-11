@@ -376,12 +376,12 @@ def test_the_format_check_flag_needs_the_source(monkeypatch: pytest.MonkeyPatch)
         (
             {"contentRepresentationSpecifier": '{"format":"ktx2","majorVersion":"7rdo",'
              '"fidelity":"/////AE=","skipGenerationIfNotExist":false}'},
-            "format ktx2, majorVersion 7rdo, fidelity /////AE= (bytes ff ff ff ff fc 01)",
+            "format ktx2, majorVersion 7rdo, fidelity /////AE= (bytes ff ff ff fc 01)",
         ),
         (
             {"contentRepresentationPriorityList": '"W3siZm9ybWF0Ijoia3R4MiIsIm1ham9yVmVyc2lvbiI6'
              'IjdyZG8iLCJmaWRlbGl0eSI6Ii8vLy8vQUk9In1d"'},
-            "format ktx2, majorVersion 7rdo, fidelity /////AI= (bytes ff ff ff ff fc 02)",
+            "format ktx2, majorVersion 7rdo, fidelity /////AI= (bytes ff ff ff fc 02)",
         ),
         (
             {"contentRepresentationSpecifier": '{"format":"fmd","majorVersion":"1.0.1",'
