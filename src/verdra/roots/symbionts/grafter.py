@@ -158,6 +158,8 @@ class Grafter:
         self._downloads: OrderedDict[bytes, tuple[int, rules.Content]] = OrderedDict()
         # id(request) -> (the download request, original asset ID, its content)
         self._fetching: dict[int, tuple[hyphae.Request, int, rules.Content]] = {}
+        # Originals left alone whose replacement row has been logged (once each, M-DIAG-13)
+        self._told: set[int] = set()
 
     # --- Requests --------------------------------------------------------------------------
 
@@ -166,6 +168,17 @@ class Grafter:
         snapshot = self.holder.current
         swaps, content = snapshot.swaps(), snapshot.content
         if self.leave:
+            ignored = (self.leave & (swaps.keys() | content.keys())) - self._told
+            for original in sorted(ignored):
+                self._told.add(original)
+                log.warning(
+                    "%s",
+                    QCoreApplication.translate(
+                        "M-DIAG-13",
+                        "The replacement of asset {asset} is ignored while a diagnostic watches "
+                        "that asset (format capture or control experiment).",
+                    ).format(asset=original),
+                )
             swaps = {k: v for k, v in swaps.items() if k not in self.leave}
             content = {k: v for k, v in content.items() if k not in self.leave}
         return swaps, content

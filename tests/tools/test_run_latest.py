@@ -26,6 +26,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools" / "run-latest.ps1"
+GITHUB = "https://github.com/verdra-1/verdra"
 
 #: Anything that could lose the maintainer's work or reach beyond the folder.
 FORBIDDEN = re.compile(
@@ -49,6 +50,18 @@ def test_the_script_never_deletes_resets_or_overwrites() -> None:
     assert "git status --porcelain" in code()
     assert "uv sync --locked --python $Python" in code()
     assert ".python-version" in code()
+
+
+def test_a_missing_tool_or_wrong_folder_says_exactly_what_to_do() -> None:
+    """The preflight messages carry the exact commands (maintainer, 11 October 2026)."""
+    text = code()
+    assert "winget install --id Git.Git -e --source winget" in text
+    assert "winget install --id astral-sh.uv -e" in text
+    assert text.count("close PowerShell, ") == 2  # then open it again
+    assert "git config --get remote.origin.url" in text
+    assert "verdra-1/verdra" in text
+    assert "git clone https://github.com/verdra-1/verdra" in text
+    assert "never delete it" in text
 
 
 def test_the_script_is_plain_ascii() -> None:
@@ -86,6 +99,9 @@ def folders(tmp_path: Path) -> tuple[Path, Path, Path]:
     git(tmp_path, "clone", "--bare", str(seed), str(origin))
     mine = tmp_path / "verdra"
     git(tmp_path, "clone", str(origin), str(mine))
+    # The real origin's address, sent to the throwaway one: the script checks the address.
+    git(mine, "config", "remote.origin.url", GITHUB)
+    git(mine, "config", f"url.{origin.as_posix()}.insteadOf", GITHUB)
     (seed / "NEWS").write_text("newer\n", encoding="utf-8")
     git(seed, "add", "-A")
     git(seed, "commit", "-m", "second")
@@ -97,12 +113,17 @@ def folders(tmp_path: Path) -> tuple[Path, Path, Path]:
     return mine, origin, record
 
 
-def run(folder: Path, record: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+def run(
+    folder: Path, record: Path, *arguments: str, path: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run the script with the fake uv first on PATH, or with exactly `path`."""
     environment = dict(os.environ)
-    environment["PATH"] = str(record.parent / "bin") + os.pathsep + environment["PATH"]
+    environment["PATH"] = (
+        path if path is not None else str(record.parent / "bin") + os.pathsep + environment["PATH"]
+    )
     return subprocess.run(  # noqa: S603 - the script under test
-        [  # noqa: S607
-            "powershell",
+        [
+            shutil.which("powershell") or "powershell",
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",
@@ -180,4 +201,53 @@ def test_a_folder_that_isnt_verdra_is_refused(tmp_path: Path) -> None:
     done = run(other, record, "-NoStart")
     assert done.returncode == 1
     assert "isn't one" in done.stdout
+    assert not record.exists()
+
+
+def system_path() -> list[str]:
+    """Windows' own folders, so PowerShell itself still runs."""
+    root = os.environ.get("SYSTEMROOT", r"C:\Windows")
+    return [rf"{root}\System32", rf"{root}\System32\WindowsPowerShell\v1.0", root]
+
+
+@windows
+def test_without_git_it_names_the_winget_command(folders: tuple[Path, Path, Path]) -> None:
+    mine, _origin, record = folders
+    path = os.pathsep.join([str(record.parent / "bin"), *system_path()])
+    done = run(mine, record, "-NoStart", path=path)
+    assert done.returncode == 1
+    assert "git is not installed" in done.stdout
+    assert "winget install --id Git.Git -e --source winget" in done.stdout
+    assert "close PowerShell, open it again" in done.stdout
+    assert not record.exists()
+
+
+@windows
+def test_without_uv_it_names_the_winget_command(folders: tuple[Path, Path, Path]) -> None:
+    mine, _origin, record = folders
+    found = shutil.which("git")
+    assert found is not None
+    git_folder = Path(found).parent
+    if (git_folder / "uv.exe").exists():
+        pytest.skip("uv is installed next to git on this runner")
+    done = run(mine, record, "-NoStart", path=os.pathsep.join([str(git_folder), *system_path()]))
+    assert done.returncode == 1
+    assert "uv is not installed" in done.stdout
+    assert "winget install --id astral-sh.uv -e" in done.stdout
+    assert "close PowerShell, open it again" in done.stdout
+
+
+@windows
+def test_a_copy_from_elsewhere_is_refused_with_the_clone_steps(
+    folders: tuple[Path, Path, Path],
+) -> None:
+    mine, _origin, record = folders
+    before = git(mine, "rev-parse", "HEAD")
+    git(mine, "config", "remote.origin.url", "https://github.com/someone/verdra")
+    done = run(mine, record, "-NoStart")
+    assert done.returncode == 1
+    assert "wasn't downloaded from github.com/verdra-1/verdra" in done.stdout
+    assert "verdra-old; never delete it" in done.stdout
+    assert "git clone https://github.com/verdra-1/verdra" in done.stdout
+    assert git(mine, "rev-parse", "HEAD") == before
     assert not record.exists()

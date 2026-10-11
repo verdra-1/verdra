@@ -79,6 +79,8 @@ Make Roblox receive the replacement instead of the original asset.
 - M-DIAG-11 (Activity, source runs only) "Format check of asset <asset> written to <file>."
 - M-DIAG-12 (Activity, source runs only) "Format check of asset <asset> couldn't be written:
   <reason>."
+- M-DIAG-13 (Activity, source runs only) "The replacement of asset <asset> is ignored while a
+  diagnostic watches that asset (format capture or control experiment)."
 - M-GRAFT-01 (Toast) "<n> replacements couldn't be prepared. See the warnings in Replacements."
 - M-GRAFT-02 (inline warning) "The file for this replacement is missing: <path>."
 - M-GRAFT-03 (status reason, new) "Some asset requests couldn't be read, so replacements may not

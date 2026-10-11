@@ -16,6 +16,7 @@ import gzip
 import json
 import logging
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -52,14 +53,14 @@ def download(body: bytes, mark: bytes) -> bytes:
 
 
 def control_run(
-    tmp_path: Path, donor_host: str = CDN
+    tmp_path: Path, donor_host: str = CDN, holder: rules.SnapshotHolder | None = None
 ) -> tuple[list[dict[str, Any]], list[object], FakeServer, litmus.ControlSwap]:
     items = [
         {"assetId": ORIGINAL, "assetType": "Image", "requestId": "r1"},
         {"assetId": 1234567, "assetType": "Image", "requestId": "r2"},
     ]
     control = litmus.ControlSwap(ORIGINAL, DONOR)
-    grafter = Grafter(rules.SnapshotHolder(), leave=frozenset({ORIGINAL}))
+    grafter = Grafter(holder or rules.SnapshotHolder(), leave=frozenset({ORIGINAL}))
     pipeline = hyphae.Pipeline(request=[control, grafter], response=[control, grafter])
     for folder in (tmp_path / "batch", tmp_path / "cdn"):
         folder.mkdir(parents=True, exist_ok=True)
@@ -110,6 +111,34 @@ def test_the_originals_download_gets_the_donors_real_bytes_and_headers(
     assert (b"x-which", b"donor") in [(n.lower(), v) for n, v in response.headers]  # type: ignore[attr-defined]
     assert control.swapped == 1
     assert f"gets asset {DONOR}'s real bytes" in caplog.text
+
+
+@pytest.mark.parametrize("kind", ["file", "asset_id"])
+def test_a_leftover_replacement_of_the_original_cannot_spoil_the_experiment(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, kind: rules.TargetKind
+) -> None:
+    """A saved row for the original (a picture, or another asset ID) is ignored, logged once."""
+    holder = rules.SnapshotHolder()
+    value = "./wall.png" if kind == "file" else "7654321"
+    graft = rules.Graft(ORIGINAL, None, kind, value, "P", "r", "Image")
+    content = (
+        {ORIGINAL: rules.Content(b"png", b"replacement bytes", "file")} if kind == "file" else {}
+    )
+    holder.publish(
+        rules.GraftSnapshot(
+            MappingProxyType({(ORIGINAL, None): graft}), content=MappingProxyType(content)
+        )
+    )
+    with caplog.at_level(logging.WARNING, logger="verdra"):
+        _seen, events, batch_server, control = control_run(tmp_path, holder=holder)
+    [sent] = batch_server.received
+    asked = json.loads(gzip.decompress(sent.body) if sent.body[:2] == b"\x1f\x8b" else sent.body)
+    assert [i["assetId"] for i in asked] == [ORIGINAL, 1234567, DONOR]  # not swapped to 7654321
+    assert body_of(events) == b"donor bytes"  # not the replacement's bytes
+    assert control.swapped == 1
+    ignored = [r for r in caplog.records if "is ignored while a diagnostic" in r.getMessage()]
+    assert len(ignored) == 1  # once, though the batch and the download both looked
+    assert f"asset {ORIGINAL}" in ignored[0].getMessage()
 
 
 def test_a_donor_on_another_host_is_never_swapped_in(

@@ -525,6 +525,13 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-13</name>
+    <message>
+        <source>The replacement of asset {asset} is ignored while a diagnostic watches that asset (format capture or control experiment).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>
