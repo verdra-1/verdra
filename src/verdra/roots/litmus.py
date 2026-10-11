@@ -406,7 +406,7 @@ def representation(fields: dict[str, str]) -> str:
     """Which representation an item names: format, version and fidelity, decoded.
 
     Roblox asks for a texture once per pack, each with its own fidelity (decision record 0022):
-    base64 for `ff ff ff ff fc 0N`, N the pack number plus one in every answer seen.
+    base64 for `ff ff ff fc 0N`, N the pack number plus one in every answer seen.
     """
     named: object = None
     text = fields.get("contentRepresentationSpecifier")

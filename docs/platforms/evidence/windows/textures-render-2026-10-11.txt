@@ -16,7 +16,7 @@ Seen in game (screenshots and videos kept by the maintainer, not in the reposito
 Format check reports for 15553230204 (500 x 500 with alpha), without a replacement
 Roblox asked the batch for the asset three times, once per fidelity, each with its own CDN
 address, and downloaded all three within a second:
-  fidelity "/////AE=" (bytes ff ff ff ff fc 01): KTX2 BC3 28 x 28, 5 levels,
+  fidelity "/////AE=" (bytes ff ff ff fc 01): KTX2 BC3 28 x 28, 5 levels,
     uncompressed level lengths 784, 256, 64, 16, 16 (28, 14, 7, 3, 1 pixels a side),
     DFD at offset 200; level data stored smallest first right after the key/value data
   fidelity "/////AI=" (... fc 02): KTX2 BC3 224 x 224, 3 levels (50176, 12544, 3136),

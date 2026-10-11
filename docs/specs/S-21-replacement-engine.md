@@ -304,3 +304,8 @@ Make Roblox receive the replacement instead of the original asset.
   as the three packs and the grafter answers each download with the pack the CDN's own answer
   names (`packIndex`); see decision record 0022's amendment. Sides are at least 64 pixels;
   Remove is a transparent 64 × 64 texture.
+- **Every representation in the reports (2026-10-11).** Each capture or check report names its
+  representation (format, majorVersion, fidelity with its bytes decoded), so a texture's three
+  packs can be told apart; a KTX2's key values are listed one per line; a chunked FileMesh
+  (6.00 and later; captured: 7.00 with a COREMESH chunk) lists its chunks (type, version,
+  size). With `--save-bodies` every pack's body is saved next to its report, on the PC only.

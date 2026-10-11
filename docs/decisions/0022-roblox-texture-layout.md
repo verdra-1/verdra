@@ -74,7 +74,7 @@ its own fidelity and CDN address (`evidence/windows/textures-render-2026-10-11.t
   to the last, 1 × 1 (`AE=`). Each is a KTX2 whose size is its first level's, with its own
   level index (data stored smallest level first, right after the key/value data) and
   `packIndex`; the keys `pack_0`, `pack_1` and `pack_2` give each pack's first level and level
-  count and are the same in all three. The fidelity is base64 for `ff ff ff ff fc 0N`, with N
+  count and are the same in all three. The fidelity is base64 for `ff ff ff fc 0N`, with N
   the pack number plus one in every answer seen.
 - Verdra now builds the whole mip chain (box filter from level 0, premultiplied alpha, values
   unchanged) and writes the three packs (`ochre.roblox_packs`). The grafter answers each
