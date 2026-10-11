@@ -201,6 +201,7 @@ def test_a_captured_download_passes_unchanged_and_is_reported(tmp_path: Path) ->
     text = path.read_text(encoding="utf-8")
     assert f"Asset {ABOVE_UINT32}" in text
     assert 'contentRepresentationSpecifier: {"format":"ktx2","majorVersion":"1"}' in text
+    assert "Representation: format ktx2, majorVersion 1, fidelity ?" in text
     assert 'assetMetadatas: [{"metadataType":1,"value":"ktx2"}]' in text
     assert f"location: {CDN}{PATH} (query values left out)" in text
     assert "query names: encoding, version, Signature" in text
@@ -364,3 +365,52 @@ def test_the_format_check_flag_needs_the_source(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(SystemExit) as frozen:
         cli.parse([cli.CHECK_FLAG, str(ABOVE_UINT32)])
     assert frozen.value.code == 2
+
+
+# --- Every representation (11 October 2026: a texture comes as three packs) -----------------
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        (
+            {"contentRepresentationSpecifier": '{"format":"ktx2","majorVersion":"7rdo",'
+             '"fidelity":"/////AE=","skipGenerationIfNotExist":false}'},
+            "format ktx2, majorVersion 7rdo, fidelity /////AE= (bytes ff ff ff ff fc 01)",
+        ),
+        (
+            {"contentRepresentationPriorityList": '"W3siZm9ybWF0Ijoia3R4MiIsIm1ham9yVmVyc2lvbiI6'
+             'IjdyZG8iLCJmaWRlbGl0eSI6Ii8vLy8vQUk9In1d"'},
+            "format ktx2, majorVersion 7rdo, fidelity /////AI= (bytes ff ff ff ff fc 02)",
+        ),
+        (
+            {"contentRepresentationSpecifier": '{"format":"fmd","majorVersion":"1.0.1",'
+             '"fidelity":"ALL"}'},
+            "format fmd, majorVersion 1.0.1, fidelity ALL",
+        ),
+        ({}, "(none named: the default one)"),
+        ({"contentRepresentationPriorityList": '"not base64"'}, "(none named: the default one)"),
+    ],
+)  # fmt: skip
+def test_each_report_names_its_representation(fields: dict[str, str], expected: str) -> None:
+    assert litmus.representation(fields) == expected
+
+
+def test_a_texture_report_lists_every_key_value() -> None:
+    packs = ochre.roblox_packs(ochre.Pixels(64, 64, bytes([9, 8, 7, 255] * 64 * 64)))
+    text = "\n".join(litmus.body_lines(packs[1]))
+    assert "    packIndex = 1" in text
+    assert "    pack_0 = 4,3" in text
+    assert "    transcodedWidth = 64" in text
+
+
+def test_a_chunked_mesh_lists_its_chunks() -> None:
+    """FileMesh 7.00 (captured 11 October 2026) is a list of chunks, not a fixed header."""
+    core = b"COREMESH" + (2).to_bytes(4, "little") + (5).to_bytes(4, "little") + b"draco"
+    lods = b"LODS\x00\x00\x00\x00" + (1).to_bytes(4, "little") + (3).to_bytes(4, "little") + b"abc"
+    text = "\n".join(litmus.mesh_lines(b"version 7.00\n" + core + lods + b"xy"))
+    assert "version: 7.00" in text
+    assert "    COREMESH, 2, 5, 64 72 61 63 6f" in text
+    assert "    LODS, 1, 3, 61 62 63" in text
+    assert "2 bytes left over" in text
+    assert "header size" not in text

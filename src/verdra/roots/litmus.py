@@ -22,6 +22,8 @@ imported from source; `packaging/verdra.spec` leaves it out of every build, and
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import re
@@ -385,6 +387,7 @@ def _download_lines(watched: _Watched, request: hyphae.Request, kind: str) -> li
         f"Verdra {verdra.__version__} {kind}, {datetime.now(UTC):%Y-%m-%d %H:%M} UTC",
         "",
         f"Asset {watched.asset_id}",
+        f"Representation: {representation(watched.answered or watched.asked)}",
         "",
         "Batch item as sent to Roblox:",
         *_pairs(watched.asked),
@@ -397,6 +400,37 @@ def _download_lines(watched: _Watched, request: hyphae.Request, kind: str) -> li
         *(f"  > {name}: {value}" for name, value in _headers(request.headers)),
         "",
     ]
+
+
+def representation(fields: dict[str, str]) -> str:
+    """Which representation an item names: format, version and fidelity, decoded.
+
+    Roblox asks for a texture once per pack, each with its own fidelity (decision record 0022):
+    base64 for `ff ff ff ff fc 0N`, N the pack number plus one in every answer seen.
+    """
+    named: object = None
+    text = fields.get("contentRepresentationSpecifier")
+    try:
+        if text is not None:
+            named = json.loads(text)
+        elif (listed := fields.get("contentRepresentationPriorityList")) is not None:
+            choices = json.loads(base64.b64decode(json.loads(listed)))
+            named = choices[0] if isinstance(choices, list) and choices else None
+    except ValueError, TypeError, binascii.Error:
+        named = None
+    if not isinstance(named, dict):
+        return "(none named: the default one)"
+    found = {str(key): str(value) for key, value in named.items()}  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    fidelity = found.get("fidelity", "")
+    try:
+        raw = base64.b64decode(fidelity, validate=True)
+    except ValueError, binascii.Error:
+        raw = b""
+    decoded = f" (bytes {raw.hex(' ')})" if raw else ""
+    return (
+        f"format {found.get('format', '?')}, majorVersion {found.get('majorVersion', '?')}, "
+        f"fidelity {fidelity or '?'}{decoded}"
+    )
 
 
 def body_lines(body: bytes | None, *, sent: bool = False) -> list[str]:
@@ -448,6 +482,8 @@ def mesh_lines(data: bytes) -> list[str]:
     body = data[data.index(b"\n") + 1 :]
     if version.startswith("1.") or len(body) < 2:  # noqa: PLR2004
         return [*lines, "  text format (no binary header)"]
+    if int(version.split(".")[0]) >= 6:  # noqa: PLR2004 - chunked from version 6.00
+        return [*lines, f"  bytes after the version line: {len(body)}", *_chunk_lines(body)]
     size = int.from_bytes(body[:2], "little")
     header = body[:size] if 2 <= size <= 64 else body[:16]  # noqa: PLR2004
     return [
@@ -456,6 +492,22 @@ def mesh_lines(data: bytes) -> list[str]:
         f"  header bytes: {header.hex(' ')}",
         f"  bytes after the version line: {len(body)}",
     ]
+
+
+def _chunk_lines(body: bytes) -> list[str]:
+    """A chunked FileMesh's chunks: 8-byte type, version and size (public FileMesh format)."""
+    lines = ["  chunks (type, version, size, first 16 bytes of the data):"]
+    position = 0
+    while position + 16 <= len(body):
+        kind = body[position : position + 8].rstrip(b"\x00").decode("ascii", "replace")
+        chunk_version = int.from_bytes(body[position + 8 : position + 12], "little")
+        size = int.from_bytes(body[position + 12 : position + 16], "little")
+        data = body[position + 16 : position + 16 + size]
+        lines.append(f"    {kind}, {chunk_version}, {size}, {data[:16].hex(' ')}")
+        position += 16 + size
+    if position != len(body):
+        lines.append(f"    {len(body) - position} bytes left over (not a whole chunk)")
+    return lines
 
 
 def ktx2_lines(layout: ochre.Ktx2Layout, data: bytes) -> list[str]:
@@ -477,6 +529,7 @@ def ktx2_lines(layout: ochre.Ktx2Layout, data: bytes) -> list[str]:
         + (f" (color model {_COLOR_MODELS.get(model, 'unknown')})" if model is not None else ""),
         f"  DFD samples: {layout.samples}",
         f"  keys: {', '.join(layout.keys) or '(none)'}",
+        *(f"    {key} = {value}" for key, value in ochre.roblox_keys(data).items()),
         "  level index (offset, length, uncompressed length, starts with zstd magic):",
     ]
     for number, level in enumerate(layout.level_index):
