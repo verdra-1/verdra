@@ -176,6 +176,20 @@ From the format capture and the control experiment, anonymised in
 | Certificate after a Roblox update (0.741 → 0.742) | "Roblox updated. Verdra added its certificate to the new version." | **Pass** |
 | What the CDN sends for a picture | KTX2: BC1 or BC3, one level, Zstandard supercompression, 19 Roblox keys; HTTP Content-Encoding zstd | Recorded |
 
+## Verdra's own textures render (maintainer's PC, 2026-10-11)
+
+From the format check and the videos, anonymised in
+`evidence/windows/textures-render-2026-10-11.txt`.
+
+| Check | Evidence | Result |
+|---|---|---|
+| Local file, PNG with transparency (BC3) | Rose on the wall, transparency right | **Pass** |
+| Local file, opaque PNG 576 × 512 and 1024 × 1024 (BC1) | Picture on the wall | **Pass** |
+| Link (HTTPS picture, BC1) | Picture on the wall | **Pass** |
+| Remove (transparent BC3) | The decal is gone | **Pass** |
+| contentHash checked by the client? | Drawn with Verdra's own value | **No**: question closed |
+| Picture at a distance | Black until close up | **Fail**: Roblox loads three packs of mip levels; Verdra sent one (fixed in strata/ochre, decision record 0022) |
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

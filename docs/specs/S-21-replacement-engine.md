@@ -297,3 +297,10 @@ Make Roblox receive the replacement instead of the original asset.
   `format-check-<asset>-<n>.txt` (with `--save-bodies`, the body as sent next to it). The
   replacement stays on. It covers Local file, link and Remove replacements; an Asset ID
   replacement asks the batch for the other asset, which the CDN serves itself.
+- **Three packs of mip levels (2026-10-11).** On the maintainer's PC Verdra's file, link and
+  Remove textures were drawn, but black at a distance: Roblox loads every texture as three
+  packs of mip levels, each its own batch item and download, and Verdra had answered the first
+  (the smallest levels) with one full-size level. strata/ochre now writes the whole mip chain
+  as the three packs and the grafter answers each download with the pack the CDN's own answer
+  names (`packIndex`); see decision record 0022's amendment. Sides are at least 64 pixels;
+  Remove is a transparent 64 × 64 texture.

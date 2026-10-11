@@ -167,10 +167,14 @@ class Content:
     """
 
     png: bytes
+    #: The full-size texture (pack 2), for a KTX2 download that names no pack.
     ktx2: bytes
     #: Where it came from, for the log: "file", "url" or "remove".
     source: str
     mesh: bytes = b""
+    #: The texture's three packs (0: the smallest levels, 1: the middle ones, 2: level 0), sent
+    #: by the pack the CDN's own answer names (`packIndex`; decision record 0022).
+    ktx2_packs: tuple[bytes, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

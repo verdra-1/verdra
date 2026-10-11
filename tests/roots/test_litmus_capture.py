@@ -341,7 +341,7 @@ def test_a_format_check_reports_the_replacement_as_verdra_sends_it(tmp_path: Pat
     assert f"Body (as sent, with its Content-Encoding): {len(served)} bytes" in text
     assert "starts with the zstd magic 28 B5 2F FD: yes" in text
     assert "vkFormat: 131 (BC1_RGB_UNORM)" in text
-    assert "pixel size: 8 x 8 x 0" in text
+    assert "pixel size: 64 x 64 x 0" in text  # pack 2: Verdra makes nothing under 64 a side
     assert "supercompressionScheme: 2 (Zstandard)" in text
 
 

@@ -45,6 +45,7 @@ from urllib.parse import urlsplit
 from PySide6.QtCore import QCoreApplication
 
 from verdra.roots import hyphae, rules
+from verdra.strata import ochre
 
 log = logging.getLogger(__name__)
 
@@ -394,7 +395,7 @@ class Grafter:
         if not 200 <= response.status < 300 or body is None:  # noqa: PLR2004
             return None
         if body.startswith(_KTX2):
-            served, kind = content.ktx2, "KTX2"
+            served, kind = _texture_pack(body, content)
         elif body.startswith(_PNG):
             served, kind = content.png, "PNG"
         elif _FILEMESH.match(body):
@@ -513,6 +514,18 @@ def _is_download(request: hyphae.Request) -> bool:
         and request.method == b"GET"
         and not rules.is_protected(request.host, request.target)
     )
+
+
+def _texture_pack(body: bytes, content: rules.Content) -> tuple[bytes, str]:
+    """The replacement's pack the CDN's own answer is (its `packIndex` key), or the full size.
+
+    Roblox downloads each texture three times, once per pack (decision record 0022); answering
+    each with the matching pack gives it every mip level.
+    """
+    pack = ochre.roblox_keys(body).get("packIndex", "")
+    if pack.isdigit() and int(pack) < len(content.ktx2_packs):
+        return content.ktx2_packs[int(pack)], f"KTX2 pack {pack}"
+    return content.ktx2, "KTX2"
 
 
 def _content_coding(headers: hyphae.Headers) -> bytes:
