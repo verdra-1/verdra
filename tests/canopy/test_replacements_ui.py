@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -611,9 +612,42 @@ def test_a_save_the_profile_refuses_shows_why_in_the_drawer(
 
 @pytest.mark.spec("S-21", 16)
 def test_apply_now_says_when_replacements_couldnt_be_prepared(
-    made: tuple[Shell, StubSprout],
+    made: tuple[Shell, StubSprout], caplog: pytest.LogCaptureFixture
 ) -> None:
-    shell, _stub = made
+    shell, stub = made
+    service = shell.services.grafts
+    assert service is not None
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="file", value="./gone.png"),
+    )
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=2222222),
+        grafts.Target(kind="asset_id", value="3333333"),
+    )
+    with caplog.at_level(logging.WARNING, logger="verdra.trunk.branches.grafts"):
+        shell.window.header.apply_now.click()
+    assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
+    assert stub.calls == ["clear"]  # the other one was applied
+    # Which row, which file and why, in plain words (maintainer, 11 October 2026).
+    [line] = [r.getMessage() for r in caplog.records if "wasn't applied" in r.getMessage()]
+    assert line.startswith("The replacement of asset 1111111 in profile A (file gone.png)")
+    assert "The file for this replacement is missing" in line
+
+
+def test_apply_now_changes_nothing_when_no_replacement_could_be_prepared(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On 11 October "Restart Roblox now?" was offered though 0 replacements were applied."""
+    shell, stub = made
+    stub.running = True  # a Player Verdra started is running: a restart would be offered
+    asked: list[object] = []
+    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda dialog: asked.append(dialog) or 0)
     service = shell.services.grafts
     assert service is not None
     profile = service.edit("create", "A")
@@ -624,7 +658,12 @@ def test_apply_now_says_when_replacements_couldnt_be_prepared(
         grafts.Target(kind="file", value="./gone.png"),
     )
     shell.window.header.apply_now.click()
-    assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
+    assert asked == []  # no "Restart Roblox now?"
+    assert toasts(shell) == [
+        "Nothing changed: 1 replacement couldn't be prepared, so it wasn't applied and Roblox "
+        "wasn't restarted. Activity says why."
+    ]
+    assert stub.calls == []  # no cache move, no restart
 
 
 @pytest.fixture
@@ -708,9 +747,11 @@ def test_a_link_that_fails_while_apply_now_waits_is_not_tried_in_a_loop(
     add_link(service, "https://pictures.example/gone.png")
     shell.window.header.apply_now.click()
     gate.set()
-    qtbot.waitUntil(lambda: stub.calls == ["clear"], timeout=5000)
+    qtbot.waitUntil(
+        lambda: any(t.startswith("Nothing changed") for t in toasts(shell)), timeout=5000
+    )
     assert len(fetched) == 1  # Apply now went on without trying it again
-    assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
+    assert stub.calls == []  # nothing could be applied, so nothing moved or restarted
 
 
 def test_canceling_the_wait_leaves_the_download_running(

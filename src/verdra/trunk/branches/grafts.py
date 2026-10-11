@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from types import MappingProxyType
 from typing import Annotated, Any, Final
 from urllib.parse import urlsplit
@@ -369,6 +369,19 @@ _CLEAR: Final = ochre.Pixels(1, 1, b"\0\0\0\0")
 
 #: For a link: its downloaded bytes, or why there are none yet (still downloading, or failed).
 Fetched = Callable[[str], bytes | str]
+
+
+def _target_text(target: Target) -> str:
+    """A target in plain words for the log: a file by its name, a link by its host."""
+    if target.kind == "file":
+        name = PureWindowsPath(target.value).name or target.value
+        return QCoreApplication.translate("M-GRAFT-13", "file {name}").format(name=name)
+    if target.kind == "url":
+        host = urlsplit(target.value).hostname or "?"
+        return QCoreApplication.translate("M-GRAFT-13", "link on {host}").format(host=host)
+    if target.kind == "remove":
+        return QCoreApplication.translate("M-GRAFT-13", "Remove")
+    return QCoreApplication.translate("M-GRAFT-13", "asset {asset}").format(asset=target.value)
 
 
 def _soon() -> str:
@@ -962,7 +975,38 @@ class Grafts(QObject):
         if retry:
             for link in [link for link, reason in self._links.items() if reason]:
                 del self._links[link]
-        return self._publish()
+        count = self._publish()
+        self._log_left_out()
+        return count
+
+    def _log_left_out(self) -> None:
+        """M-GRAFT-13: each replacement Apply now left out, which one and why, in plain words.
+
+        A link still downloading isn't a problem (M-APPLY-04 says so); a file is named by its
+        name only and a link by its host (S-21 rule 6: never a full link in the log).
+        """
+        rows = {
+            replacement.id: (profile.name, replacement)
+            for profile in self.store.profiles
+            for replacement in profile.replacements
+        }
+        for replacement_id, reason in self.warnings.items():
+            if reason == self._downloading() or replacement_id not in rows:
+                continue
+            profile, replacement = rows[replacement_id]
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-GRAFT-13",
+                    "The replacement of asset {asset} in profile {profile} ({target}) wasn't "
+                    "applied: {reason}",
+                ).format(
+                    asset=replacement.original.asset_id,
+                    profile=profile,
+                    target=_target_text(replacement.target),
+                    reason=reason,
+                ),
+            )
 
     def _publish(self) -> int:
         compiled = self.store.compile(self._link)

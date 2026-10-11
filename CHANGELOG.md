@@ -203,6 +203,8 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- When a replacement can't be prepared, Activity now says which one and why. If none could be
+  applied, Apply now says nothing changed and no longer offers to restart Roblox.
 - Pictures from your PC or a link, and Remove, are sent in the texture format Roblox's own
   servers use (compressed BC1 or BC3 blocks, the same layout and compression), so Roblox can
   draw them; before, they were sent in a format Roblox didn't show.
