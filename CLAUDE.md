@@ -36,7 +36,9 @@ You run day-to-day work and move on to the next milestone by yourself after an e
 - Capture first: before a real-machine test of a new format, capture what Roblox's CDN sends
   (`--format-capture … --save-bodies`) and make Verdra's output match its structure in synthetic
   tests (`--format-check` shows what Verdra sent). Textures were verified this way on 11 and 12
-  October 2026 (`docs/platforms/windows.md`).
+  October 2026, meshes on 12 October (`docs/platforms/windows.md`).
+- Releases (decision record 0025): a tag `vX.Y.Z` builds, checks and publishes the Windows ZIP to
+  GitHub Releases. Tag only after the maintainer says yes to the release notes.
 - Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.

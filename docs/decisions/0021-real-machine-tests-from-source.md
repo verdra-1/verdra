@@ -1,6 +1,6 @@
 # 0021. Real-machine tests run Verdra from source with tools\run-latest.ps1
 
-- **Status:** Accepted
+- **Status:** Accepted; its open item is settled by 0025
 - **Date:** 2026-10-08
 - **Plan sections:** 16.2 (real-machine tests, 8 October 2026), 13.5; amends 0019
 
@@ -36,6 +36,8 @@ owner decided on 8 October 2026 that real-machine tests run from source.
 How releases are distributed is not decided. The owner's recommendation for 0.1.0 is GitHub
 Releases in this same repository, built by CI from the tagged source, not a separate
 repository. It is decided before 0.1.0 is tagged.
+
+Settled on 12 October 2026 as the owner recommended: [decision record 0025](0025-releases-on-github.md).
 
 ## Consequences
 

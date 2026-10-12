@@ -98,3 +98,13 @@ def test_every_job_runs_on_windows_only(path: Path) -> None:
     labels = set(re.findall(r"^\s*runs-on:\s*(\S+)", text, re.MULTILINE))
     matrix = set(re.findall(r"\brunner:\s*\[?([\w-]+)", text))
     assert labels <= {"windows-latest", "${{"} and matrix <= {"windows-latest"}, (labels, matrix)
+
+
+def test_a_release_is_published_only_from_a_tag() -> None:
+    # Decision record 0025: a tag publishes; a run started by hand only builds and checks the ZIP.
+    path = next(path for path in WORKFLOWS if path.name == "release.yml")
+    found = jobs(path.read_text(encoding="utf-8"))
+    assert "contents: write" not in found["build"]
+    assert "if: github.event_name == 'push'" in found["publish"]
+    assert "\n    environment: release" in found["publish"]
+    assert "--verify-tag" in found["publish"]

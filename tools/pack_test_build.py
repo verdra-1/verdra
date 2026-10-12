@@ -1,22 +1,27 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-"""Pack the built app into the Windows test build ZIP, and unpack it for the build check.
+"""Pack the built app into the Windows test build or release ZIP, and unpack it for the check.
 
 Plan 16.2 ("Next steps", item 2) and decision record 0019: a portable test build the owner can
 unzip and double-click, built by CI on every push to main and kept as a workflow artifact. It is
 not a release and has no installer. The ZIP holds one folder, `Verdra`, with `verdra.exe` (Reference
 R3), what PyInstaller put next to it, and `READ-ME.txt`.
 
+A release (decision record 0025) is the same ZIP with `--release VERSION`: named
+`Verdra-VERSION-windows.zip`, with a READ-ME for that version instead of the test build's.
+
 The build check runs on that exact ZIP: `--unpack` extracts it into an empty folder, and
 `tools/check_build.py` checks the extracted `Verdra` folder (Qt modules, legal texts, launch).
 
     python tools/pack_test_build.py dist/Verdra dist/Verdra-windows-test.zip --commit <sha>
+    python tools/pack_test_build.py dist/Verdra out/Verdra-0.1.0-windows.zip --release 0.1.0
     python tools/pack_test_build.py --unpack dist/Verdra-windows-test.zip unpacked
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -48,14 +53,56 @@ Undo what Verdra changed on this PC: in Verdra, Settings > System changes >
 Reset everything, before you delete the folder.
 """
 
+RELEASE_READ_ME_TEXT: Final = """\
+Verdra {version} (Windows)
 
-def pack(built: Path, target: Path, commit: str) -> Path:
-    """Write the test build ZIP of the built folder `built` (with verdra.exe) to `target`."""
+Verdra replaces pictures and meshes in Roblox games, on this PC only.
+Made from commit {commit} of https://github.com/verdra-1/verdra
+
+It isn't signed yet, so the first time you start it Windows may say
+"Windows protected your PC". Click "More info", then "Run anyway".
+
+Start: double-click verdra.exe in this folder.
+
+Update: quit Verdra (tray icon > Quit Verdra), delete this Verdra folder,
+and unzip the newer version in its place. Your settings and replacement
+profiles are in %LOCALAPPDATA%\\Verdra and are kept.
+
+Undo what Verdra changed on this PC: in Verdra, Settings > System changes >
+Reset everything, before you delete the folder.
+
+Privacy: Verdra sends no telemetry and no analytics. Verdra's About window
+shows its License, the Third-party notices and the Privacy statement.
+Questions and problems: https://github.com/verdra-1/verdra/issues
+"""
+_VERSION = re.compile(r"\d+\.\d+\.\d+")
+
+
+def release_zip_name(version: str) -> str:
+    """The release ZIP's name for `version` ("Verdra-0.1.0-windows.zip")."""
+    if not _VERSION.fullmatch(version):
+        msg = f"{version!r} isn't a version like 0.1.0"
+        raise ValueError(msg)
+    return f"Verdra-{version}-windows.zip"
+
+
+def pack(built: Path, target: Path, commit: str, release: str | None = None) -> Path:
+    """Write the ZIP of the built folder `built` (with verdra.exe) to `target`.
+
+    `release` is the version of a release (decision record 0025); without it, a test build.
+    """
     if not (built / EXECUTABLE).is_file():
         msg = f"{built} has no {EXECUTABLE}"
         raise FileNotFoundError(msg)
+    if release is not None and target.name != release_zip_name(release):
+        msg = f"a release ZIP is named {release_zip_name(release)}, not {target.name}"
+        raise ValueError(msg)
     target.parent.mkdir(parents=True, exist_ok=True)
-    text = READ_ME_TEXT.format(commit=commit).replace("\n", "\r\n")  # Notepad-friendly
+    if release is None:
+        text = READ_ME_TEXT.format(commit=commit)
+    else:
+        text = RELEASE_READ_ME_TEXT.format(commit=commit, version=release)
+    text = text.replace("\n", "\r\n")  # Notepad-friendly
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(built.rglob("*")):
             if path.is_file():
@@ -91,18 +138,19 @@ def unpack(archive_path: Path, destination: Path) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Pack (the default) or unpack the test build ZIP."""
-    parser = argparse.ArgumentParser(description="Pack or unpack the Windows test build ZIP.")
+    """Pack (the default) or unpack the test build or release ZIP."""
+    parser = argparse.ArgumentParser(description="Pack or unpack the Windows test or release ZIP.")
     parser.add_argument("source", type=Path, help="the built folder, or the ZIP with --unpack")
     parser.add_argument("target", type=Path, help="the ZIP to write, or the folder to unpack to")
     parser.add_argument("--commit", default="unknown", help="the commit the build was made from")
+    parser.add_argument("--release", metavar="VERSION", help="pack the release of this version")
     parser.add_argument("--unpack", action="store_true", help="extract a test build ZIP")
     arguments = parser.parse_args(argv)
     try:
         if arguments.unpack:
             print(unpack(arguments.source, arguments.target))  # noqa: T201 - for the next step
         else:
-            print(pack(arguments.source, arguments.target, arguments.commit))  # noqa: T201
+            print(pack(arguments.source, arguments.target, arguments.commit, arguments.release))  # noqa: T201
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"error: {error}", file=sys.stderr)  # noqa: T201
         return 1

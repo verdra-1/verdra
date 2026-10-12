@@ -203,6 +203,22 @@ From the format capture, the format check and the videos, anonymised in
 | PNG with transparency from far away | Video 15:53:29 UTC, also seen by the session | **Pass** |
 | Texture part of the M2 exit gate (file, link, transparency, Remove) | 11 and 12 October | **Met**; mesh swap open |
 
+## Meshes: swap visible in game (maintainer's PC, 2026-10-12)
+
+From the format check, the log and the owner's videos, anonymised in
+`evidence/windows/mesh-swap-2026-10-12.txt`. Original: mesh 498788302 (FileMesh 7.00, `fmd`).
+
+| Check | Evidence | Result |
+|---|---|---|
+| Local file, OBJ emblem (352 faces) | Report 1: FileMesh 7.00, Draco 2.2, one LOD; frame | **Pass**: visible |
+| Local file, textured cube (12 faces) | Report 2; frame | **Pass**: visible |
+| Asset ID swap to another public mesh | Frame (no report, by design: the download is the other asset's) | **Pass**: visible |
+| Remove (one zero-area triangle) | Report 3; frame | **Pass**: gone |
+| Texture ID → ID swap still works | Frame | **Pass** |
+| A replaced mesh's texture | Frames | The part's own texture, through the new mesh's UVs: expected (the texture is a separate asset) |
+| Local file, 1600 × 900 PNG | Refused when saved ("127-fold") | **Fail**: fixed by decision record 0024; in-game re-test open |
+| Mesh part of the M2 exit gate | 12 October | **Met**: texture swap and mesh swap both visible |
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

@@ -175,3 +175,7 @@ Not part of the app, but written under the same clean-room rules (review finding
 | `packaging/verdra.spec` | Master plan 13.6, Reference R3, decision records 0002 and 0010; PyInstaller spec-file documentation | PyInstaller | 2026-10-02 |
 | `tests/support/dev_machine.py` | Decision record 0018 (the gates on a non-Windows development machine); Python `ssl.SSLContext.load_cert_chain` and `tempfile.mkdtemp` documentation | pytest | 2026-10-05 |
 | `tests/test_platform_claims.py` | Master plan 16.2 (no text may say Verdra runs on Linux or macOS), decision record 0018 | pytest | 2026-10-05 |
+| `tools/third_party.py` | Master plan 3.2, 13.6, decision records 0002 and 0025; Python `importlib.metadata` documentation, the core metadata specification (License-Expression, License-File), PEP 503 (name normalization); `uv export` documentation | packaging (markers), uv | 2026-10-12 |
+| `packaging/licenses/LGPL-3.0.txt` | The Free Software Foundation's published license text of 29 June 2007, copied unchanged (checked by SHA-256) | None | 2026-10-12 |
+| `packaging/licenses/GPL-3.0.txt` | The Free Software Foundation's published license text of 29 June 2007, copied unchanged (checked by SHA-256) | None | 2026-10-12 |
+| `.github/workflows/release.yml` | Master plan 13.5, decision records 0015, 0019 and 0025; GitHub Actions workflow syntax, upload- and download-artifact documentation; GitHub CLI `gh release create` documentation | actions/checkout, astral-sh/setup-uv, actions/upload-artifact, actions/download-artifact, GitHub CLI | 2026-10-12 |
