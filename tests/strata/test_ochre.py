@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import io
 import struct
+import zlib
 
 import pytest
 import zstandard
@@ -79,8 +80,8 @@ def test_a_zstandard_supercompressed_level_decodes() -> None:
     [
         (b"GIF89a" + b"\0" * 40, "isn't a KTX2, PNG, JPEG or DDS image"),
         (ochre.KTX2_IDENTIFIER + b"\0" * 10, "isn't a KTX2 file"),
-        (ktx2(43, 0, 4, b"\0" * 16), "sides must be"),
-        (ktx2(43, 16_385, 1, b"\0" * 16), "sides must be"),
+        (ktx2(43, 0, 4, b"\0" * 16), "has no pixels"),
+        (ktx2(43, 16_385, 1, b"\0" * 16), "a side can be at most 16,384 pixels"),
         (ktx2(43, 4, 4, b"\0" * 8), "shorter than its size says"),
         (ktx2(999, 4, 4, b"\0" * 64), "texture format 999 isn't supported"),
         (ktx2(43, 4, 4, b"\0" * 64, scheme=1), "supercompression scheme 1"),
@@ -93,17 +94,63 @@ def test_what_ochre_cant_read_is_refused_with_a_reason(data: bytes, reason: str)
         ochre.read_image(data)
 
 
-def test_decompression_bombs_are_refused() -> None:
-    # A KTX2 level claiming 2 GB, and a small one claiming more than 100 times its size.
-    with pytest.raises(ochre.OchreError, match="1 GB"):
-        ochre.read_ktx2(ktx2(43, 16_384, 16_384, b"\0" * 64, scheme=2, unpacked=2 << 30))
-    with pytest.raises(ochre.OchreError, match="100"):
-        ochre.read_ktx2(ktx2(43, 2048, 2048, b"\0" * 1000, scheme=2, unpacked=2048 * 2048 * 4))
-    # A PNG of 16,000 × 16,000 pixels that compresses to almost nothing.
-    out = io.BytesIO()
-    Image.new("L", (16_000, 16_000)).save(out, "PNG")
-    with pytest.raises(ochre.OchreError):
-        ochre.read_image(out.getvalue())
+def test_decompression_bombs_are_refused_before_decoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refused from the header: no pixel is decoded (decoding would fail this test)."""
+
+    def no_decoding(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("decoded a picture that should have been refused")
+
+    # A PNG of 16,000 × 16,000 pixels that compresses to almost nothing: within the side
+    # limit, over the pixel limit (it would need 1 GB as RGBA).
+    huge = io.BytesIO()
+    Image.new("1", (16_000, 16_000)).save(huge, "PNG")
+    with pytest.raises(ochre.OchreError, match=r"16,000×16,000 pixels \(256\.0 megapixels\)"):
+        ochre.read_image(huge.getvalue())
+    # A header claiming 20,000 × 20,000 on top of a few bytes.
+    header = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(header, "PNG")
+    claimed = bytearray(header.getvalue())
+    claimed[16:24] = struct.pack(">II", 20_000, 20_000)  # IHDR width and height
+    claimed[29:33] = struct.pack(">I", zlib.crc32(bytes(claimed[12:29])))  # and its checksum
+    monkeypatch.setattr(Image.Image, "convert", no_decoding)
+    monkeypatch.setattr(Image.Image, "load", no_decoding)
+    with pytest.raises(ochre.OchreError, match="20,000×20,000 pixels; a side can be at most"):
+        ochre.read_image(bytes(claimed))
+
+
+def test_a_ktx2_level_must_have_the_size_its_header_implies() -> None:
+    # A 16 × 16 RGBA level is 1,024 bytes; one claiming 2 GB is refused before decompressing.
+    with pytest.raises(ochre.OchreError, match="says 2,147,483,648 bytes, but a 16×16"):
+        ochre.read_ktx2(ktx2(43, 16, 16, b"\0" * 64, scheme=2, unpacked=2 << 30))
+
+
+def test_flat_pictures_that_compress_very_well_are_read() -> None:
+    """12 October 2026: a 1600×900 PNG (45 KB, flat color with text) was refused as growing
+    127-fold. Pictures have no ratio limit; their pixel count bounds them."""
+    flat = io.BytesIO()
+    picture = Image.new("P", (6000, 3000), 1)  # a palette picture, as logos often are
+    picture.putpalette([0, 0, 0, 40, 120, 200, 255, 0, 0])
+    picture.putpixel((5, 5), 2)
+    picture.save(flat, "PNG", optimize=True)
+    data = flat.getvalue()
+    assert 6000 * 3000 * 4 / len(data) > 1000  # noqa: PLR2004 - over 1,000-fold
+    read = ochre.read_image(data)
+    assert (read.width, read.height) == (6000, 3000)
+    assert ochre.roblox_size(read.width, read.height) == (1024, 512)  # downscaled, not refused
+    # The same for a texture: a flat 2,048 × 2,048 KTX2 level, Zstandard-supercompressed.
+    level = bytes(2048 * 2048 * 4)
+    packed = zstandard.ZstdCompressor().compress(level)
+    assert len(level) / len(packed) > 1000  # noqa: PLR2004
+    assert (
+        ochre.read_ktx2(ktx2(43, 2048, 2048, packed, scheme=2, unpacked=len(level))).width == 2048
+    )  # noqa: PLR2004
+
+
+def test_a_truncated_picture_is_refused_with_a_reason() -> None:
+    whole = io.BytesIO()
+    Image.new("RGB", (200, 200), (1, 2, 3)).save(whole, "PNG")
+    with pytest.raises(ochre.OchreError, match="damaged"):
+        ochre.read_image(whole.getvalue()[: len(whole.getvalue()) // 2])
 
 
 @settings(max_examples=300, deadline=None)

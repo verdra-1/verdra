@@ -151,3 +151,17 @@ def test_damaged_draco_is_refused_with_a_reason() -> None:
 def test_the_summary_of_something_that_isnt_draco() -> None:
     assert clay.draco_summary(b"nothing") == ["not a Draco bitstream"]
     assert clay.draco_summary(CAPTURED_HEADER + b"\x80")[-1] == "(ends early)"
+
+
+def test_huge_counts_are_refused_before_decoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A header claiming 2^31 points is refused before DracoPy allocates for them."""
+
+    def no_decoding(_data: bytes) -> None:
+        raise AssertionError("decoded geometry that should have been refused")
+
+    monkeypatch.setattr(DracoPy, "decode", no_decoding)
+    bomb = CAPTURED_HEADER + clay._varint(1) + clay._varint(1 << 31) + b"\x01"  # noqa: SLF001
+    core = struct.pack("<I", len(bomb)) + bomb
+    data = b"version 7.00\n" + b"COREMESH" + struct.pack("<II", 2, len(core)) + core
+    with pytest.raises(clay.ClayError, match="2,147,483,648"):
+        clay.read_mesh(data)
