@@ -61,6 +61,14 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   so none were applied and Roblox wasn't restarted. Activity says why for each one." (singular:
   "…1 replacement couldn't be prepared, so it wasn't applied … Activity says why.") When every
   replacement failed, Apply now stops there: no "Restart Roblox now?", no cache move.
+- M-APPLY-06 (Toast, new 2026-10-12) with no replacement on: "No replacements are on, so Roblox
+  is restarting with the original assets." (the cache moved), "No replacements are on. Roblox is
+  restarting, but assets it already saved may change only after it refreshes them." (it
+  stayed), or "No replacements are on, so Roblox shows the original assets." (no restart).
+  Restarting still matters then: replacements applied before go away, and a format capture
+  (source runs) sees fresh downloads.
+- M-APPLY-07 (Toast and Activity, new 2026-10-12) "Apply now is still restarting Roblox. Try
+  again in a moment." Apply now ignores clicks for 10 seconds after it restarted Roblox.
 - M-CACHE-01 (Toast and Activity, new) "Moved Roblox's saved assets (<names>) to <folder>. Reset
   everything puts them back."
 - M-CACHE-02 (Toast, new) "Roblox Studio is open, so Verdra didn't move Roblox's saved assets

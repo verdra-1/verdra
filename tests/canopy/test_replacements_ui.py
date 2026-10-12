@@ -18,6 +18,7 @@ from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.bark import rain
+from verdra.canopy.crown import window as window_module
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
@@ -399,7 +400,7 @@ def test_canceling_the_restart_publishes_and_closes_nothing(
     shell.window.header.apply_now.click()
     assert asked == ["Restart Roblox"]
     assert stub.calls == []
-    assert toasts(shell)[-1] == "Applied 0 replacements. They'll appear next time Roblox starts."
+    assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
 
 
 @pytest.mark.spec("S-24", 2)
@@ -412,7 +413,9 @@ def test_confirming_restarts_only_the_roblox_verdra_launched(
     shell.window.header.apply_now.click()
     # Sprout closes only its own launches (S-12 rule 4), then the cache moves, then Roblox starts.
     assert stub.calls == ["close", "clear", "launch"]
-    assert toasts(shell)[-1] == "Applied 0 replacements. Roblox is restarting."
+    assert toasts(shell)[-1] == (
+        "No replacements are on, so Roblox is restarting with the original assets."
+    )
 
 
 @pytest.mark.spec("S-24", 7)
@@ -435,12 +438,38 @@ def test_the_cache_stays_while_studio_or_another_player_runs(
     shell.window.header.apply_now.click()  # none of Verdra's own Players runs
     assert stub.calls == []  # nothing moved, nothing closed: Studio and others are never closed
     assert toasts(shell)[-2].startswith(told)
-    assert toasts(shell)[-1] == "Applied 0 replacements. They'll appear next time Roblox starts."
+    assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
     stub.running = True  # with Verdra's own Player too: it restarts, the cache still stays
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
     shell.window.header.apply_now.click()
     assert stub.calls == ["close", "launch"]
-    assert toasts(shell)[-1].startswith("Applied 0 replacements. Assets Roblox already saved")
+    assert toasts(shell)[-1].startswith("No replacements are on. Roblox is restarting, but assets")
+
+
+def test_apply_now_ignores_clicks_while_it_restarts_roblox(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """12 October 2026: four "Restart Roblox now?" dialogs in 17 seconds."""
+    shell, stub = made
+    stub.running = True
+    asked: list[object] = []
+
+    def accept(dialog: object) -> QDialog.DialogCode:
+        asked.append(dialog)
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(DestructiveConfirmation, "exec", accept)
+    now = [1000.0]
+    shell.monotonic = lambda: now[0]
+    shell.window.header.apply_now.click()
+    assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
+    now[0] += 3  # clicked again while Roblox restarts: no second dialog, no second Player
+    shell.window.header.apply_now.click()
+    assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
+    assert toasts(shell)[-1] == "Apply now is still restarting Roblox. Try again in a moment."
+    now[0] += window_module.APPLY_COOLDOWN_SECONDS  # later, it works again
+    shell.window.header.apply_now.click()
+    assert len(asked) == 2  # noqa: PLR2004
 
 
 def test_without_the_service_the_screen_and_apply_now_say_why(shell: Shell) -> None:

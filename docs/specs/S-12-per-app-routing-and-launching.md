@@ -80,6 +80,11 @@ Start Roblox through Verdra on every platform without administrator rights.
   without Verdra (process <pid>), so your replacements don't show there. Close Roblox completely,
   then join again."
 - M-LAUNCH-15 (Activity, new) "The Roblox Verdra started closed right away (process <pid>)."
+- M-LAUNCH-16 (Activity, new 2026-10-12) "Roblox is already starting this game (process <pids>),
+  so Verdra didn't start it a second time."
+- M-LAUNCH-17 (Activity, new 2026-10-12) "A new game was joined while the Roblox Verdra started
+  is running (process <pids>). Verdra starts Roblox for it; Roblox decides whether it opens in
+  the running window."
 - M-LAUNCH-16 (Activity, new) "Verdra couldn't close the Roblox that is running without Verdra.
   Close it from Task Manager, then try again."
 - M-LAUNCH-17 (Dialog, new) "Roblox is already running without Verdra" / "If Verdra starts this
@@ -167,3 +172,12 @@ Start Roblox through Verdra on every platform without administrator rights.
   - Ten seconds after each launch Verdra checks whether its Player still runs, and says where
     the game went (test 9).
 
+- **Joins while Verdra's Player runs, and Players from an earlier run (2026-10-12).** In the
+  maintainer's log three Players were started in 14 seconds while Verdra's own was running, and
+  the last closed right away. Decision: the same join again within 10 seconds of starting it
+  (a link sent twice) is dropped with M-LAUNCH-16; any other join is started, as the user asked,
+  with M-LAUNCH-17, and Roblox decides where it opens (as without Verdra). The link itself is
+  never logged. The same log showed a Player started by the previous run of Verdra reported as
+  "running without Verdra" before routing had started: a Player whose environment names the
+  configured proxy port no longer counts as another's; it is taken into Verdra's record once
+  routing runs on that port.

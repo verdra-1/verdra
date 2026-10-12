@@ -11,6 +11,7 @@ screen setup, so a laptop on and off its dock remembers both layouts.
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QByteArray, QCoreApplication, QObject, QSize, Signal
@@ -43,6 +44,7 @@ from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
 from verdra.trunk.branches.sprout import (
+    Sprout,
     cache_moved_text,
     capture_text,
     check_text,
@@ -231,6 +233,11 @@ class MainWindow(QMainWindow):
         self.close_requested.emit()
 
 
+#: How long Apply now ignores clicks after it restarted Roblox (as long as Sprout waits before
+#: checking that the new Player stayed, `Sprout.HANDOFF_SECONDS`).
+APPLY_COOLDOWN_SECONDS = 10.0
+
+
 class ApplyText(QObject):
     """Apply now's toasts, with their plural forms (spec S-24)."""
 
@@ -247,6 +254,28 @@ class ApplyText(QObject):
             "%n replacements couldn't be prepared. See the warnings in Replacements.",
             "M-GRAFT-01",
             count,
+        )
+
+    def none_on_restarting(self, *, moved: bool) -> str:
+        if moved:
+            return QCoreApplication.translate(
+                "M-APPLY-06",
+                "No replacements are on, so Roblox is restarting with the original assets.",
+            )
+        return QCoreApplication.translate(
+            "M-APPLY-06",
+            "No replacements are on. Roblox is restarting, but assets it already saved may "
+            "change only after it refreshes them.",
+        )
+
+    def none_on_next_time(self) -> str:
+        return QCoreApplication.translate(
+            "M-APPLY-06", "No replacements are on, so Roblox shows the original assets."
+        )
+
+    def busy(self) -> str:
+        return QCoreApplication.translate(
+            "M-APPLY-07", "Apply now is still restarting Roblox. Try again in a moment."
         )
 
     def nothing_applied(self, count: int) -> str:
@@ -292,6 +321,13 @@ class Shell:
         self.others_banner: Notice | None = None
         #: M-APPLY-04's toast while Apply now waits for downloads.
         self.apply_waiting: Toast | None = None
+        #: Until when (time.monotonic) Apply now ignores clicks: it just restarted Roblox, and a
+        #: second restart while the first is under way would start another Player (12 October
+        #: 2026: four "Restart Roblox now?" in 17 seconds).
+        self.apply_busy_until = 0.0
+        #: The clock for that (tests replace it; never patch `time.monotonic` itself, which
+        #: other threads use too).
+        self.monotonic: Callable[[], float] = time.monotonic
 
     # --- startup.Interface ----------------------------------------------------------------
 
@@ -593,6 +629,10 @@ class Shell:
         grafts, sprout = self.services.grafts, self.services.sprout
         if grafts is None:
             return
+        if self.monotonic() < self.apply_busy_until:
+            log.info("%s", ApplyText().busy())
+            self.window.dew.show(ApplyText().busy())
+            return
         count = grafts.publish(retry=retry)
         if grafts.downloading:  # M-APPLY-04: go on once the links are here, without a 2nd click
             self._wait_for_downloads(grafts.downloading)
@@ -605,35 +645,50 @@ class Shell:
         if grafts.warnings:  # S-21: a replacement that can't be prepared is never silent
             self.window.dew.show(ApplyText().not_prepared(len(grafts.warnings)), Kind.WARNING)
         if sprout is None:
-            self.window.dew.show(ApplyText().next_time(count))
+            self.window.dew.show(self._next_time(count))
             return
         running = sprout.roblox_processes()
         others = sprout.refresh_others()
         ours = sprout.players_started_here()
         clear = self._cache_can_move(running, others)
         if ours:
-            dialog = DestructiveConfirmation(
-                QCoreApplication.translate(
-                    "M-LAUNCH-03", "Restart Roblox now? Unsaved progress in your game may be lost."
-                ),
-                QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
-                parent=self.window,
-            )
-            if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
-                self.window.dew.show(ApplyText().next_time(count))  # S-24 rule 3
-                return
-            sprout.close_roblox()
-            moved = sprout.clear_cache() if clear else None
-            self._show_moved(moved)
-            sprout.launch()
-            text = ApplyText()
-            self.window.dew.show(text.restarted(count) if moved else text.restarted_cached(count))
+            self._restart_roblox(sprout, count, clear=clear)
             return
         moved = sprout.clear_cache() if clear else None
         self._show_moved(moved)
         if not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
-        self.window.dew.show(ApplyText().next_time(count))
+        self.window.dew.show(self._next_time(count))
+
+    def _restart_roblox(self, sprout: Sprout, count: int, *, clear: bool) -> None:
+        """M-LAUNCH-03: close Verdra's Player, move the cache, start it again (S-24 rule 3)."""
+        dialog = DestructiveConfirmation(
+            QCoreApplication.translate(
+                "M-LAUNCH-03", "Restart Roblox now? Unsaved progress in your game may be lost."
+            ),
+            QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
+            parent=self.window,
+        )
+        if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
+            self.window.dew.show(self._next_time(count))  # S-24 rule 3
+            return
+        sprout.close_roblox()
+        moved = sprout.clear_cache() if clear else None
+        self._show_moved(moved)
+        sprout.launch()
+        self.apply_busy_until = self.monotonic() + APPLY_COOLDOWN_SECONDS
+        text = ApplyText()
+        if not count:
+            # Restarting still matters: replacements applied before are gone, and a format
+            # capture (source runs) sees fresh downloads.
+            self.window.dew.show(text.none_on_restarting(moved=moved is not None))
+        else:
+            self.window.dew.show(text.restarted(count) if moved else text.restarted_cached(count))
+
+    @staticmethod
+    def _next_time(count: int) -> str:
+        text = ApplyText()
+        return text.next_time(count) if count else text.none_on_next_time()
 
     def _wait_for_downloads(self, count: int) -> None:
         grafts = self.services.grafts

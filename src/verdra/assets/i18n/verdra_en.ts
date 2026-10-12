@@ -298,6 +298,28 @@
     </message>
 </context>
 <context>
+    <name>M-APPLY-06</name>
+    <message>
+        <source>No replacements are on, so Roblox is restarting with the original assets.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No replacements are on. Roblox is restarting, but assets it already saved may change only after it refreshes them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No replacements are on, so Roblox shows the original assets.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-APPLY-07</name>
+    <message>
+        <source>Apply now is still restarting Roblox. Try again in a moment.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-CA-01</name>
     <message>
         <source>Verdra couldn&apos;t add its certificate to Roblox at {path}: {reason}.</source>
@@ -899,6 +921,10 @@
 <context>
     <name>M-LAUNCH-16</name>
     <message>
+        <source>Roblox is already starting this game (process {pids}), so Verdra didn&apos;t start it a second time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Verdra couldn&apos;t close the Roblox that is running without Verdra. Close it from Task Manager, then try again.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -919,6 +945,10 @@
     </message>
     <message>
         <source>Continue anyway</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A new game was joined while the Roblox Verdra started is running (process {pids}). Verdra starts Roblox for it; Roblox decides whether it opens in the running window.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
