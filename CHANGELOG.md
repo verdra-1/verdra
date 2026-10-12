@@ -210,6 +210,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Switching between two copies of Verdra (for example from running it from source to the
+  downloaded app) no longer makes Reset everything give Roblox links to the other copy instead
+  of to Roblox.
 - Pictures that compress very well (flat colors, logos, text) are no longer refused as
   "growing too much when decompressed". Pictures are now limited by their size instead (at most
   16,384 pixels a side and 64 megapixels), and the message says the size.

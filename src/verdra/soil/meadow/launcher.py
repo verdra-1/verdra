@@ -22,9 +22,10 @@ windows.md, 2026-10-04):
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Final, Literal, Protocol
 
 import psutil
@@ -325,6 +326,25 @@ def quote(argument: str) -> str:
     return '"' + argument.replace('"', '\\"') + '"'
 
 
+#: One argument of a handler command line: quoted (as `quote` writes it) or bare.
+_ARGUMENT: Final = re.compile(r'"((?:[^"\\]|\\.)*)"|(\S+)')
+
+
+def starts_verdra(line: str) -> bool:
+    """Return whether a handler command line starts a Verdra, from any copy.
+
+    `humus.verdra_command()` writes either the built `verdra.exe` (Reference R3) or a Python
+    running `-m verdra` from source.
+    """
+    arguments = [quoted or bare for quoted, bare in _ARGUMENT.findall(line)]
+    if not arguments:
+        return False
+    program = PureWindowsPath(arguments[0]).name.lower()
+    if program == f"{terrain.EXECUTABLE}.exe":
+        return True
+    return program.startswith("python") and arguments[1:3] == ["-m", terrain.DISTRIBUTION]
+
+
 def command_line(command: Sequence[str]) -> str:
     """Return the handler command line: each argument quoted, then the link as `"%1"`."""
     return " ".join(quote(part) for part in command) + ' "%1"'
@@ -365,6 +385,11 @@ class WindowsLinkHandler:
     def registered(self, command: Sequence[str]) -> bool:
         """Return whether Verdra's command is still the handler."""
         return self.registry.get("HKCU", self.command_key, DEFAULT) == command_line(command)
+
+    def verdra(self) -> bool:
+        """Return whether the handler's command starts a Verdra (`verdra.exe`, or `-m verdra`)."""
+        current = self.registry.get("HKCU", self.command_key, DEFAULT)
+        return isinstance(current, str) and starts_verdra(current)
 
     def restore(self, snapshot: Mapping[str, Any]) -> None:
         """Put the recorded command back, or remove what `register` created."""

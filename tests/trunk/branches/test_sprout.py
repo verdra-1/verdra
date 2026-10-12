@@ -165,6 +165,9 @@ class FakeHandler:
     def registered(self, command: Sequence[str]) -> bool:
         return self.command == " ".join(command)
 
+    def verdra(self) -> bool:
+        return (self.command or "").startswith("verdra")
+
 
 class FakePlatform:
     def __init__(self, handler: FakeHandler | humus.Unsupported) -> None:
@@ -206,6 +209,25 @@ def test_a_handler_roblox_took_back_is_recorded_again(tmp_path: Path) -> None:
     assert (second.state, second.details["snapshot"]) == ("done", {"command": "roblox, updated"})
     sprout.set_link_handling(False, ledger, platform, ["verdra"])
     assert handler.command == "roblox, updated"
+
+
+def test_another_copy_of_verdra_taking_over_keeps_roblox_handler_for_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run from source, then the release build: Reset everything gives the links to Roblox."""
+    handler = FakeHandler()
+    platform: Any = FakePlatform(handler)
+    monkeypatch.setattr(humus, "current", lambda: platform)
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    sprout.set_link_handling(True, ledger, platform, ["verdra-source"])
+    sprout.set_link_handling(True, ledger, platform, ["verdra-built"])
+    assert handler.command == "verdra-built"
+    [entry] = ledger.entries()
+    assert (entry.state, entry.details["snapshot"]) == ("done", {"command": "roblox"})
+    vault = husk.Husk(MemoryKeyring())
+    summary = fallow.reset(ledger.path, vault=vault, cert_file=tmp_path / "ca.crt")
+    assert summary.failed == []
+    assert handler.command == "roblox"
 
 
 def test_reset_everything_restores_the_handler(

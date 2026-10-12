@@ -141,6 +141,10 @@ class LinkHandler(Protocol):
         """Return whether `command` is the handler now (Roblox's updater may have taken it back)."""
         ...
 
+    def verdra(self) -> bool:
+        """Return whether the handler now starts a Verdra: this copy or another, built or source."""
+        ...
+
 
 def verdra_command() -> list[str]:
     """Return the command that starts this Verdra; a link handler appends the link.
