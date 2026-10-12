@@ -3,13 +3,8 @@
 """tools/third_party.py: every bundled library's license text, Qt's LGPL-3.0, gaps never silent."""
 
 import hashlib
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools"))
-
-import third_party  # noqa: E402 - found through the path added above
+from tools import third_party
 
 
 def test_a_package_carries_its_own_license_files() -> None:

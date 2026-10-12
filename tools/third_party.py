@@ -138,7 +138,7 @@ def build(packages: list[str]) -> tuple[str, list[str]]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description="Write THIRD_PARTY_NOTICES.md for the build.")
     parser.add_argument("out", type=Path, help=f"where to write {FILE_NAME}")
     arguments = parser.parse_args(argv)
     text, missing = build(runtime_packages())
