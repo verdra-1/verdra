@@ -28,5 +28,6 @@ new record that supersedes the old one; the old record stays, with its status up
 | [0020](0020-roblox-running-without-verdra.md) | A Roblox Player Verdra didn't start is shown (banner, Degraded (e)); a launch asks first; it is closed only on the user's yes; a record of the Players Verdra started | Accepted |
 | [0021](0021-real-machine-tests-from-source.md) | Real-machine tests run from source: one command, tools\run-latest.ps1, fast-forwards main (never resets), syncs with uv and starts Verdra; the test build stays but isn't needed; release distribution open | Accepted |
 | [0022](0022-roblox-texture-layout.md) | Verdra's pictures in Roblox's CDN layout: BC1 or BC3 KTX2, zstd levels, the CDN's descriptor and 19 keys, sides multiples of 64; three packs of mip levels served by the CDN's packIndex (amended 2026-10-11); Verdra's own numpy block encoder, no new dependency | Accepted, amended |
+| [0023](0023-roblox-mesh-layout.md) | Verdra's meshes as FileMesh 7.00 like the CDN's (COREMESH v2 with Draco, LODS v1): Verdra's own Draco writer with the captured attribute list, raw codings; DracoPy reads 7.00 and checks the tests | Accepted |
 
 New records copy [template.md](template.md).

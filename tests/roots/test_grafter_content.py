@@ -413,7 +413,7 @@ def test_a_mesh_from_the_pc_replaces_one_in_game(
     service.publish()
     assert service.warnings == {}
     _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ORIGINAL_MESH))
-    assert downloaded.startswith(b"version 2.00\n")
+    assert downloaded.startswith(b"version 7.00\nCOREMESH")  # the CDN's layout (record 0023)
     served = clay.read_mesh(downloaded)
     assert served.faces == TRIANGLE.faces
     assert [v.position for v in served.vertices] == [v.position for v in TRIANGLE.vertices]
@@ -427,7 +427,10 @@ def test_remove_serves_an_empty_mesh_for_a_mesh(
     service = service_with(tmp_path, grafts.Target(kind="remove"))
     service.publish()
     _items, downloaded, _server = play(tmp_path, Grafter(service.holder), http(ORIGINAL_MESH))
-    assert clay.read_mesh(downloaded) == clay.Mesh((), ())
+    removed = clay.read_mesh(downloaded)
+    # One triangle with no area at the origin: valid geometry, nothing drawn.
+    assert removed.faces == ((0, 1, 2),)
+    assert {v.position for v in removed.vertices} == {(0.0, 0.0, 0.0)}
 
 
 @pytest.mark.spec("S-21", 17)

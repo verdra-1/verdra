@@ -309,3 +309,10 @@ Make Roblox receive the replacement instead of the original asset.
   packs can be told apart; a KTX2's key values are listed one per line; a chunked FileMesh
   (6.00 and later; captured: 7.00 with a COREMESH chunk) lists its chunks (type, version,
   size). With `--save-bodies` every pack's body is saved next to its report, on the PC only.
+- **Meshes in Roblox's own layout (2026-10-12).** The mesh capture showed FileMesh 7.00: a
+  COREMESH chunk with Draco geometry (five attributes) and a LODS chunk. Mesh replacements and
+  Remove are now written that way (`clay.write_filemesh7`, decision record 0023), with Verdra's
+  own Draco writer (the captured attribute list, raw codings) and one level of detail; Remove
+  is one triangle with no area. A Local file may be a 6.00 or 7.00 mesh (read through DracoPy,
+  first level of detail). `--format-check` reports a mesh's chunks, its Draco attributes and its
+  levels of detail, for Verdra's answer and the CDN's alike.

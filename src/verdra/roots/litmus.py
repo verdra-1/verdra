@@ -504,10 +504,26 @@ def _chunk_lines(body: bytes) -> list[str]:
         size = int.from_bytes(body[position + 12 : position + 16], "little")
         data = body[position + 16 : position + 16 + size]
         lines.append(f"    {kind}, {chunk_version}, {size}, {data[:16].hex(' ')}")
+        if kind == "COREMESH" and chunk_version == 2 and len(data) > 4:  # noqa: PLR2004
+            lines += [f"      {line}" for line in clay.draco_summary(data[4:])]
+        elif kind == "LODS" and chunk_version == 1:
+            lines.append(f"      {_lods_text(data)}")
         position += 16 + size
     if position != len(body):
         lines.append(f"    {len(body) - position} bytes left over (not a whole chunk)")
     return lines
+
+
+def _lods_text(data: bytes) -> str:
+    """LODS version 1: u16 type, u8 high-quality levels, u32 count, then the face offsets."""
+    if len(data) < 7:  # noqa: PLR2004
+        return "(too short)"
+    kind, high = int.from_bytes(data[:2], "little"), data[2]
+    count = int.from_bytes(data[3:7], "little")
+    offsets = [
+        int.from_bytes(data[7 + 4 * n : 11 + 4 * n], "little") for n in range(min(count, 64))
+    ]
+    return f"type {kind}, high-quality levels {high}, face offsets {offsets}"
 
 
 def ktx2_lines(layout: ochre.Ktx2Layout, data: bytes) -> list[str]:

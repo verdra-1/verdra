@@ -419,7 +419,7 @@ def _prepare(graft: rules.Graft, folder: Path, fetched: Fetched | None) -> rules
             ochre.to_png(_CLEAR),
             packs[2],
             "remove",
-            clay.write_filemesh(clay.Mesh((), ())),  # an empty mesh: nothing drawn
+            clay.write_filemesh7(clay.Mesh((), ())),  # an empty mesh: nothing drawn
             packs,
         )
     if graft.kind == "url":
@@ -476,7 +476,7 @@ def _picture(data: bytes, source: str, where: str) -> rules.Content | str:
 def _mesh(data: bytes, kind: str, source: str) -> rules.Content | str:
     try:
         mesh = clay.read_obj(data) if kind == "obj" else clay.read_mesh(data)
-        return rules.Content(b"", b"", source, clay.write_filemesh(mesh))
+        return rules.Content(b"", b"", source, clay.write_filemesh7(mesh))
     except clay.ClayError as error:
         return QCoreApplication.translate(
             "M-GRAFT-06", "This file couldn't be used: {reason}."

@@ -260,3 +260,14 @@ def test_the_launch_check_requires_the_flag_refused(tmp_path: Path) -> None:
     assert "started logging" in (check_build.refuses_diagnosis(tmp_path) or "")
     stand_in(tmp_path, "sleep 5")
     assert "didn't refuse" in (check_build.refuses_diagnosis(tmp_path, timeout=0.5) or "")
+
+
+def test_the_codecs_native_modules_must_be_in_the_build(tmp_path: Path) -> None:
+    internal = tmp_path / "_internal"
+    (internal / "texture2ddecoder").mkdir(parents=True)
+    (internal / "texture2ddecoder" / "_texture2ddecoder.cp314-win_amd64.pyd").write_bytes(b"")
+    assert check_build.check_native_modules(tmp_path) == [
+        "DracoPy (meshes, decision record 0023): its native module is missing from the build"
+    ]
+    (internal / "DracoPy.cp314-win_amd64.pyd").write_bytes(b"")
+    assert check_build.check_native_modules(tmp_path) == []

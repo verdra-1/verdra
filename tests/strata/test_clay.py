@@ -115,8 +115,8 @@ def test_obj_quads_become_two_triangles_and_negative_indices_work() -> None:
     ("data", "reason"),
     [
         (b"not a mesh", "isn't a Roblox mesh file"),
-        (b"version 6.00\n" + b"COREMESH" + b"\0" * 32, "6.00 isn't supported yet"),
-        (b"version 7.00\n" + b"\0" * 40, "7.00 isn't supported yet"),
+        (b"version 6.00\n" + b"COREMESH" + b"\0" * 32, "COREMESH version 0 isn't supported yet"),
+        (b"version 7.00\n" + b"\0" * 40, "no COREMESH chunk"),
         (b"version 2.00\n" + struct.pack("<HBBII", 12, 40, 12, 1_000_000, 1), "claims 1,000,000"),
         (b"version 2.00\n" + struct.pack("<HBBII", 12, 50, 12, 1, 1), "aren't a known layout"),
         (b"version 2.00\n\x0c\x00", "ends early"),
