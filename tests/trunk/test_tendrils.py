@@ -10,6 +10,7 @@ import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+import psutil
 import pytest
 from pytestqt.qtbot import QtBot
 
@@ -90,15 +91,45 @@ def test_quit_with_running_jobs_exits_within_4_s(tmp_path: Path) -> None:
     assert elapsed < 4.0
 
 
+def worker_cpu() -> float:
+    """CPU seconds the executor's own threads used so far (user and system).
+
+    Only the worker threads count: `time.process_time()` would also count every thread an
+    earlier test left behind, and on Windows its 15.6 ms clock tick alone exceeds the budget
+    (main CI failed this way on 12 October 2026 with 31.2 ms, two ticks, in a 2 s window).
+    """
+    ids = {
+        thread.native_id
+        for thread in threading.enumerate()
+        if thread.name.startswith("verdra-tendril-")
+    }
+    assert ids, "no worker threads found"
+    return sum(t.user_time + t.system_time for t in psutil.Process().threads() if t.id in ids)
+
+
 @pytest.mark.spec("S-04", 3)
 def test_idle_cpu_budget(tendrils: Tendrils, qtbot: QtBot) -> None:
     jobs = [tendrils.submit("Warm-up", lambda _handle: None) for _ in range(tendrils.workers)]
     qtbot.waitUntil(lambda: all(job.done for job in jobs), timeout=1000)
-    window = 2.0
-    before = time.process_time()
+    window = 4.0  # 0.5 % of it is 20 ms: more than one Windows clock tick
+    before = worker_cpu()
     time.sleep(window)
-    used = time.process_time() - before
-    assert used <= 0.005 * window, f"{used * 1000:.1f} ms of CPU in {window} s idle"
+    used = worker_cpu() - before
+    assert used <= 0.005 * window, f"{used * 1000:.1f} ms of worker CPU in {window} s idle"
+
+
+def test_the_idle_measurement_sees_a_busy_worker(tendrils: Tendrils, qtbot: QtBot) -> None:
+    """The budget check would notice a worker that spins (it measures the right threads)."""
+
+    def spin(_handle: object) -> None:
+        end = time.monotonic() + 0.5
+        while time.monotonic() < end:
+            pass
+
+    before = worker_cpu()
+    job = tendrils.submit("Spin", spin)
+    qtbot.waitUntil(lambda: job.done, timeout=5000)
+    assert worker_cpu() - before > 0.2  # noqa: PLR2004
 
 
 @pytest.mark.spec("S-04", 4)
@@ -180,3 +211,25 @@ def test_jobs_wait_until_the_workers_start(qtbot: QtBot) -> None:
         assert pool.workers == 2
     finally:
         pool.shutdown(grace=1.0)
+
+
+def test_other_threads_dont_count_toward_the_executor_budget(
+    tendrils: Tendrils, qtbot: QtBot
+) -> None:
+    """The category of the 12 October failure: CPU of threads that aren't the executor's."""
+    jobs = [tendrils.submit("Warm-up", lambda _handle: None) for _ in range(tendrils.workers)]
+    qtbot.waitUntil(lambda: all(job.done for job in jobs), timeout=1000)
+    stop = threading.Event()
+
+    def busy() -> None:
+        while not stop.is_set():
+            pass
+
+    other = threading.Thread(target=busy, name="not-a-worker", daemon=True)
+    before_process, before_workers = time.process_time(), worker_cpu()
+    other.start()
+    time.sleep(0.5)
+    stop.set()
+    other.join()
+    assert time.process_time() - before_process > 0.1  # noqa: PLR2004 - the old measure fails
+    assert worker_cpu() - before_workers <= 0.016  # noqa: PLR2004 - at most one tick
