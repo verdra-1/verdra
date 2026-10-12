@@ -590,6 +590,8 @@ class Sprout(QObject):
         self.watch: gardener.VersionWatch | None = None
         self._checking = False
         self._last: tuple[str | None, bool] = (None, False)
+        #: The last join Verdra started Roblox with, and when (to drop a repeat of it).
+        self._last_join: tuple[str, datetime] | None = None
 
     @property
     def routing(self) -> bool:
@@ -607,6 +609,8 @@ class Sprout(QObject):
         that Player, which never uses Verdra: unless `despite_others`, the launch waits and
         `held_back` asks the user (close that Roblox, join anyway, or cancel).
         """
+        if link and self._repeated(link):
+            return
         if not despite_others and self.refresh_others():
             log.warning(
                 "%s",
@@ -619,6 +623,42 @@ class Sprout(QObject):
             self.held_back.emit(link or "")
             return
         self._request(link, launch=True)
+
+    def _repeated(self, link: str) -> bool:
+        """A join that arrives while a Player Verdra started runs (decided 12 October 2026).
+
+        The same join again within `HANDOFF_SECONDS` of starting it (a browser or Roblox
+        sending the link twice) is dropped: a second Player for it would only close again.
+        Any other join is started: the user asked for it, and Roblox decides, as it does
+        without Verdra, whether it opens in the running window. Both are logged.
+        """
+        running = self.launches.running()
+        if not running:
+            return False
+        pids = ", ".join(str(process.pid) for process in running)
+        last = self._last_join
+        if last is not None and last[0] == link:
+            age = (self.clock() - last[1]).total_seconds()
+            if age < self.HANDOFF_SECONDS:
+                log.info(
+                    "%s",
+                    QCoreApplication.translate(
+                        "M-LAUNCH-16",
+                        "Roblox is already starting this game (process {pids}), so Verdra didn't "
+                        "start it a second time.",
+                    ).format(pids=pids),
+                )
+                return True
+        log.info(
+            "%s",
+            QCoreApplication.translate(
+                "M-LAUNCH-17",
+                "A new game was joined while the Roblox Verdra started is running (process "
+                "{pids}). Verdra starts Roblox for it; Roblox decides whether it opens in the "
+                "running window.",
+            ).format(pids=pids),
+        )
+        return False
 
     def retry(self) -> None:
         """Run the last request again ("Try again" in M-COEX-01)."""
@@ -724,6 +764,8 @@ class Sprout(QObject):
                 "M-LAUNCH-13", "Started Roblox through Verdra (process {pid})."
             ).format(pid=pid),
         )
+        if link:
+            self._last_join = (link, self.clock())
         self.status.launched()
         if self._handoff is not None:
             self._handoff()
@@ -769,22 +811,36 @@ class Sprout(QObject):
         return others - self._routed_here(others) if others else others
 
     def _routed_here(self, pids: frozenset[int]) -> set[int]:
-        if self.client is None or self.router.port is None or pids <= self._not_ours:
+        """The Players among `pids` whose environment points at Verdra's proxy port.
+
+        While routing runs, they are taken into the record. Before it starts (Verdra just
+        started, 12 October 2026: a Player from the previous run was shown as "running without
+        Verdra"), a Player pointing at the configured port is not counted as another's, but isn't
+        taken into the record either: if that port turns out to be busy, routing uses another
+        one, and the next look says so.
+        """
+        if pids <= self._not_ours:
             return set()
-        found = self.platform.running_clients(self.client)
+        running = self.router.port is not None
+        port = self.router.port if running else int(self.settings.value("routing.proxy_port"))
+        client = self.client or choose(self.platform.roblox_clients())
+        if isinstance(client, Refused) or port is None:
+            return set()
+        found = self.platform.running_clients(client)
         if isinstance(found, humus.Unsupported):
             return set()
-        ours = humus.proxy_environment({}, self.router.port)
+        ours = humus.proxy_environment({}, port)
         routed = {
-            client.pid
-            for client in found
-            if client.pid in pids
-            and client.proxies is not None
-            and all(client.proxies.get(name.upper()) == value for name, value in ours.items())
+            found_client.pid
+            for found_client in found
+            if found_client.pid in pids
+            and found_client.proxies is not None
+            and all(found_client.proxies.get(name.upper()) == value for name, value in ours.items())
         }
-        for pid in routed:
-            self.launches.adopt(pid)
-        self._not_ours = set(pids - routed)
+        if running:
+            for pid in routed:
+                self.launches.adopt(pid)
+            self._not_ours = set(pids - routed)
         return routed
 
     def refresh_others(self) -> frozenset[int]:

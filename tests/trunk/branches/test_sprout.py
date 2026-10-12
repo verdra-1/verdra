@@ -16,6 +16,7 @@ import threading
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -1258,6 +1259,35 @@ def test_every_launch_says_how_it_went(
     made.stop_watching()
 
 
+def test_a_join_repeated_while_its_player_starts_is_not_started_twice(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """12 October 2026: three Players in 14 seconds while Verdra's own was running."""
+    made, platform, _ledger = routed
+    made.start_routing()
+    now = [NOW]
+    made.clock = lambda: now[0]
+    running: list[Any] = []
+    monkeypatch.setattr(made.launches, "running", lambda: running)
+    link = "roblox-player:1+launchmode:play+gameinfo:x"
+    with caplog.at_level("INFO", logger="verdra"):
+        made.launch(link)
+        running.append(SimpleNamespace(pid=44232))  # its Player is up
+        now[0] += timedelta(seconds=6)
+        made.launch(link)  # the same join again, 6 s later: dropped
+        assert platform.launched == [(link, made.router.port)]
+        assert "Roblox is already starting this game (process 44232)" in caplog.text
+        made.launch("roblox-player:2+launchmode:play+gameinfo:y")  # another game: started
+        assert len(platform.launched) == 2  # noqa: PLR2004
+        assert "A new game was joined while the Roblox Verdra started is running" in caplog.text
+        now[0] += timedelta(seconds=made.HANDOFF_SECONDS)
+        made.launch("roblox-player:2+launchmode:play+gameinfo:y")  # the same, but later
+        assert len(platform.launched) == 3  # noqa: PLR2004
+    made.stop_watching()
+
+
 def test_a_launch_that_fails_says_why(
     routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
 ) -> None:
@@ -1297,6 +1327,38 @@ def test_a_player_using_verdras_proxy_counts_as_verdras(
         assert player.pid in made.players_started_here()  # taken into the record
     finally:
         stop(player, other)
+
+
+def test_a_player_from_the_previous_run_is_not_another_before_routing_starts(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger], tmp_path: Path
+) -> None:
+    """12 October 2026: right after a restart of Verdra, its earlier Player was shown as
+    "running without Verdra" (Degraded), though its environment named Verdra's port."""
+    made, platform, _ledger = routed
+    assert made.router.port is None  # routing hasn't started yet
+    with socket.socket() as probe:  # a free port, so routing gets exactly the configured one
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    made.settings.values["routing.proxy_port"] = port  # type: ignore[attr-defined]
+    player = sleeper()
+    try:
+        platform.processes = humus.RobloxProcesses(players=(player.pid,))
+        proxy = f"http://127.0.0.1:{port}"
+        platform.running = [
+            humus.RunningClient(
+                player.pid,
+                "RobloxPlayerBeta.exe",
+                dict.fromkeys(("HTTPS_PROXY", "HTTP_PROXY"), proxy),
+            )
+        ]
+        assert made.refresh_others() == frozenset()  # no false "running without Verdra"
+        assert player.pid not in made.players_started_here()  # not taken in before routing
+        made.start_routing()
+        assert made.router.port == port
+        assert made.other_players() == frozenset()
+        assert player.pid in made.players_started_here()  # taken in once routing runs
+    finally:
+        stop(player)
 
 
 def test_the_record_of_players_survives_a_restart_of_verdra(tmp_path: Path) -> None:

@@ -203,6 +203,11 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- A Roblox started by an earlier run of Verdra is no longer reported as "running without
+  Verdra" right after Verdra starts.
+- Clicking Apply now again while it restarts Roblox no longer starts Roblox a second time, and
+  the same game link arriving twice starts Roblox once. With no replacements on, Apply now says
+  so instead of "Applied 0 replacements".
 - Mesh replacements and Remove for meshes are sent in the format Roblox's own servers use
   (Roblox mesh version 7.00 with compressed geometry). Roblox mesh files of version 6.00 and 7.00
   can now be used as a replacement from your PC.
