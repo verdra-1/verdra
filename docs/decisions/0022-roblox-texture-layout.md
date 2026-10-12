@@ -88,3 +88,15 @@ its own fidelity and CDN address (`evidence/windows/textures-render-2026-10-11.t
   Verdra's textures with Verdra's own value, so the client doesn't check it; the question is
   closed.
 - Measured on the session machine: 0.7 to 1.3 s for a 1024 × 1024 picture's three packs.
+
+## Edge cases, 12 October 2026: the rules and their evidence
+
+| Case | Rule Verdra follows | Evidence |
+|---|---|---|
+| Non-square | Each side rounded down to a multiple of 64 on its own; the mip chain halves both sides down to 1 (a side stops at 1 while the other goes on); `pack_0` counts from level 4 to the last | Captured: 1023 × 682 became 960 × 640 with `pack_0` "4,6" (10 levels); Verdra's packs: 60 × 40 (6 levels), 480 × 320 (3), 960 × 640 (1) |
+| Larger than 1024 | Scaled to fit 1024 a side first, aspect kept | Inferred: no CDN texture over 1024 seen (all four captured sizes are within it); not seen for a larger upload |
+| Smaller than 64, or 16 | Each side becomes 64, so the chain has at least 7 levels and pack 0 holds levels 4 to 6 | **Verdra's choice, not seen on the CDN.** With fewer than 5 levels pack 0 would be empty; what Roblox does then is unknown. A capture of a small public picture would settle it |
+| One color | `constantColor` stays "0"; the texture data holds the color and the averages give it exactly | Only "0" was captured (two pictures with detail). What Roblox writes for a one-color picture is unknown; "0" asks the client to read the texture, which is right either way |
+
+All four are covered by synthetic tests (`tests/strata/test_ochre_roblox.py`); none is verified
+on the real machine yet.

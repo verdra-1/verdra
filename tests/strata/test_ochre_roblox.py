@@ -298,3 +298,57 @@ def test_transparent_edges_dont_turn_dark_in_smaller_levels() -> None:
     source[:, :32] = (255, 0, 0, 255)
     level = ochre.mip_chain(source)[5]  # 2 × 2
     assert level[0, 0, 0] == 255 and level[0, 0, 3] == 255  # noqa: PLR2004
+
+
+# --- Edge cases (12 October 2026; rules and evidence in decision record 0022) -----------------
+
+
+@pytest.mark.parametrize(
+    ("source", "level_0", "pack_0", "pack_sizes"),
+    [
+        # Non-square, as captured for 11473800131: 1023 x 682 -> 960 x 640, pack_0 "4,6".
+        ((1023, 682), (960, 640), "4,6", [(60, 40, 6), (480, 320, 3), (960, 640, 1)]),
+        # Over 1024: scaled to fit 1024 first (rule inferred from the CDN never exceeding it).
+        ((4000, 300), (1024, 64), "4,7", [(64, 4, 7), (512, 32, 3), (1024, 64, 1)]),
+        ((2048, 2048), (1024, 1024), "4,7", [(64, 64, 7), (512, 512, 3), (1024, 1024, 1)]),
+        # Under 64 and under 16: Verdra's choice, never seen on the CDN: each side becomes 64,
+        # so there are 7 levels and every pack exists.
+        ((40, 40), (64, 64), "4,3", [(4, 4, 3), (32, 32, 3), (64, 64, 1)]),
+        ((10, 3), (64, 64), "4,3", [(4, 4, 3), (32, 32, 3), (64, 64, 1)]),
+    ],
+)
+def test_every_size_gets_three_valid_packs(
+    source: tuple[int, int],
+    level_0: tuple[int, int],
+    pack_0: str,
+    pack_sizes: list[tuple[int, int, int]],
+) -> None:
+    packs = ochre.roblox_packs(pixels(picture(*source)))
+    layouts = [ochre.ktx2_layout(data) for data in packs]
+    assert [(lay.width, lay.height, lay.levels) for lay in layouts] == pack_sizes
+    for data in packs:
+        found = keys(data)
+        assert (found["transcodedWidth"], found["transcodedHeight"]) == tuple(map(str, level_0))
+        assert (found["pack_0"], found["pack_1"], found["pack_2"]) == (pack_0, "1,3", "0,1")
+        assert (found["RobloxOriginalWidth"], found["RobloxOriginalHeight"]) == tuple(
+            map(str, source)
+        )
+        assert ochre.read_ktx2(data).width == ochre.ktx2_layout(data).width  # decodes
+
+
+def test_a_picture_of_one_color_keeps_constant_color_0() -> None:
+    """Only "0" was ever captured; Verdra writes "0" and the texture data holds the color.
+
+    What Roblox writes for a one-color picture isn't known (no capture yet). "0" asks nothing
+    of the client beyond reading the texture, which is right either way.
+    """
+    solid = np.zeros((128, 128, 4), np.uint8)
+    solid[...] = (30, 140, 220, 255)
+    for data in ochre.roblox_packs(pixels(solid)):
+        found = keys(data)
+        assert found["constantColor"] == "0"
+        assert (found["avgRed"], found["avgGreen"], found["avgBlue"]) == ("30", "140", "220")
+        decoded = np.frombuffer(ochre.read_ktx2(data).rgba, np.uint8).reshape(-1, 4)
+        assert (
+            np.abs(decoded[:, :3].astype(int) - (30, 140, 220)).max() <= 4
+        )  # RGB565  # noqa: PLR2004
