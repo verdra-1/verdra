@@ -203,6 +203,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Pictures that compress very well (flat colors, logos, text) are no longer refused as
+  "growing too much when decompressed". Pictures are now limited by their size instead (at most
+  16,384 pixels a side and 64 megapixels), and the message says the size.
 - A Roblox started by an earlier run of Verdra is no longer reported as "running without
   Verdra" right after Verdra starts.
 - Clicking Apply now again while it restarts Roblox no longer starts Roblox a second time, and

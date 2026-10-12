@@ -485,6 +485,7 @@ def _from_draco(data: bytes) -> Mesh:
     """Decode Draco geometry with DracoPy (Google's Draco library): positions, normals, UVs."""
     import DracoPy  # noqa: PLC0415, N813 - loaded only when a 6.00 or 7.00 mesh is read
 
+    _check_draco_counts(data)
     try:
         decoded = DracoPy.decode(data)
     except Exception as error:  # noqa: BLE001 - DracoPy raises several kinds for bad data
@@ -505,6 +506,24 @@ def _from_draco(data: bytes) -> Mesh:
     faces = tuple((int(a), int(b), int(c)) for a, b, c in decoded.faces)
     _check_count(len(faces), MAX_ELEMENTS)
     return Mesh(vertices, faces)
+
+
+def _check_draco_counts(data: bytes) -> None:
+    """Refuse counts over plan 10.7's limits before DracoPy allocates for them.
+
+    A sequential Draco mesh (what Roblox and Verdra write) names its face and point counts
+    right after the header. Other layouts are left to Draco's own checks against the data size.
+    """
+    if not data.startswith(b"DRACO") or len(data) < 12 or data[7:9] != b"\x01\x00":  # noqa: PLR2004
+        return
+    try:
+        faces, position = _read_varint(data, 11)
+        points, _position = _read_varint(data, position)
+    except (IndexError, ValueError) as error:
+        msg = "the mesh's compressed geometry is damaged"
+        raise ClayError(msg) from error
+    _check_count(points, MAX_ELEMENTS)
+    _check_count(faces, MAX_ELEMENTS)
 
 
 def _draco_attribute(decoded: object, unique_id: int, count: int, size: int) -> list[list[float]]:

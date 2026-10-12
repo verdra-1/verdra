@@ -6,9 +6,11 @@ TexturePack slots.
 Spec S-33 (strata/ochre), written from the Khronos KTX 2.0 specification. Pure functions over
 bytes: `read_image` turns KTX2, PNG, JPEG or DDS into `Pixels` (8-bit RGBA, top row first);
 `write_ktx2` writes the base level as uncompressed RGBA8, with its Data Format Descriptor;
-`to_png` writes a PNG. Every reader checks the limits of plan 10.7 before it allocates (16,384
-pixels a side, 1 GB decompressed, 100:1 ratio) and raises `OchreError` with a plain reason for
-anything it can't read; random bytes never raise anything else.
+`to_png` writes a PNG. Every reader checks the limits of plan 10.7 from the file's header before
+it decodes anything (16,384 pixels a side, 1 GB decompressed) and raises `OchreError` with a
+plain reason for anything it can't read; random bytes never raise anything else. A picture's
+pixels have no compression-ratio limit: a flat logo or text picture legitimately grows over
+1,000-fold, and its size is bounded by its pixel count instead (decision record 0024).
 """
 
 from __future__ import annotations
@@ -25,10 +27,18 @@ import texture2ddecoder
 import zstandard
 from PIL import Image
 
-#: Plan 10.7: the largest image side, decompressed size and compression ratio Verdra accepts.
+#: Plan 10.7: the largest image side and decompressed size Verdra accepts. 16,384 × 16,384
+#: RGBA is exactly 1 GB, so the side limit also bounds the decoded size.
 MAX_SIDE: Final = 16_384
 MAX_DECOMPRESSED: Final = 1 << 30
-MAX_RATIO: Final = 100
+#: The most pixels Verdra decodes (decision record 0024): 8,192 × 8,192, 256 MB as RGBA. It
+#: covers an 8K screenshot (33 megapixels) and a 48-megapixel phone photo, and keeps the peak
+#: memory of decoding and converting one picture well under 1 GB on an ordinary PC; a 16,384
+#: × 16,384 picture (allowed by the side limit alone) would need 1 GB for its pixels alone.
+MAX_PIXELS: Final = 8_192 * 8_192
+# Pillow's own guard (a warning past ~89 megapixels, an error past twice that) would refuse
+# pictures plan 10.7 allows; Verdra checks the size itself before decoding (`_check_size`).
+Image.MAX_IMAGE_PIXELS = MAX_SIDE * MAX_SIDE
 
 KTX2_IDENTIFIER: Final = b"\xabKTX 20\xbb\r\n\x1a\n"
 _HEADER = struct.Struct("<12s9I")  # identifier, vkFormat … supercompressionScheme
@@ -86,18 +96,20 @@ class Pixels:
 
 
 def _check_size(width: int, height: int) -> None:
-    if not (0 < width <= MAX_SIDE and 0 < height <= MAX_SIDE):
-        msg = f"the image is {width}×{height}; sides must be 1 to {MAX_SIDE:,} pixels"
+    if not (width > 0 and height > 0):
+        msg = f"the picture is {width}×{height} pixels, which has no pixels"
         raise OchreError(msg)
-
-
-def _check_growth(packed: int, unpacked: int) -> None:
-    """Plan 10.7: at most 1 GB decompressed, and at most 100 times the packed size."""
-    if unpacked > MAX_DECOMPRESSED:
-        msg = f"it would decompress to {unpacked:,} bytes (the limit is 1 GB)"
+    if width > MAX_SIDE or height > MAX_SIDE:
+        msg = (
+            f"the picture is {width:,}×{height:,} pixels; a side can be at most {MAX_SIDE:,} pixels"
+        )
         raise OchreError(msg)
-    if packed > 0 and unpacked > packed * MAX_RATIO and unpacked > 1 << 20:
-        msg = f"it would grow {unpacked // packed}-fold when decompressed (the limit is 100)"
+    if width * height > MAX_PIXELS:
+        msg = (
+            f"the picture is {width:,}×{height:,} pixels ({width * height / 1e6:.1f} "
+            f"megapixels); the most Verdra reads is {MAX_PIXELS / 1e6:.1f} megapixels, "
+            "for example 8,192×8,192"
+        )
         raise OchreError(msg)
 
 
@@ -117,19 +129,17 @@ def read_image(data: bytes) -> Pixels:
 def _read_with_pillow(data: bytes) -> Pixels:
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(data)) as image:
+            # The size is checked below, from the header, before anything is decoded.
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:  # reads the header only
                 _check_size(image.width, image.height)
-                _check_growth(len(data), image.width * image.height * 4)
-                rgba = image.convert("RGBA")
+                rgba = image.convert("RGBA")  # decodes
                 return Pixels(rgba.width, rgba.height, rgba.tobytes())
     except OchreError:
         raise
     except (OSError, ValueError, SyntaxError, Image.DecompressionBombError, EOFError) as error:
         msg = f"the image data is damaged ({type(error).__name__})"
         raise OchreError(msg) from error
-    except Image.DecompressionBombWarning as error:  # type: ignore[misc]
-        raise OchreError(str(error)) from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,7 +296,18 @@ def read_ktx2(data: bytes) -> Pixels:
         raise OchreError(msg)
     packed = data[offset : offset + length]
     if info.supercompression == _SUPERCOMPRESSION_ZSTD:
-        _check_growth(length, unpacked_length)
+        # The level's size follows from its pixel size and format (both checked already), so
+        # it is bounded exactly; a ratio would refuse flat textures, which compress >1,000-fold.
+        expected = _level_bytes(info.vk_format, info.width, info.height)
+        if expected is not None and unpacked_length != expected:
+            msg = (
+                f"its base level says {unpacked_length:,} bytes, but a {info.width}×"
+                f"{info.height} texture in this format has {expected:,}"
+            )
+            raise OchreError(msg)
+        if unpacked_length > MAX_DECOMPRESSED:
+            msg = f"it would decompress to {unpacked_length:,} bytes (the limit is 1 GB)"
+            raise OchreError(msg)
         try:
             level = zstandard.ZstdDecompressor().decompress(packed, max_output_size=unpacked_length)
         except zstandard.ZstdError as error:
@@ -298,6 +319,17 @@ def read_ktx2(data: bytes) -> Pixels:
         msg = f"supercompression scheme {info.supercompression} isn't supported"
         raise OchreError(msg)
     return _decode_level(info.vk_format, info.width, info.height, level)
+
+
+def _level_bytes(vk_format: int, width: int, height: int) -> int | None:
+    """The bytes of one level of this size and format; None for a format Verdra can't read."""
+    if vk_format in (VK_R8G8B8A8_UNORM, VK_R8G8B8A8_SRGB):
+        return width * height * 4
+    if vk_format in (VK_R8G8B8_UNORM, VK_R8G8B8_SRGB):
+        return width * height * 3
+    if vk_format in _BLOCKS:
+        return ((width + 3) // 4) * ((height + 3) // 4) * _BLOCKS[vk_format][1]
+    return None
 
 
 def _decode_level(vk_format: int, width: int, height: int, level: bytes) -> Pixels:
