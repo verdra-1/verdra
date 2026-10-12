@@ -139,7 +139,22 @@ def test_legal_texts_must_match_the_repository(tmp_path: Path) -> None:
     assert check_build.check_legal_texts(tmp_path / "dist", root) == [
         "assets/legal/NOTICE: differs from the repository's NOTICE",
         "assets/legal/PRIVACY.md: missing from the build",
+        "assets/legal/THIRD_PARTY_NOTICES.md: missing from the build",
     ]
+
+
+def test_third_party_notices_must_carry_the_lgpl_text(tmp_path: Path) -> None:
+    legal = tmp_path / "dist" / "_internal" / "verdra" / "assets" / "legal"
+    legal.mkdir(parents=True)
+    for name in check_build.LEGAL_TEXTS:
+        (legal / name).write_bytes((check_build.ROOT / name).read_bytes())
+    notices = legal / check_build.THIRD_PARTY_NOTICES
+    notices.write_text("PySide6 6.11.2\nLicense: LGPL-3.0-only\n", encoding="utf-8")
+    assert check_build.check_legal_texts(tmp_path / "dist") == [
+        "assets/legal/THIRD_PARTY_NOTICES.md: lacks the LGPL-3.0 text Qt needs"
+    ]
+    notices.write_text("GNU LESSER GENERAL PUBLIC LICENSE\n", encoding="utf-8")
+    assert check_build.check_legal_texts(tmp_path / "dist") == []
 
 
 def test_window_time_is_reported_against_the_budget(

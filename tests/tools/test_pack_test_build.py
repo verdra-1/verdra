@@ -114,3 +114,30 @@ def test_the_workflow_checks_and_uploads_that_exact_zip() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").lower()
     assert "release" not in text.split("jobs:")[1]
     assert "permissions: {}" in text
+
+
+def test_a_release_zip_has_the_release_read_me(tmp_path: Path) -> None:
+    folder = built(tmp_path)
+    target = tmp_path / "out" / "Verdra-0.1.0-windows.zip"
+    archive = pack_test_build.pack(folder, target, "abc123", release="0.1.0")
+    unpacked = pack_test_build.unpack(archive, tmp_path / "unpacked")
+    text = " ".join((unpacked / "READ-ME.txt").read_text(encoding="utf-8").split())
+    assert text.startswith("Verdra 0.1.0 (Windows)")
+    assert "test build" not in text
+    assert "commit abc123" in text and "isn't signed" in text
+    assert "no telemetry" in text
+    assert "https://github.com/verdra-1/verdra/issues" in text
+
+
+@pytest.mark.parametrize(
+    ("name", "version", "problem"),
+    [
+        ("Verdra-windows-test.zip", "0.1.0", "named Verdra-0.1.0-windows.zip"),
+        ("Verdra-0.1-windows.zip", "0.1", "isn't a version"),
+    ],
+)
+def test_a_release_zip_is_named_for_its_version(
+    tmp_path: Path, name: str, version: str, problem: str
+) -> None:
+    with pytest.raises(ValueError, match=problem):
+        pack_test_build.pack(built(tmp_path), tmp_path / name, "abc", release=version)

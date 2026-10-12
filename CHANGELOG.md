@@ -8,6 +8,13 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Added
 
+- About › Third-party notices shows the license of every library the Windows build contains,
+  with the LGPL-3.0 and GPL-3.0 texts Qt is used under. The build stops if a library's license
+  text is missing.
+- Releases are built, checked and published to GitHub Releases from a version tag, as
+  Verdra-X.Y.Z-windows.zip with SHA256SUMS and a READ-ME for that version.
+- A guide to replacing pictures and meshes, including what to expect: a replaced mesh keeps the
+  part's own texture.
 - Apply now waits for a link that is still downloading, shows it, and goes on by itself when
   the download is done, so a second click is no longer needed.
 - Deleting a profile is now in a "Profile options" menu, says how many replacements go with it,

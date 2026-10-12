@@ -1,0 +1,51 @@
+Verdra mesh test on the maintainer's PC, 12 October 2026 (source run, --format-check 498788302).
+Anonymised: no user name, no place, universe or session IDs, no CDN query values or content
+bytes. Asset IDs are public Toolbox assets. Times: report headers in UTC, log lines in the log's
+local time (UTC+2). Frames were read from the owner's videos by the session.
+
+Original asset: mesh 498788302 ("fmd", majorVersion 1.0.1, fidelity ALL).
+
+(a) Local file, OBJ emblem (winged V): VISIBLE
+- Log 22:15:14: "Served the replacement for asset 498788302 (FileMesh, 23584 bytes ...)".
+- Report format-check-498788302-1 (20:15 UTC): sent zstd-encoded, 5116 bytes, 23584 decoded;
+  "version 7.00"; COREMESH v2, 23524 bytes, Draco 2.2, faces 352, points 534, 5 attributes
+  (position f32x3 id 0, generic f32x3 id 1, texture coordinate f32x2 id 2, generic u8x4 id 3,
+  color u8x4 id 4), all coding 0; LODS v1, type 4, one high-quality level, offsets [0, 352].
+- Frame: the winged V shape in place of the original.
+
+(a2) Local file, textured cube: VISIBLE
+- Log 22:16:19: "Served the replacement for asset 498788302 (FileMesh, 1106 bytes ...)".
+- Report -2 (20:16 UTC): 263 bytes sent, 1106 decoded; faces 12, points 24; LODS [0, 12].
+- Frame: a cube, drawn with the part's own texture through the cube's UVs.
+
+(b) Asset ID swap (498788302 -> another public mesh): VISIBLE
+- Frame: a dark log shape in place of the original. Whether it is exactly the other asset's
+  geometry was not checked independently.
+- No format-check report for this step, by design: the batch item for 498788302 is rewritten to
+  ask for the other asset, so the CDN download is the other asset's, and the format check
+  follows 498788302's own download only.
+
+(c) Remove: GONE
+- Report -3 (20:19 UTC): 116 bytes sent, 233 decoded; faces 1, points 3 (one zero-area
+  triangle); LODS [0, 1].
+- Frame: no mesh where the original was.
+
+(d) Texture ID -> ID swap (regression check of the texture path): WORKS
+- Frame: the paint-drip picture on the wall.
+
+Report -4 (20:21 UTC): no replacement applied to this request; Verdra passed the CDN's answer on
+unchanged (18291 bytes zstd on the wire, 27203 decoded): COREMESH v2 27127 bytes, Draco 2.2,
+faces 1364, points 831, attribute codings 0, 2, 0, 1, 1; LODS v1 type 4, two high-quality
+levels, offsets [0, 744, 1118, 1286, 1342, 1364] (five levels). Verdra's own output differs from
+the original only where decision record 0023 says: raw codings, one level of detail.
+
+(e) Local file, 1600 x 900 PNG: FAILED (refused when saved, never served)
+- The editor refused the picture as having grown 127-fold when decoded. Cause: a compression
+  ratio limit (x100) applied to picture files. Fixed by decision record 0024 (pull request 128,
+  merged 12 October): limits are checked from the header (16,384 a side, 64 megapixels), there
+  is no ratio limit for pictures, and large pictures are scaled down. The owner's PNG was read on
+  the session machine before and after the fix: refused before, 1600 x 900 -> 1024 x 576 in three
+  packs after. Not yet re-tested in game.
+
+Seen by the owner, expected: a replaced mesh shows the part's own texture through the new mesh's
+UVs (Verdra replaces the geometry only; the texture is a separate asset).

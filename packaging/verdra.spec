@@ -19,6 +19,7 @@ ROOT = Path(SPECPATH).parent
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "src"))
 import check_build  # noqa: E402 - found through the path added above
+import third_party  # noqa: E402 - found through the path added above
 
 from verdra.soil import terrain  # noqa: E402 - found through the path added above
 
@@ -32,6 +33,14 @@ BUILD_STAMP = Path(workpath) / "build.txt"
 BUILD_STAMP.parent.mkdir(parents=True, exist_ok=True)
 BUILD_STAMP.write_text(check_build.build_id(ROOT) + "\n", encoding="utf-8")
 
+# Every bundled library's license for About › Third-party notices (plan 13.6, decision record
+# 0025). A library without a license text stops the build rather than shipping without it.
+NOTICES = Path(workpath) / check_build.THIRD_PARTY_NOTICES
+NOTICES_TEXT, NOTICES_MISSING = third_party.build(third_party.runtime_packages())
+if NOTICES_MISSING:
+    raise SystemExit("No license text for: " + "; ".join(NOTICES_MISSING))
+NOTICES.write_text(NOTICES_TEXT, encoding="utf-8")
+
 analysis = Analysis(
     [str(ROOT / "src" / "verdra" / "__main__.py")],
     pathex=[str(ROOT / "src")],
@@ -39,6 +48,7 @@ analysis = Analysis(
         (str(ROOT / "src" / "verdra" / "assets"), "verdra/assets"),
         # The legal texts exist once, at the repository root (decision record 0010).
         *((str(ROOT / name), "verdra/assets/legal") for name in check_build.LEGAL_TEXTS),
+        (str(NOTICES), "verdra/assets/legal"),
         (str(BUILD_STAMP), "verdra/assets"),
         *copy_metadata("verdra"),
     ],

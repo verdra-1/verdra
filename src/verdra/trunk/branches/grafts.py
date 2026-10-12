@@ -398,8 +398,9 @@ def prepare_content(
     S-21 rule 2: the proxy only picks prepared bytes. A Local file or a link's image is decoded
     once (strata/ochre, plan 10.7 limits) and written as PNG and as KTX2 in the CDN's own texture
     layout (decision record 0022), the formats the CDN sends images in; Remove is a transparent
-    picture in both. Meshes and sounds follow with their own steps (M-SOON-01 until then). A
-    link's bytes come from `fetched` (bark/rain's cache).
+    picture in both. A mesh is written as FileMesh 7.00 (decision record 0023); sounds and other
+    types follow with their own steps (M-SOON-01 until then). A link's bytes come from `fetched`
+    (bark/rain's cache).
     """
     if graft.slot is not None:
         return _soon()
