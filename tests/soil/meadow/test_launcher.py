@@ -363,3 +363,34 @@ def test_every_player_and_studio_of_this_user_counts_as_running() -> None:
     assert found == humus.RobloxProcesses(players=(1, 2), studio=(3,))
     assert found.any
     assert not humus.RobloxProcesses().any
+
+
+@pytest.mark.parametrize(
+    ("command", "verdra"),
+    [
+        ('"C:\\Users\\me\\Documents\\Verdra\\verdra.exe" "%1"', True),
+        ('"C:\\Verdra\\VERDRA.EXE" "%1"', True),
+        ('"C:\\src\\verdra\\.venv\\Scripts\\pythonw.exe" "-m" "verdra" "%1"', True),
+        ('"C:\\Python314\\python.exe" "-m" "verdra" "%1"', True),
+        ('"C:\\Users\\me\\AppData\\Local\\Roblox\\Versions\\v\\RobloxPlayerBeta.exe" %1', False),
+        ('"C:\\tools\\notverdra.exe" "%1"', False),
+        ('"C:\\Python314\\python.exe" "-m" "verdra_other" "%1"', False),
+        (None, False),
+    ],
+)
+def test_the_handler_knows_a_command_of_any_verdra_copy(command: str | None, verdra: bool) -> None:
+    # Run from source, then the built app: both are Verdra, so a switch isn't Roblox taking the
+    # links back (trunk/branches/sprout.set_link_handling).
+    registry = FakeRegistry()
+    handler = launcher.WindowsLinkHandler(registry)
+    if command is not None:
+        registry.set("HKCU", launcher.HANDLER_COMMAND_KEY, "", command)
+    assert handler.verdra() is verdra
+
+
+def test_what_verdra_registers_is_recognized_as_verdra() -> None:
+    registry = FakeRegistry()
+    handler = launcher.WindowsLinkHandler(registry)
+    for command in (["C:\\Verdra\\verdra.exe"], ["C:\\venv\\Scripts\\pythonw.exe", "-m", "verdra"]):
+        handler.register(command)
+        assert handler.verdra()

@@ -131,8 +131,9 @@ def set_link_handling(
 
     Turning it on records the previous handler in a `uri_handler` entry before the change
     (rule 2). If Roblox's updater has taken the handler back since, that entry is closed (the
-    handler is Roblox's again) and a new one is recorded. Turning it off restores every open
-    entry, newest first.
+    handler is Roblox's again) and a new one is recorded. If another copy of Verdra holds it (run
+    from source, then built), the entry stays: it already holds Roblox's handler. Turning it off
+    restores every open entry, newest first.
 
     Raises:
         LinkHandlingUnavailableError: the system's handler can't be taken over yet.
@@ -147,6 +148,11 @@ def set_link_handling(
             restore_handler(entry, ledger, platform)
         return
     if entries and handler.registered(command):
+        return
+    if entries and handler.verdra():
+        # Another copy of Verdra holds the links (a source run, then the built app): the open
+        # entry already has Roblox's handler, which Reset everything puts back.
+        handler.register(command)
         return
     for entry in entries:
         ledger.mark(entry.id, "removed", reclaimed_by_roblox=True)
