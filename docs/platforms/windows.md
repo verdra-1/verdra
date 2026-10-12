@@ -190,6 +190,19 @@ From the format check and the videos, anonymised in
 | contentHash checked by the client? | Drawn with Verdra's own value | **No**: question closed |
 | Picture at a distance | Black until close up | **Fail**: Roblox loads three packs of mip levels; Verdra sent one (fixed in strata/ochre, decision record 0022) |
 
+## Mip packs: no more black textures (maintainer's PC, 2026-10-12)
+
+From the format capture, the format check and the videos, anonymised in
+`evidence/windows/mip-packs-2026-10-12.txt`.
+
+| Check | Evidence | Result |
+|---|---|---|
+| The original's three packs, keys compared | Saved bodies of 15553230204: keys identical except packIndex | Recorded: Verdra's packs follow the same rule |
+| Roblox asks for every pack of a replaced picture | Format check reports 11 to 16: packs 0, 1 and 2 answered for each picture | **Pass** |
+| Opaque 1024 × 1024 from far away | Owner's video (15:46:57 UTC) | **Pass** (owner) |
+| PNG with transparency from far away | Video 15:53:29 UTC, also seen by the session | **Pass** |
+| Texture part of the M2 exit gate (file, link, transparency, Remove) | 11 and 12 October | **Met**; mesh swap open |
+
 ## Differences from the plan
 
 - Plan 16.2 lists `sc2` and `sc5.rbxcdn.com` as speed tests. In this log `sc0`, `sc0ak` and

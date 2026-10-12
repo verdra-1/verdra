@@ -33,6 +33,10 @@ You run day-to-day work and move on to the next milestone by yourself after an e
   (Detailed logging on, only the rows the step needs, "Moved…" in Activity before each join), and
   puts every command in its own code block with the script's full path
   (`"$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1"`).
+- Capture first: before a real-machine test of a new format, capture what Roblox's CDN sends
+  (`--format-capture … --save-bodies`) and make Verdra's output match its structure in synthetic
+  tests (`--format-check` shows what Verdra sent). Textures were verified this way on 11 and 12
+  October 2026 (`docs/platforms/windows.md`).
 - Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.

@@ -1,0 +1,43 @@
+Verdra mip-pack test on the maintainer's PC, 12 October 2026 (source run).
+Anonymised: no user name, no place, universe or session IDs, no CDN query values or content
+bytes. Asset IDs are public Toolbox assets. Times are the log's local time (UTC+2); report
+headers say UTC.
+
+Step 1: --format-capture 15553230204,498788302 --save-bodies (no replacement)
+- The original 15553230204 (500 x 500 with alpha) was downloaded as three packs, twice
+  (reports format-capture-15553230204-2 to -7, 17:38:29-17:38:34 and 17:42:00-17:42:03):
+    pack 0 (fidelity "/////AE=", bytes ff ff ff fc 01): BC3 28 x 28, 5 levels, uncompressed
+      784, 256, 64, 16, 16; DFD at 200, key/value data at 260 (456 bytes)
+    pack 1 ("/////AI=", ff ff ff fc 02): BC3 224 x 224, 3 levels, 50176, 12544, 3136; DFD at 152
+    pack 2 ("/////AM=", ff ff ff fc 03): BC3 448 x 448, 1 level, 200704; DFD at 104
+  Level data is stored smallest level first, right after the key/value data, with no gaps.
+- The keys of the three packs are identical except packIndex (0, 1, 2): pack_0 "4,5",
+  pack_1 "1,3", pack_2 "0,1", transcodedWidth/Height 448, the same averages and contentHash.
+  (Compared from the saved bodies on the session machine; the bodies are not in the
+  repository.)
+- Mesh 498788302: body saved (27203 bytes decoded; 17361 or 18291 bytes zstd-encoded on the
+  wire). "version 7.00", then a COREMESH chunk (version 2, 27127 bytes, Draco-compressed
+  geometry) and a LODS chunk (version 1, 31 bytes). Representation: format "fmd",
+  majorVersion "1.0.1", fidelity "ALL", one representation.
+
+Step 2: --format-check 15553230204, Local file, opaque 1024 x 1024 PNG
+- Roblox asked for all three packs and Verdra answered each with its own pack
+  (log 17:46:25, 17:46:39, 17:46:53; reports format-check-15553230204-11 to -13):
+    pack 0: BC1 64 x 64, 7 levels; pack 1: BC1 512 x 512, 3 levels; pack 2: BC1 1024 x 1024,
+    1 level; all with pack_0 "4,7"; sent with Content-Encoding zstd.
+- Owner: visible from far away, no black areas (video 15:46:57 UTC; not seen by the session).
+
+Step 3: the same with a PNG with transparency
+- All three packs asked for and answered (log 17:50:07, 17:50:12, 17:50:12; reports -14 to -16):
+    pack 0: BC3 24 x 24, 5 levels; pack 1: BC3 192 x 192, 3 levels; pack 2: BC3 384 x 384,
+    1 level; all with pack_0 "4,5".
+- Video 15:53:29 UTC (13 s, seen by the session, frames at 0, 4, 8 and 12 s): the rose is
+  visible far away, on the approach and close up, with no black areas or boundary.
+
+Seen in the same log, fixed or decided separately
+- 17:37:48: a Player started by the previous Verdra run (its environment pointed at Verdra's
+  proxy port) was reported as "running without Verdra" before routing had started.
+- 17:38:00-17:38:17: four "Restart Roblox now?" dialogs in 17 seconds with 0 replacements
+  (capture mode: no rows), each answered with Restart.
+- 17:41:07 and 17:41:13: two more Players started 6 seconds apart while the one Verdra started
+  at 17:40:59 was running; the last closed right away.
