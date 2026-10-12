@@ -191,6 +191,25 @@ def check_build_stamp(folder: Path) -> list[str]:
     return []
 
 
+#: Native modules the codecs load only when they need them (strata/clay reads 6.00 and 7.00
+#: meshes through DracoPy; strata/ochre decodes block textures through texture2ddecoder), so a
+#: build without them would start fine and fail later: (file name start, what needs it).
+NATIVE_MODULES = (
+    ("DracoPy.", "DracoPy (meshes, decision record 0023)"),
+    ("_texture2ddecoder.", "texture2ddecoder (textures)"),
+)
+
+
+def check_native_modules(folder: Path) -> list[str]:
+    """Return a problem per codec native module (.pyd on Windows, .so elsewhere) not built in."""
+    names = [path.name for path in folder.rglob("*") if path.suffix in {".pyd", ".so"}]
+    return [
+        f"{what}: its native module is missing from the build"
+        for start, what in NATIVE_MODULES
+        if not any(name.startswith(start) for name in names)
+    ]
+
+
 def check_legal_texts(folder: Path, root: Path = ROOT) -> list[str]:
     """Return a problem per legal text the build lacks or carries in a different version."""
     found = {path.name: path for path in folder.rglob("*") if path.parent.name == "legal"}
@@ -346,6 +365,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     problems = check(arguments.folder, load_config(), installed_modules())
     problems += check_legal_texts(arguments.folder)
+    problems += check_native_modules(arguments.folder)
     problems += check_build_stamp(arguments.folder)
     problems += check_no_diagnostics(
         arguments.folder, diagnostic_marker(), archived_modules(arguments.folder)

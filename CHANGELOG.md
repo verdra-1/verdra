@@ -203,6 +203,9 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Mesh replacements and Remove for meshes are sent in the format Roblox's own servers use
+  (Roblox mesh version 7.00 with compressed geometry). Roblox mesh files of version 6.00 and 7.00
+  can now be used as a replacement from your PC.
 - A replaced picture no longer looks black from a distance: Verdra now sends every size of it
   that Roblox asks for, not only the full one.
 - When a replacement can't be prepared, Activity now says which one and why. If none could be

@@ -414,3 +414,22 @@ def test_a_chunked_mesh_lists_its_chunks() -> None:
     assert "    LODS, 1, 3, 61 62 63" in text
     assert "2 bytes left over" in text
     assert "header size" not in text
+
+
+def test_a_format_check_shows_verdras_mesh_next_to_roblox_s(tmp_path: Path) -> None:
+    """--format-check for a mesh: the replacement's chunks and Draco attributes, as sent."""
+    check = litmus.FormatCheck(frozenset({ABOVE_UINT32}), tmp_path)
+    request = hyphae.Request(CDN, b"GET", PATH.encode(), ())
+    check._originals[id(request)] = b"version 7.00\n(the CDN's own mesh)"  # noqa: SLF001
+    point = clay.Vertex((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0))
+    served = clay.write_filemesh7(clay.Mesh((point, point, point), ((0, 1, 2),)))
+    response = hyphae.Response(200, ((b"Content-Encoding", b"zstd"),), b"OK", served, coding="zstd")
+    check._write(litmus._Watched(ABOVE_UINT32, {}), request, response)  # noqa: SLF001
+    [path] = check.reports
+    text = path.read_text(encoding="utf-8")
+    assert "Verdra answered with the replacement" in text
+    assert "< Content-Encoding: zstd" in text
+    assert "COREMESH, 2," in text
+    assert "faces 1, points 3, connectivity method 1" in text
+    assert "id 4: color uint8 x 4, coding 0" in text
+    assert "type 4, high-quality levels 1, face offsets [0, 1]" in text
