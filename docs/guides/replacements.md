@@ -1,7 +1,7 @@
 # Replacing pictures and meshes
 
 Verdra changes how a Roblox game looks on your own computer only. Other players see the game as
-usual. This page covers what works in Verdra 0.1.0.
+usual. This page covers what works today (milestone M2).
 
 ## Make a replacement
 

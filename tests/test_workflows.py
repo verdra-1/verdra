@@ -100,11 +100,57 @@ def test_every_job_runs_on_windows_only(path: Path) -> None:
     assert labels <= {"windows-latest", "${{"} and matrix <= {"windows-latest"}, (labels, matrix)
 
 
-def test_a_release_is_published_only_from_a_tag() -> None:
-    # Decision record 0025: a tag publishes; a run started by hand only builds and checks the ZIP.
+#: Owner decision of 13 October 2026 (plan 16.2, decision record 0026): no public release before
+#: 1.0.0. Anything that could publish a release, a tag or a package is refused in every workflow.
+PUBLISHING = re.compile(
+    r"\bgh release\b"  # GitHub CLI releases
+    r"|repos/[^\s\"']*/releases\b(?!/download)"  # the releases API (not a public download URL)
+    r"|\bgit (?:tag|push)\b"  # tags and pushes
+    r"|(?:contents|packages|deployments|id-token|attestations|pages): write"  # write permissions
+    r"|action-gh-release|create-release|upload-release-asset"  # release actions
+    r"|^\s+tags:|^\s+release:",  # tag and release triggers
+    re.MULTILINE,
+)
+
+
+@pytest.mark.parametrize("path", WORKFLOWS, ids=lambda path: path.name)
+def test_no_workflow_can_publish_before_1_0(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    found = [match.group(0).strip() for match in PUBLISHING.finditer(text)]
+    assert found == [], f"{path.name} could publish: {found}"
+
+
+def test_the_release_workflow_is_a_dry_run_started_by_hand() -> None:
     path = next(path for path in WORKFLOWS if path.name == "release.yml")
-    found = jobs(path.read_text(encoding="utf-8"))
-    assert "contents: write" not in found["build"]
-    assert "if: github.event_name == 'push'" in found["publish"]
-    assert "\n    environment: release" in found["publish"]
-    assert "--verify-tag" in found["publish"]
+    text = path.read_text(encoding="utf-8")
+    on = text[text.index("\non:") : text.index("\npermissions:")].splitlines()
+    assert [line for line in on if line and not line.startswith("#")] == [
+        "on:",
+        "  workflow_dispatch:",
+    ]
+    assert list(jobs(text)) == ["build"]
+    assert "retention-days: 5" in text
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "        run: gh release create v1 out/x.zip",
+        "      contents: write",
+        '    tags: ["v*"]',
+        "        run: git push origin v0.1.0",
+        "        run: curl -X POST https://api.github.com/repos/verdra-1/verdra/releases",
+        "      - uses: softprops/action-gh-release@0123456789012345678901234567890123456789",
+    ],
+)
+def test_the_publishing_guard_sees_each_way_to_publish(line: str) -> None:
+    assert PUBLISHING.search(f"jobs:\n  a:\n{line}\n") is not None
+
+
+def test_the_publishing_guard_allows_downloads_and_issue_reports() -> None:
+    allowed = (
+        "        run: curl -L https://github.com/gitleaks/gitleaks/releases/download/v8/x.zip\n"
+        "      issues: write\n"
+        "      contents: read\n"
+    )
+    assert PUBLISHING.search(allowed) is None

@@ -28,7 +28,7 @@ You run day-to-day work and move on to the next milestone by yourself after an e
 - Real-machine tests run Verdra from source: the maintainer runs
   `powershell -ExecutionPolicy Bypass -File tools\run-latest.ps1` in their clone before each test
   (guide `docs/guides/run-from-source.md`, decision record 0021). The test-build ZIP stays but
-  isn't needed. How releases are distributed is an open item, decided before 0.1.0.
+  isn't needed.
 - Every real-machine test guide starts with the checklist in `docs/guides/run-from-source.md`
   (Detailed logging on, only the rows the step needs, "Moved…" in Activity before each join), and
   puts every command in its own code block with the script's full path
@@ -37,8 +37,13 @@ You run day-to-day work and move on to the next milestone by yourself after an e
   (`--format-capture … --save-bodies`) and make Verdra's output match its structure in synthetic
   tests (`--format-check` shows what Verdra sent). Textures were verified this way on 11 and 12
   October 2026, meshes on 12 October (`docs/platforms/windows.md`).
-- Releases (decision record 0025): a tag `vX.Y.Z` builds, checks and publishes the Windows ZIP to
-  GitHub Releases. Tag only after the maintainer says yes to the release notes.
+- **No public release before 1.0.0** (plan 16.2, decision record 0026): push no version tag and
+  create no GitHub release, pre-release or draft until the maintainer approves 1.0.0; if one
+  exists, tell the maintainer before touching it. `release.yml` is a dry run started by hand (the
+  ZIP a user would get, kept 5 days); `tests/test_workflows.py` fails if any workflow could
+  publish, and only an owner-approved change may turn publishing on. "0.1.0" is the internal label
+  for "M2 complete". No outside testers before the beta milestone (M7). The public repository
+  is not a release.
 - Exit gates are judged on CI evidence (Windows runners). Anything that needs a real computer with Roblox
   goes into one short, plain-language test session per milestone; code continues against the
   fake Roblox server meanwhile, and a milestone is done only when its real-machine tests pass.

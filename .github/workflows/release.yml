@@ -1,18 +1,16 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-# Release pipeline (Master plan 13.5, decision record 0025). A tag vX.Y.Z whose version matches
-# pyproject.toml builds the portable Windows app with the same PyInstaller setup as CI, packs
-# Verdra-X.Y.Z-windows.zip, checks that exact ZIP (Qt allowlist, legal texts and third-party
-# notices, no diagnostic interception, one start of the app) and publishes it with SHA256SUMS
-# to GitHub Releases as a pre-release (versions before 1.0 are previews, plan 14), with
-# docs/releases/X.Y.Z.md as the notes. Started by hand, it only builds and checks the ZIP and
-# keeps it as an artifact: nothing is published. The CycloneDX SBOM, provenance attestations
-# and signing are added with spec S-80.
-name: Release
+# Release dry run (Master plan 13.5, 16.2 of 13 October 2026; decision records 0025 and 0026).
+# No public release before 1.0.0: this workflow never publishes. Started by hand, it builds the
+# portable Windows app with the same PyInstaller setup as CI, packs Verdra-X.Y.Z-windows.zip
+# exactly as a user would get it, checks that exact ZIP (Qt allowlist, legal texts and third-party
+# notices, no diagnostic interception, one start of the app) and keeps it as a workflow artifact
+# for a few days. No tag trigger, no write permission, no release, tag or upload anywhere else;
+# tests/test_workflows.py fails if any workflow could publish. Publishing is turned on only by an
+# owner-approved change for 1.0.0 (spec S-80).
+name: Release dry run
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 # No permissions unless a job asks for them.
@@ -28,34 +26,23 @@ defaults:
 
 jobs:
   build:
-    name: Build and check the release ZIP
+    name: Build and check the release ZIP (dry run)
     runs-on: windows-latest
     permissions:
       contents: read
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Version (a tag must match pyproject.toml and have its release notes)
+      - name: Version
         id: version
-        env:
-          EVENT: ${{ github.event_name }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          version="$(uv version --short)"
-          if [ "$EVENT" = push ]; then
-            [ "v${version}" = "$TAG" ] || { echo "Tag $TAG doesn't match version $version"; exit 1; }
-            [ -s "docs/releases/${version}.md" ] || { echo "docs/releases/${version}.md is missing"; exit 1; }
-          fi
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(uv version --short)" >> "$GITHUB_OUTPUT"
       - name: Install
         run: uv sync --group build
       - name: PyInstaller
         run: uv run pyinstaller packaging/verdra.spec --noconfirm
-      - name: Pack the release ZIP
+      - name: Pack the ZIP a user would get
         env:
           COMMIT: ${{ github.sha }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -68,38 +55,18 @@ jobs:
         run: |
           uv run python tools/pack_test_build.py --unpack "out/Verdra-${VERSION}-windows.zip" unpacked
           uv run python tools/check_build.py unpacked/Verdra --launch
-      - name: SHA256SUMS
+      - name: SHA-256 in the run summary
         working-directory: out
-        run: sha256sum Verdra-*-windows.zip > SHA256SUMS
+        run: |
+          {
+            echo '```'
+            sha256sum Verdra-*-windows.zip
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release
-          path: out/
-          retention-days: 30
+          # One file, not zipped again: the artifact is the ZIP itself, kept for a few days.
+          path: out/Verdra-${{ steps.version.outputs.version }}-windows.zip
+          archive: false
+          retention-days: 5
           if-no-files-found: error
-
-  publish:
-    name: Publish to GitHub Releases
-    if: github.event_name == 'push'
-    needs: build
-    runs-on: windows-latest
-    environment: release
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release
-          path: out
-      - name: Create the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: >-
-          gh release create "$TAG" "out/Verdra-${VERSION}-windows.zip" out/SHA256SUMS
-          --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Verdra ${VERSION}"
-          --notes-file "docs/releases/${VERSION}.md"
