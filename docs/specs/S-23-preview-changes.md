@@ -44,3 +44,6 @@ Show exactly what will change before it changes.
   and "<n> conflicts.", each with its own count) joined by a space; each gets its own singular and plural form.
 - Each replacement carries its original's asset type into the snapshot, so the preview groups
   by the same snapshot the proxy uses.
+
+- **Editor 2.0 phase A (Draft, 13 October 2026).** S-27's review dialog lists changes before applying; Preview changes keeps showing conflicts, computed from the applied snapshot or the one the review would publish. Nothing changes until the owner
+  approves S-25 to S-27 (`docs/design/editor-2.md`).

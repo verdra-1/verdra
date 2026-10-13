@@ -150,3 +150,5 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   failed link, so one that keeps failing can't keep Apply now waiting; it shows M-GRAFT-01 like
   any replacement that couldn't be prepared. A second click while it waits changes nothing.
 
+- **Editor 2.0 phase A (Draft, 13 October 2026).** S-27's review dialog replaces the Apply now button and asks the restart question; this spec's steps and rules run after its confirm, unchanged. Nothing changes until the owner
+  approves S-25 to S-27 (`docs/design/editor-2.md`).

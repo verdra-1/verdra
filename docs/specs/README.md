@@ -29,6 +29,9 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 | [S-22](S-22-replacement-editor.md) | Replacement editor | M2 | Agreed |
 | [S-23](S-23-preview-changes.md) | Preview changes | M2 | Agreed |
 | [S-24](S-24-apply-now.md) | Apply now | M2 | Agreed |
+| [S-25](S-25-row-status.md) | Row status (Editor 2.0 phase A) | M2 follow-up | Draft |
+| [S-26](S-26-editing-in-place.md) | Editing replacements in place (Editor 2.0 phase A) | M2 follow-up | Draft |
+| [S-27](S-27-review-and-apply.md) | Review and apply (Editor 2.0 phase A) | M2 follow-up | Draft |
 
 Windows is the only platform (decision record 0018). Linux is paused and macOS is deferred until
 after 1.0 (decision record 0014): their parts of the specs stay as reference only, and nothing

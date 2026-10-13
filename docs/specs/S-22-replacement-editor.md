@@ -110,3 +110,6 @@ Add and edit a replacement without knowing file formats.
 - Verified on Windows (2026-10-07): the type check refused a sound's ID for a picture with
   M-EDIT-02 on the maintainer's PC, so Roblox's public asset details answer without signing in
   (`docs/platforms/windows.md`).
+
+- **Editor 2.0 phase A (Draft, 13 October 2026).** S-26 opens the drawer filled in for any row ("Edit replacement"), adds "Revert to live version" and "Save · apply later", and saves the original's asset name from the type check. Nothing changes until the owner
+  approves S-25 to S-27 (`docs/design/editor-2.md`).
