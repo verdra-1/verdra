@@ -99,3 +99,5 @@ Organize replacements into named profiles that can be switched on and off.
   (M-PROF-10). Files in the profile's folder are never deleted with it. The header's profile list
   shows the profiles that apply, or "No profile yet".
 
+- **Editor 2.0 phase A (Draft, 13 October 2026).** S-26 adds an applied version per row and per profile (`verdra.profile` version 2, with a migration from version 1), Deleted rows kept until applied, and undo that never touches applied versions. Nothing changes until the owner
+  approves S-25 to S-27 (`docs/design/editor-2.md`).
