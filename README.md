@@ -11,9 +11,10 @@ and can be undone with one action.
 Works with the Roblox Player on Windows. Windows is the only supported system: Linux is paused
 and macOS is deferred, both planned later.
 
-> **Early development.** Verdra is a preview for invited testers (milestone M2). It replaces
-> pictures and meshes in the Roblox Player; the rest of what's listed below arrives in later
-> versions (the first public release will be 1.0). See
+> **Early development.** Verdra is in development (milestone M2). It replaces pictures and
+> meshes in the Roblox Player; the rest of what's listed below arrives later. There are no
+> releases or downloads before 1.0, the first public release; to try it, build it from source
+> (below). See
 > [Replacing pictures and meshes](docs/guides/replacements.md). Verdra is an independent project
 > and is not affiliated with or endorsed by Roblox Corporation. Roblox is a trademark of Roblox
 > Corporation.

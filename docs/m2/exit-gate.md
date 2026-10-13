@@ -1,9 +1,10 @@
 # M2 exit gate
 
-Plan section 14, M2 Graft: replacements (0.1.0, private preview). The exit gate reads: "a texture
-swap and a mesh swap are visible in game on Windows; 0.1.0 tagged for you and invited testers."
-This page gives the evidence for each part, as of 12 October 2026, and says plainly what is not
-verified.
+Plan section 14, M2 Graft: replacements. The exit gate reads: "a texture swap and a mesh swap are
+visible in game on Windows; 0.1.0 tagged for you and invited testers." On 13 October 2026 the
+owner decided there is no public release before 1.0.0 (plan 16.2, decision record 0026): "0.1.0"
+is the internal label for "M2 complete", with no tag and no outside testers. This page gives the
+evidence for each part and says plainly what is not verified.
 
 ## Result
 
@@ -11,10 +12,11 @@ verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 tagged for the owner and invited testers | **Open**: waits for the owner's yes to the release notes ([docs/releases/0.1.0.md](../releases/0.1.0.md)) | Decision record 0025 |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: the final M2 test ([guide](../guides/m2-final-test.md)) | [Internal milestone notes](../releases/0.1.0.md) |
 
-M2 is done when 0.1.0 is tagged and the release build's quick test (next test guide, step (g))
-passes.
+M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
+one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
+PC.
 
 ## Texture swap
 
@@ -98,9 +100,13 @@ Said plainly, so nobody reads more into the result than was tested:
   asset's geometry was not checked independently.
 - **Large pictures in game.** Decision record 0024's fix is tested in CI and on the owner's file,
   not yet in game (step (e)).
-- **The release build.** The ZIP from GitHub Releases has not been started on a real machine
-  (step (g)); CI checks it on a Windows runner (Qt modules, legal texts, no diagnostics, one
-  start).
+- **The release dry-run ZIP.** Not yet started on a real machine (final test, step (g)); CI
+  checks it on a Windows runner (Qt modules, legal texts, no diagnostics, one start).
+- **The Qt source addresses** in the third-party notices (download.qt.io) weren't reachable from
+  the session that wrote them. Needed: someone opens them once and checks they list the bundled
+  Qt and Qt for Python version, or the notices name another address that does. It blocks nothing
+  before 1.0 (nothing is published); whether 1.0 should carry its own copy of those sources is
+  for the lawyer review of plan section 3 (M8).
 - **TexturePack slots** (one map of a material, such as its normal map) are not built.
 - **Sounds and other types from a file or link** are not built (M-SOON-01); a file or link
   replacement works for pictures and meshes. Asset ID swaps were tried with pictures and meshes

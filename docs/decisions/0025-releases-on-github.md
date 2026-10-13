@@ -1,6 +1,8 @@
 # 0025. Releases: built by CI from a tag, published to GitHub Releases in this repository
 
-- **Status:** Accepted (owner, 12 October 2026); the first tag, v0.1.0, waits for the owner's yes
+- **Status:** Accepted (owner, 12 October 2026), amended by [0026](0026-no-public-release-before-1-0.md):
+  no public release before 1.0.0; the workflow is a dry run, its tag trigger and publish job are
+  gone, and the build, ZIP and check steps and the third-party notices below stay as they are
 - **Date:** 2026-10-12
 - **Plan sections:** 3.2, 13.5, 13.6, 14 (M2 exit gate), 16.2; decision records 0002, 0015,
   0019, 0021

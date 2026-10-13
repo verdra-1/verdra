@@ -7,8 +7,9 @@ unzip and double-click, built by CI on every push to main and kept as a workflow
 not a release and has no installer. The ZIP holds one folder, `Verdra`, with `verdra.exe` (Reference
 R3), what PyInstaller put next to it, and `READ-ME.txt`.
 
-A release (decision record 0025) is the same ZIP with `--release VERSION`: named
-`Verdra-VERSION-windows.zip`, with a READ-ME for that version instead of the test build's.
+The release ZIP (decision records 0025 and 0026: a dry run until 1.0) is the same ZIP with
+`--release VERSION`: named `Verdra-VERSION-windows.zip`, with a READ-ME for that version instead
+of the test build's.
 
 The build check runs on that exact ZIP: `--unpack` extracts it into an empty folder, and
 `tools/check_build.py` checks the extracted `Verdra` folder (Qt modules, legal texts, launch).
