@@ -2,23 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 """Replacement profiles: store, validation, conflicts, snapshot compile, undo and redo.
 
-Spec S-20. Each profile is one `verdra.profile` v1 file, `profiles/<name>.json` (plan 9.2, 9.3),
-written atomically with `.bak` (plan 9.7). `ProfileStore` keeps the profiles in their order
-(the setting `replacements.profile_order`), records every edit for undo and redo, and compiles
-the enabled replacements into the `roots.rules.GraftSnapshot` the proxy reads (spec S-21):
-a profile higher in the list wins for the same original, and within one profile the later
+Spec S-20. Each profile is one `verdra.profile` file, `profiles/<name>.json` (plan 9.2, 9.3),
+written atomically with `.bak` (plan 9.7). Version 2 (spec S-26) keeps, per replacement, the
+version last applied next to the saved one, and per profile its applied switch; a version 1 file
+is migrated when it is loaded (applied = saved, the old file kept as `<name>.json.v1`), and a
+file from a newer Verdra is left untouched and unused. `ProfileStore` keeps the profiles in
+their order (the setting `replacements.profile_order`), records every edit for undo and redo,
+and compiles the enabled replacements into the `roots.rules.GraftSnapshot` the proxy reads (spec
+S-21): a profile higher in the list wins for the same original, and within one profile the later
 replacement wins (rule 1).
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import re
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path, PureWindowsPath
 from types import MappingProxyType
 from typing import Annotated, Any, Final
@@ -37,7 +42,13 @@ from verdra.strata import clay, ochre
 log = logging.getLogger(__name__)
 
 FORMAT = terrain.FORMAT_PROFILE
-VERSION = 1
+VERSION = 2
+#: Spec S-26 rule 7: all copies of applied files together.
+MAX_APPLIED_BYTES = 2 * 1024**3
+#: Spec S-26: the room phases B and C have inside a replacement, as its JSON.
+MAX_VIEW_BYTES = 4096
+#: The suffix the version 1 file is kept under after migrating (plan 9.7).
+V1_SUFFIX = ".v1"
 #: Rule 3.
 MAX_REPLACEMENTS = 10_000
 #: Undo and redo cover the last 50 edits of the session.
@@ -65,8 +76,20 @@ class Target(Struct, kw_only=True):
     value: str = ""
 
 
+class Applied(Struct, kw_only=True):
+    """The version of a replacement the game gets now (spec S-26), set by applying it."""
+
+    original: Original
+    target: Target
+    enabled: bool = True
+    asset_type: str = ""
+    #: The SHA-256 of a file target's bytes, whose copy is in the Applied folder (rule 4).
+    sha256: str | None = None
+    at: UtcTimestamp
+
+
 class Replacement(Struct, kw_only=True):
-    """One replacement in a profile."""
+    """One replacement in a profile: its saved version, and the applied one (or None)."""
 
     id: str
     enabled: bool = True
@@ -74,16 +97,25 @@ class Replacement(Struct, kw_only=True):
     target: Target
     asset_type: str = ""
     note: str = ""
+    #: The original's asset name, for display only (S-26).
+    name: str = ""
+    #: Deleted after it was applied: it stays until the deletion is applied (S-25, question N1).
+    deleted: bool = False
+    applied: Applied | None = None
+    #: Reserved for Editor 2.0 phases B and C; kept as it is (S-26).
+    view: dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 class Profile(Struct, kw_only=True):
-    """A `verdra.profile` v1 file."""
+    """A `verdra.profile` v2 file."""
 
     format: str = FORMAT
     version: int = VERSION
     id: str
     name: str
     enabled: bool = True
+    #: The switch as last applied, or None if the profile was never applied (S-26 rule 3).
+    applied_enabled: bool | None = None
     created: UtcTimestamp
     modified: UtcTimestamp
     replacements: list[Replacement] = field(default_factory=list)
@@ -91,6 +123,15 @@ class Profile(Struct, kw_only=True):
 
 class ProfileError(ValueError):
     """A profile can't be saved as it is; the message is the sentence the user sees."""
+
+
+class ProfileNewerError(RuntimeError):
+    """A profile file comes from a newer Verdra: it is left untouched and not used (S-20 rule 4)."""
+
+    def __init__(self, path: Path, version: int) -> None:
+        super().__init__(f"{path} is a {FORMAT} v{version} file; this Verdra reads v{VERSION}")
+        self.path = path
+        self.version = version
 
 
 class ProfileUnreadableError(RuntimeError):
@@ -314,15 +355,60 @@ def encode(profile: Profile) -> bytes:
     return msgspec.json.format(msgspec.json.encode(profile), indent=2) + b"\n"
 
 
-def decode(data: bytes) -> Profile:
-    """Parse and validate a profile; raises `msgspec.DecodeError` or `msgspec.ValidationError`."""
-    profile = msgspec.json.decode(data, type=Profile)
-    if profile.format != FORMAT or profile.version != VERSION:
-        msg = f"not a {FORMAT} v{VERSION} file"
+class _Header(Struct):
+    """The two fields every version has, read before the rest."""
+
+    format: str = ""
+    version: int = 0
+
+
+def file_version(data: bytes) -> int:
+    """Return the `verdra.profile` version of a file; raises `msgspec.DecodeError` and
+    `msgspec.ValidationError` for anything that isn't a profile."""
+    header = msgspec.json.decode(data, type=_Header)
+    if header.format != FORMAT or header.version < 1:
+        msg = f"not a {FORMAT} file"
         raise msgspec.ValidationError(msg)
+    return header.version
+
+
+def encode_v1(profile: Profile) -> bytes:
+    """A version 1 profile's bytes, as a version 1 Verdra writes them (the `.v1` copy kept when
+    migrating, readable by that Verdra again)."""
+    fields = ("id", "enabled", "original", "target", "asset_type", "note")
+    data = {
+        "format": FORMAT,
+        "version": 1,
+        "id": profile.id,
+        "name": profile.name,
+        "enabled": profile.enabled,
+        "created": profile.created,
+        "modified": profile.modified,
+        "replacements": [
+            {key: getattr(replacement, key) for key in fields}
+            for replacement in profile.replacements
+        ],
+    }
+    return msgspec.json.format(msgspec.json.encode(data), indent=2) + b"\n"
+
+
+def decode(data: bytes) -> Profile:
+    """Parse and validate a profile of this version or version 1 (read as version 2, nothing
+    applied yet: `migrate` sets that); raises `msgspec.DecodeError` or
+    `msgspec.ValidationError`."""
+    version = file_version(data)
+    if version > VERSION:
+        msg = f"a {FORMAT} v{version} file"
+        raise msgspec.ValidationError(msg)
+    profile = msgspec.json.decode(data, type=Profile)
+    profile.version = VERSION
     if len(profile.replacements) > MAX_REPLACEMENTS:
         msg = f"more than {MAX_REPLACEMENTS} replacements"
         raise msgspec.ValidationError(msg)
+    for replacement in profile.replacements:
+        if len(msgspec.json.encode(replacement.view)) > MAX_VIEW_BYTES:
+            log.debug("A replacement's view settings were too large and were dropped.")
+            replacement.view = {}
     return profile
 
 
@@ -330,12 +416,33 @@ def read_profile(path: Path, now: Callable[[], datetime] | None = None) -> Profi
     """Read a profile, falling back to its `.bak`; if both fail, move the file aside (rule 4).
 
     Raises:
+        ProfileNewerError: The file comes from a newer Verdra; it is left as it is.
+        ProfileUnreadableError: Neither the file nor its `.bak` could be read.
+    """
+    return read_profile_version(path, now)[0]
+
+
+def read_profile_version(
+    path: Path, now: Callable[[], datetime] | None = None
+) -> tuple[Profile, int]:
+    """`read_profile`, and the version of the file it was read from (the file or its `.bak`).
+
+    Raises:
+        ProfileNewerError: The file comes from a newer Verdra; it is left as it is.
         ProfileUnreadableError: Neither the file nor its `.bak` could be read.
     """
     for candidate in (path, atomic.backup_path(path)):
         try:
-            return decode(atomic.read_bytes(candidate))
+            data = atomic.read_bytes(candidate)
+            version = file_version(data)
         except (OSError, msgspec.DecodeError, msgspec.ValidationError) as error:
+            log.debug("Couldn't read the profile %s: %s", candidate.name, error)
+            continue
+        if version > VERSION:
+            raise ProfileNewerError(path, version)
+        try:
+            return decode(data), version
+        except (msgspec.DecodeError, msgspec.ValidationError) as error:
             log.debug("Couldn't read the profile %s: %s", candidate.name, error)
     stamp = (now or (lambda: datetime.now(UTC)))().strftime("%Y%m%d-%H%M%S")
     moved = atomic.move_aside(path, f"broken-{stamp}")
@@ -351,6 +458,117 @@ def write_profile(path: Path, profile: Profile) -> None:
             ).format(n=f"{MAX_REPLACEMENTS:,}")
         )
     atomic.write_atomic(path, encode(profile), keep_backup=True)
+
+
+# --- Applied versions (spec S-26) ---------------------------------------------------------------
+
+
+class AppliedCopies:
+    """Copies of the files behind applied replacements, named by their SHA-256 (S-26 rule 4).
+
+    A copy is written once and shared by every replacement whose file has the same bytes, so the
+    game keeps an applied version when the user's file changes or disappears. It keeps the
+    file's suffix in lower case (`<sha256>.obj`), because an OBJ is told by its suffix (`sniff`).
+    `prune` deletes the copies no applied version names any more.
+    """
+
+    def __init__(self, folder: Path, limit: int = MAX_APPLIED_BYTES) -> None:
+        self.folder = folder
+        self.limit = limit
+
+    def path(self, sha256: str) -> Path | None:
+        """Return the copy with this SHA-256, or None if there is none."""
+        if not self.folder.is_dir():
+            return None
+        return next((p for p in sorted(self.folder.glob(f"{sha256}*")) if p.stem == sha256), None)
+
+    def has(self, sha256: str) -> bool:
+        """Return whether the copy with this SHA-256 exists."""
+        return self.path(sha256) is not None
+
+    def size(self) -> int:
+        """Return the bytes all copies use."""
+        if not self.folder.is_dir():
+            return 0
+        return sum(path.stat().st_size for path in self.folder.iterdir() if path.is_file())
+
+    def keep(self, path: Path) -> str:
+        """Copy a file in (unless its bytes are there already) and return its SHA-256.
+
+        Raises:
+            OSError: The file can't be read, or the copy can't be written.
+            ProfileError: The copies would use more than the limit (M-EDIT-23).
+        """
+        data = atomic.read_bytes(path)
+        sha256 = hashlib.sha256(data).hexdigest()
+        if self.has(sha256):
+            return sha256
+        if self.size() + len(data) > self.limit:
+            raise ProfileError(
+                QCoreApplication.translate(
+                    "M-EDIT-23",
+                    "Applied copies of your files would use more than 2 GB. Delete replacements "
+                    "you don't need, then apply again.",
+                )
+            )
+        self.folder.mkdir(parents=True, exist_ok=True)
+        atomic.write_atomic(self.folder / f"{sha256}{path.suffix.lower()}", data)
+        return sha256
+
+    def prune(self, named: Iterable[str]) -> int:
+        """Delete every copy whose SHA-256 isn't in `named`; return how many went."""
+        if not self.folder.is_dir():
+            return 0
+        keep = set(named)
+        gone = 0
+        for path in self.folder.iterdir():
+            if path.is_file() and path.stem not in keep:
+                path.unlink(missing_ok=True)
+                gone += 1
+        return gone
+
+
+def applied_hashes(profiles: Iterable[Profile]) -> set[str]:
+    """Return the SHA-256 of every file an applied version names (what `prune` keeps)."""
+    return {
+        replacement.applied.sha256
+        for profile in profiles
+        for replacement in profile.replacements
+        if replacement.applied is not None and replacement.applied.sha256
+    }
+
+
+def migrate(profile: Profile, folder: Path, copies: AppliedCopies, at: datetime) -> Profile:
+    """Turn a version 1 profile into version 2: everything saved counts as applied (S-26).
+
+    Under version 1 Verdra published every saved replacement at its next start, so the game had
+    exactly the saved set: each replacement's applied version is its saved one, and the
+    profile's applied switch is its switch. A file target's bytes are copied into the Applied
+    folder; a file that is missing gets no copy (the row then shows Problem, as it would have
+    failed to prepare).
+    """
+    migrated = copy.deepcopy(profile)
+    migrated.applied_enabled = migrated.enabled
+    for replacement in migrated.replacements:
+        sha256 = None
+        if replacement.target.kind == "file" and replacement.target.value:
+            try:
+                sha256 = copies.keep(resolve(replacement.target.value, folder))
+            except (OSError, ProfileError) as error:
+                log.debug(  # the row shows Problem (S-25, M-ROW-14), which says it in plain words
+                    "The file of a replacement of asset %d couldn't be kept: %s",
+                    replacement.original.asset_id,
+                    error,
+                )
+        replacement.applied = Applied(
+            original=copy.deepcopy(replacement.original),
+            target=copy.deepcopy(replacement.target),
+            enabled=replacement.enabled,
+            asset_type=replacement.asset_type,
+            sha256=sha256,
+            at=at,
+        )
+    return migrated
 
 
 # --- Snapshot (spec S-21, S-23) ------------------------------------------------------------------
@@ -607,14 +825,25 @@ class ProfileStore:
         *,
         on_order: Callable[[list[str]], None] | None = None,
         now: Callable[[], datetime] | None = None,
+        applied_order: Iterable[str] = (),
+        on_applied_order: Callable[[list[str]], None] | None = None,
     ) -> None:
         self.folder = folder
         self.on_order = on_order
+        self.on_applied_order = on_applied_order
         self.now = now or (lambda: datetime.now(UTC))
         self.unreadable: list[ProfileUnreadableError] = []
+        #: Files from a newer Verdra, left untouched and not used (S-20 rule 4, M-PROF-11).
+        self.newer: list[ProfileNewerError] = []
+        #: Copies of the files behind applied replacements (S-26 rule 4).
+        self.copies = AppliedCopies(folder.parent / terrain.APPLIED_FOLDER)
         self._undo: list[_State] = []
         self._redo: list[_State] = []
         self.profiles = self._load(list(order))
+        #: The profile order as last applied (S-26 rule 3); the current order until then.
+        self.applied_order = list(applied_order) or [p.id for p in self.profiles]
+        #: Replacement ID -> why the last `promote` couldn't apply its saved version.
+        self.skipped: dict[str, str] = {}
 
     # Reading
 
@@ -623,7 +852,17 @@ class ProfileStore:
         if self.folder.is_dir():
             for path in sorted(self.folder.glob("*.json")):
                 try:
-                    loaded.append(read_profile(path, self.now))
+                    loaded.append(self._read(path))
+                except ProfileNewerError as error:
+                    self.newer.append(error)
+                    log.warning(
+                        "%s",
+                        QCoreApplication.translate(
+                            "M-PROF-11",
+                            "The profile file {file} was saved by a newer version of Verdra, so "
+                            "this version leaves it as it is and doesn't use it.",
+                        ).format(file=path.name),
+                    )
                 except ProfileUnreadableError as error:
                     self.unreadable.append(error)
                     log.error(
@@ -637,13 +876,127 @@ class ProfileStore:
         rank = {profile_id: index for index, profile_id in enumerate(order)}
         return sorted(loaded, key=lambda p: (rank.get(p.id, len(rank)), p.name.casefold()))
 
+    def _read(self, path: Path) -> Profile:
+        """Read one profile file, migrating a version 1 file to version 2 on disk (S-26)."""
+        profile, version = read_profile_version(path, self.now)
+        if version == 1:
+            kept = path.with_name(path.name + V1_SUFFIX)
+            if not kept.exists():
+                atomic.write_atomic(kept, encode_v1(profile))
+            profile = migrate(profile, self.folder / profile.name, self.copies, self.now())
+            write_profile(path, profile)
+            log.debug("Updated the profile file %s to version %d.", path.name, VERSION)
+        return profile
+
     def get(self, profile_id: str) -> Profile:
         """Return a copy of the profile with this ID (edits go through the store)."""
         return copy.deepcopy(_find(self.profiles, profile_id))
 
     def compile(self, fetched: Fetched | None = None) -> Compiled:
-        """Compile the current profiles into a snapshot (S-21), content prepared."""
-        return compile_snapshot(self.profiles, folder=self.folder, fetched=fetched)
+        """Compile the saved profiles into a snapshot (S-21), content prepared: what the next
+        apply publishes (Preview changes, S-23)."""
+        saved = copy.deepcopy(self.profiles)
+        for profile in saved:
+            profile.replacements = [r for r in profile.replacements if not r.deleted]
+        return compile_snapshot(saved, folder=self.folder, fetched=fetched)
+
+    def compile_applied(self, fetched: Fetched | None = None) -> Compiled:
+        """Compile the applied versions into the snapshot the game gets (S-26 rule 1)."""
+        return compile_snapshot(self.applied_profiles(), folder=self.folder, fetched=fetched)
+
+    def applied_profiles(self) -> list[Profile]:
+        """The profiles as last applied, in the applied order: each profile's applied switch,
+        each replacement's applied version, a file target pointing at its applied copy (S-26).
+
+        A profile never applied, and a replacement never applied, are left out. A file whose
+        copy is missing keeps its path, so preparing it fails with the reason (Problem, S-25).
+        """
+        rank = {profile_id: index for index, profile_id in enumerate(self.applied_order)}
+        ordered = sorted(
+            self.profiles, key=lambda p: (rank.get(p.id, len(rank)), p.name.casefold())
+        )
+        result = []
+        for profile in ordered:
+            if profile.applied_enabled is None:
+                continue
+            view = Profile(
+                id=profile.id,
+                name=profile.name,
+                enabled=profile.applied_enabled,
+                applied_enabled=profile.applied_enabled,
+                created=profile.created,
+                modified=profile.modified,
+            )
+            for replacement in profile.replacements:
+                applied = replacement.applied
+                if applied is None:
+                    continue
+                target = copy.deepcopy(applied.target)
+                kept = self.copies.path(applied.sha256) if applied.sha256 else None
+                if target.kind == "file" and kept is not None:
+                    target.value = str(kept)
+                view.replacements.append(
+                    Replacement(
+                        id=replacement.id,
+                        enabled=applied.enabled,
+                        original=copy.deepcopy(applied.original),
+                        target=target,
+                        asset_type=applied.asset_type,
+                    )
+                )
+            result.append(view)
+        return result
+
+    def promote(self) -> None:
+        """Apply every saved change: saved versions become the applied ones (S-26).
+
+        Deleted replacements go; a file target's bytes are copied into the Applied folder. A
+        file that can't be read keeps its previous applied version (the game keeps what it had;
+        the row shows Problem). Applying isn't an edit: undo and redo never change applied
+        versions.
+
+        Raises:
+            ProfileError: The applied copies would use more than 2 GB (M-EDIT-23); nothing
+                changed.
+        """
+        stamp = self.now()
+        skipped: dict[str, str] = {}
+        promoted = copy.deepcopy(self.profiles)
+        for profile in promoted:
+            profile.applied_enabled = profile.enabled
+            kept: list[Replacement] = []
+            for replacement in profile.replacements:
+                if replacement.deleted:
+                    continue
+                sha256 = None
+                if replacement.target.kind == "file" and replacement.target.value:
+                    path = resolve(replacement.target.value, self.folder / profile.name)
+                    try:
+                        sha256 = self.copies.keep(path)
+                    except OSError:
+                        skipped[replacement.id] = QCoreApplication.translate(
+                            "M-GRAFT-02", "The file for this replacement is missing: {path}."
+                        ).format(path=path)
+                        kept.append(replacement)  # its previous applied version stays
+                        continue
+                replacement.applied = Applied(
+                    original=copy.deepcopy(replacement.original),
+                    target=copy.deepcopy(replacement.target),
+                    enabled=replacement.enabled,
+                    asset_type=replacement.asset_type,
+                    sha256=sha256,
+                    at=stamp,
+                )
+                kept.append(replacement)
+            profile.replacements = kept
+        self._apply(self.profiles, promoted)
+        self.skipped = skipped
+        self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
+        self._redo = [_State(self._keep_applied(state.profiles)) for state in self._redo]
+        self.applied_order = [p.id for p in self.profiles]
+        if self.on_applied_order is not None:
+            self.on_applied_order(self.applied_order)
+        self.copies.prune(applied_hashes(self.profiles))
 
     @property
     def can_undo(self) -> bool:
@@ -770,11 +1123,15 @@ class ProfileStore:
         self._edit(change)
 
     def remove_replacement(self, profile_id: str, replacement_id: str) -> None:
-        """Remove one replacement from a profile."""
+        """Remove one replacement from a profile; one that was applied stays, marked deleted,
+        until the deletion is applied (S-25 Deleted, S-26)."""
 
         def change(profiles: list[Profile]) -> None:
             items = _find(profiles, profile_id).replacements
-            items[:] = [r for r in items if r.id != replacement_id]
+            for replacement in items:
+                if replacement.id == replacement_id and replacement.applied is not None:
+                    replacement.deleted = True
+            items[:] = [r for r in items if r.id != replacement_id or r.deleted]
 
         self._edit(change)
 
@@ -818,7 +1175,23 @@ class ProfileStore:
         self._redo.clear()
 
     def _restore(self, state: _State) -> None:
-        self._apply(self.profiles, state.profiles)
+        self._apply(self.profiles, self._keep_applied(state.profiles))
+
+    def _keep_applied(self, profiles: list[Profile]) -> list[Profile]:
+        """`profiles` (an undo or redo state) with today's applied versions: undo and redo
+        change saved versions only (S-26). A replacement deleted and since applied away, and so
+        never applied now, isn't brought back as deleted."""
+        current = {p.id: p.applied_enabled for p in self.profiles}
+        applied = {r.id: r.applied for p in self.profiles for r in p.replacements}
+        result = copy.deepcopy(profiles)
+        for profile in result:
+            profile.applied_enabled = current.get(profile.id)
+            for replacement in profile.replacements:
+                replacement.applied = copy.deepcopy(applied.get(replacement.id))
+            profile.replacements = [
+                r for r in profile.replacements if not (r.deleted and r.applied is None)
+            ]
+        return result
 
     def _apply(self, before: list[Profile], after: list[Profile]) -> None:
         """Write what changed between `before` and `after`, then make `after` current."""
@@ -863,6 +1236,199 @@ def _find(profiles: list[Profile], profile_id: str) -> Profile:
     raise KeyError(profile_id)
 
 
+# --- Row status (spec S-25) ----------------------------------------------------------------------
+
+
+class Status(StrEnum):
+    """A replacement's status (S-25); "Draft" belongs to the editor, not to a saved row."""
+
+    PROBLEM = "problem"
+    DELETED = "deleted"
+    EDITED = "edited"
+    NEW = "new"
+    OFF = "off"
+    SEEN = "seen"
+    LIVE = "live"
+
+
+#: S-25: what wins when more than one status applies.
+PRECEDENCE: Final = (
+    Status.PROBLEM,
+    Status.DELETED,
+    Status.EDITED,
+    Status.NEW,
+    Status.OFF,
+    Status.SEEN,
+    Status.LIVE,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RowState:
+    """One row's status, and what its pill and tooltip need (S-25)."""
+
+    status: Status
+    #: Loads since Roblox started, and the time of the last one (Live · seen).
+    loads: int = 0
+    last: float | None = None
+    #: The problem's full reason (Problem), or a detail line (another row wins, the file changed).
+    detail: str = ""
+    #: The saved version differs from the applied one in a way the game sees (S-26 rule 5).
+    waiting: bool = False
+
+
+def _seen_by_game(replacement: Replacement) -> tuple[object, ...]:
+    return (
+        replacement.original.asset_id,
+        replacement.original.slot,
+        replacement.target.kind,
+        replacement.target.value,
+        replacement.enabled,
+    )
+
+
+def _applied_by_game(applied: Applied) -> tuple[object, ...]:
+    return (
+        applied.original.asset_id,
+        applied.original.slot,
+        applied.target.kind,
+        applied.target.value,
+        applied.enabled,
+    )
+
+
+class FileChecks:
+    """Whether the file behind a row is the applied one (S-26 rule 6), hashed only when its size
+    or modified time changed since the last look."""
+
+    def __init__(self) -> None:
+        self._known: dict[Path, tuple[int, int, str]] = {}
+
+    def sha256(self, path: Path) -> str | None:
+        """Return the file's SHA-256, or None if it can't be read."""
+        try:
+            info = path.stat()
+        except OSError:
+            return None
+        known = self._known.get(path)
+        if known is not None and known[:2] == (info.st_size, info.st_mtime_ns):
+            return known[2]
+        try:
+            digest = hashlib.sha256(atomic.read_bytes(path)).hexdigest()
+        except OSError:
+            return None
+        self._known[path] = (info.st_size, info.st_mtime_ns, digest)
+        return digest
+
+
+def row_state(
+    replacement: Replacement,
+    profile: Profile,
+    folder: Path,
+    *,
+    problems: Mapping[str, str],
+    loads: rules.Loads,
+    winners: Mapping[tuple[int, rules.Slot | None], tuple[str, str]],
+    files: FileChecks,
+) -> RowState:
+    """The status of one replacement (S-25), from its saved and applied versions.
+
+    `problems`: replacement ID -> why it can't be used (as saved or as applied); `winners`:
+    original -> (replacement ID, profile name) of the replacement the game gets for it.
+    """
+    applied = replacement.applied
+    path = (
+        resolve(replacement.target.value, folder / profile.name)
+        if replacement.target.kind == "file" and replacement.target.value
+        else None
+    )
+    digest = files.sha256(path) if path is not None else None
+    file_changed = (
+        applied is not None
+        and applied.sha256 is not None
+        and digest is not None
+        and digest != applied.sha256
+    )
+    waiting = (
+        replacement.deleted
+        or (applied is None and replacement.enabled)
+        or (applied is not None and _seen_by_game(replacement) != _applied_by_game(applied))
+        or file_changed
+    )
+    found = _problem(replacement, path, digest, problems, waiting=waiting)
+    if found is not None:
+        return found
+    if replacement.deleted or applied is None or waiting:
+        return _pending(replacement, applied, file_changed=file_changed, waiting=waiting)
+    return _live(replacement, profile, applied, loads, winners)
+
+
+def _problem(
+    replacement: Replacement,
+    path: Path | None,
+    digest: str | None,
+    problems: Mapping[str, str],
+    *,
+    waiting: bool,
+) -> RowState | None:
+    """Problem (S-25): the row can't be used, or its file is gone; else None.
+
+    A file gone from under an applied row says that the game keeps the applied version
+    (M-ROW-14), which is more than the plain reason preparing it gives."""
+    if replacement.id in problems and not (
+        path is not None and digest is None and replacement.applied is not None
+    ):
+        return RowState(Status.PROBLEM, detail=problems[replacement.id], waiting=waiting)
+    if path is not None and digest is None:
+        missing = QCoreApplication.translate(
+            "M-ROW-14",
+            "The file for this replacement is missing: {name}. The game keeps the applied "
+            "version until you apply.",
+        ).format(name=path.name)
+        return RowState(Status.PROBLEM, detail=missing, waiting=waiting)
+    return None
+
+
+def _pending(
+    replacement: Replacement, applied: Applied | None, *, file_changed: bool, waiting: bool
+) -> RowState:
+    """A row with a change waiting for the next apply, or never applied (S-25)."""
+    if replacement.deleted:
+        return RowState(Status.DELETED, waiting=True)
+    if applied is None:
+        return RowState(Status.NEW if replacement.enabled else Status.OFF, waiting=waiting)
+    if replacement.enabled and not applied.enabled:
+        return RowState(Status.NEW, waiting=True)  # switched on since it was applied off
+    detail = (
+        QCoreApplication.translate("M-ROW-15", "The file changed after it was applied.")
+        if file_changed
+        else ""
+    )
+    return RowState(Status.EDITED, detail=detail, waiting=True)
+
+
+def _live(
+    replacement: Replacement,
+    profile: Profile,
+    applied: Applied,
+    loads: rules.Loads,
+    winners: Mapping[tuple[int, rules.Slot | None], tuple[str, str]],
+) -> RowState:
+    """An applied row with nothing waiting: Off, Live, or Live · seen (S-25)."""
+    if not applied.enabled or not profile.applied_enabled:
+        return RowState(Status.OFF)
+    winner = winners.get((applied.original.asset_id, applied.original.slot))
+    if winner is not None and winner[0] != replacement.id:
+        wins = QCoreApplication.translate(
+            "M-ROW-13", "Another replacement for this asset wins (profile {name})."
+        ).format(name=winner[1])
+        return RowState(Status.LIVE, detail=wins)
+    count = loads.counts.get(applied.original.asset_id, 0)
+    if count:
+        return RowState(Status.SEEN, loads=count, last=loads.last.get(applied.original.asset_id))
+    return RowState(Status.LIVE)
+
+
 # --- The service the interface talks to ----------------------------------------------------------
 
 
@@ -888,6 +1454,9 @@ class Grafts(QObject):
 
     changed = Signal()
     settled = Signal()
+    #: An original asset Roblox loaded or asked a further pack of (S-25), from the proxy's
+    #: thread (queued); `object` because asset IDs outgrow a Qt int.
+    loaded = Signal(object)
 
     def __init__(
         self,
@@ -907,10 +1476,15 @@ class Grafts(QObject):
         #: Link -> why it has no content yet ("" while it downloads).
         self._links: dict[str, str] = {}
         self.holder = holder or rules.SnapshotHolder()
+        #: Loads since Roblox started (S-25), counted by the grafter; shared with sprout.
+        self.loads = rules.Loads(notify=self.loaded.emit)
+        self.files = FileChecks()
         self.store = ProfileStore(
             folder,
             settings.value("replacements.profile_order"),
             on_order=lambda order: settings.set("replacements.profile_order", order),
+            applied_order=settings.value("replacements.applied_order"),
+            on_applied_order=lambda order: settings.set("replacements.applied_order", order),
         )
         #: Replacement ID -> why it was left out of the last published snapshot.
         self.warnings: dict[str, str] = {}
@@ -966,19 +1540,66 @@ class Grafts(QObject):
         job.succeeded.connect(answer)
         job.failed.connect(unreachable)
 
+    def states(self, profile: Profile) -> dict[str, RowState]:
+        """Each replacement's status in `profile` (S-25), by replacement ID."""
+        saved = self.store.compile(self._cached_link)
+        problems = {**dict(saved.left_out), **self.warnings}
+        winners = {
+            key: (graft.replacement, graft.profile)
+            for key, graft in self.holder.current.grafts.items()
+        }
+        return {
+            replacement.id: row_state(
+                replacement,
+                profile,
+                self.store.folder,
+                problems=problems,
+                loads=self.loads,
+                winners=winners,
+                files=self.files,
+            )
+            for replacement in profile.replacements
+        }
+
+    def waiting(self) -> int:
+        """How many changes wait for the next apply (S-25 banner and button, S-27 rule 1):
+        rows whose saved version differs, profiles switched, and a changed order (one)."""
+        count = 0
+        for profile in self.store.profiles:
+            if profile.applied_enabled is not None and profile.enabled != profile.applied_enabled:
+                count += 1
+            count += sum(1 for state in self.states(profile).values() if state.waiting)
+        order = [p.id for p in self.store.profiles]
+        applied = [p for p in self.store.applied_order if p in order]
+        if applied and applied != [p for p in order if p in applied]:
+            count += 1
+        return count
+
     def preview(self) -> Preview:
         """Preview changes (S-23): what the next Apply now publishes (no download starts)."""
         return preview(self.store.compile(self._cached_link).snapshot)
 
     def publish(self, *, retry: bool = True) -> int:
-        """Compile and publish the snapshot; return how many originals it replaces.
+        """Apply now: every saved change becomes applied (S-26), then the applied snapshot is
+        published; return how many originals it replaces.
 
         Apply now tries a link whose download failed again (`retry`); when it goes on after
         waiting for downloads, it doesn't, so a link that keeps failing can't keep it waiting.
+
+        Raises:
+            ProfileError: The applied copies would use more than 2 GB (M-EDIT-23).
         """
         if retry:
             for link in [link for link, reason in self._links.items() if reason]:
                 del self._links[link]
+        self.store.promote()
+        self.changed.emit()
+        count = self._publish()
+        self._log_left_out()
+        return count
+
+    def publish_applied(self) -> int:
+        """Publish what was last applied, nothing saved since (startup; S-26 rule 1)."""
         count = self._publish()
         self._log_left_out()
         return count
@@ -1013,9 +1634,11 @@ class Grafts(QObject):
             )
 
     def _publish(self) -> int:
-        compiled = self.store.compile(self._link)
+        """Publish the applied versions (S-26 rule 1: never what is only saved)."""
+        compiled = self.store.compile_applied(self._link)
         self.holder.publish(compiled.snapshot)
-        self.warnings = dict(compiled.left_out)
+        # A saved change that couldn't be applied is never silent (S-21, S-25 Problem).
+        self.warnings = {**dict(compiled.left_out), **self.store.skipped}
         return len(compiled.snapshot.grafts)
 
     def _cached_link(self, url: str) -> bytes | str:

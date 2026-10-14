@@ -12,7 +12,8 @@ from __future__ import annotations
 import itertools
 import posixpath
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Final, Literal
@@ -223,3 +224,41 @@ class SnapshotHolder:
     def publish(self, snapshot: GraftSnapshot) -> None:
         """Make `snapshot` the one every new request uses."""
         self.current = snapshot
+
+
+class Loads:
+    """How often Roblox loaded each replaced asset since it started (spec S-25): memory only.
+
+    The grafter records every batch item it replaces or answers, on the proxy's thread; trunk
+    reads the counts and resets them when Roblox is started through Verdra. A load is what the
+    owner decided on 14 October 2026 (question N2): a picture's pack 0, or its first pack asked
+    for when pack 0 wasn't; every other replaced item. No disk and no network (S-11): `record`
+    touches two dictionaries and a set, and calls `notify` (which only queues).
+    """
+
+    def __init__(
+        self,
+        notify: Callable[[int], None] | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self.notify = notify
+        self.clock = clock
+        self.counts: dict[int, int] = {}
+        self.last: dict[int, float] = {}
+        self._seen: set[int] = set()
+
+    def record(self, original: int, pack: int | None) -> bool:
+        """Note one replaced item; return whether it is a load (else a further pack)."""
+        load = pack is None or pack == 0 or original not in self._seen
+        self._seen.add(original)
+        if load:
+            self.counts[original] = self.counts.get(original, 0) + 1
+            self.last[original] = self.clock()
+        if self.notify is not None:
+            self.notify(original)
+        return load
+
+    def reset(self) -> None:
+        """Forget every load: Roblox was started again (new objects, so a record that races
+        with the reset lands in the old ones)."""
+        self.counts, self.last, self._seen = {}, {}, set()

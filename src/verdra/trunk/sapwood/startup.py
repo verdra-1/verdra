@@ -270,7 +270,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
     services.grafts = grafts_.Grafts(
         terrain.config_dir() / "profiles", settings, pool=services.tendrils
     )
-    services.grafts.publish()  # replacements saved last time apply from the first launch
+    services.grafts.publish_applied()  # what was applied last time, from the first launch
     services.sprout = sprout_.Sprout(
         settings,
         services.routing,
@@ -283,6 +283,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         control=arguments.control_swap,
         check=arguments.format_check,
         snapshots=services.grafts.holder,
+        loads=services.grafts.loads,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
     log.info(

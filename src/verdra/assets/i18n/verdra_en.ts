@@ -646,6 +646,13 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-23</name>
+    <message>
+        <source>Applied copies of your files would use more than 2 GB. Delete replacements you don&apos;t need, then apply again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>
@@ -1200,6 +1207,13 @@
     </message>
 </context>
 <context>
+    <name>M-PROF-11</name>
+    <message>
+        <source>The profile file {file} was saved by a newer version of Verdra, so this version leaves it as it is and doesn&apos;t use it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-PROXY-01</name>
     <message>
         <source>Verdra couldn&apos;t start routing: port {port} is in use and no other port was free.</source>
@@ -1332,6 +1346,27 @@
     </message>
     <message>
         <source>Moderation risk</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-13</name>
+    <message>
+        <source>Another replacement for this asset wins (profile {name}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-14</name>
+    <message>
+        <source>The file for this replacement is missing: {name}. The game keeps the applied version until you apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-15</name>
+    <message>
+        <source>The file changed after it was applied.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

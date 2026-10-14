@@ -154,3 +154,12 @@ callback), `canopy/screens/grafts/screen.py` (table, banner, filters), `canopy/c
   than once, the rule changes before phase A is built, with that evidence.
 - The counter resets when Roblox is started through Verdra, the only start Verdra sees for sure;
   a Roblox the user started without Verdra isn't routed (S-12) and can't load replacements.
+- Built (pull request c of phase A): `rules.Loads` counts loads in memory (about 0.25 µs per
+  item on the session machine); `grafter.item_pack` reads the pack from a batch item's
+  representation; sprout resets the counts just before it starts Roblox; `grafts.row_state`
+  gives each row's status and `Grafts.waiting` the count for the banner and button. An applied
+  row whose file is gone shows M-ROW-14 rather than the plain reason, because it says the game
+  keeps the applied version. The interface (pills, banner, filters) comes with pull request d.
+  The file check hashes on the thread that asks; pull request d moves it to a worker (S-26
+  rule 6).
+

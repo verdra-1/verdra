@@ -753,7 +753,10 @@ def test_apply_now_deletes_and_changes_no_roblox_file(
 
     class Settings:
         def __init__(self) -> None:
-            self.values: dict[str, object] = {"replacements.profile_order": []}
+            self.values: dict[str, object] = {
+                "replacements.profile_order": [],
+                "replacements.applied_order": [],
+            }
 
         def value(self, key: str) -> object:
             return self.values[key]
@@ -1506,3 +1509,14 @@ def test_the_control_experiment_runs_first_and_leaves_the_original_alone(
     assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)
     made.deleteLater()
     status.deleteLater()
+
+
+@pytest.mark.spec("S-25", 3)
+def test_starting_roblox_through_verdra_resets_the_load_counts(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, _platform, _ledger = routed
+    made.loads.record(1111111, 0)
+    made.launch("roblox-player:1")
+    assert made.loads.counts == {}
+    made.stop_watching()
