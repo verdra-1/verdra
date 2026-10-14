@@ -308,12 +308,13 @@ def test_a_match_names_both_ids_and_unread_batches_say_why(
         f"Asset batch (gzip-compressed): 1 of 3 items replaced, 1 without a request ID left alone "
         f"(asked for: {ABOVE_UINT32}->{ABOVE_INT32}, {ABOVE_UINT32}, ?; "
         "item fields: requestId, assetId, id)",
+        f"Replaced asset {ABOVE_UINT32} in a batch: load (ID swap, pack -)",  # S-25
         "An asset batch request couldn't be read (over 64 MB), so replacements may not apply "
         "to it.",
         "An asset batch request couldn't be read (not a JSON array of objects), so replacements "
         "may not apply to it.",
     ]
-    assert warnings_logged(caplog) == debug_lines(caplog)[1:]
+    assert warnings_logged(caplog) == debug_lines(caplog)[2:]
     assert reasons == ["over 64 MB", "not a JSON array of objects"]
 
 

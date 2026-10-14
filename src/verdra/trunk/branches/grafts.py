@@ -23,6 +23,7 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path, PureWindowsPath
 from types import MappingProxyType
 from typing import Annotated, Any, Final
@@ -1235,6 +1236,199 @@ def _find(profiles: list[Profile], profile_id: str) -> Profile:
     raise KeyError(profile_id)
 
 
+# --- Row status (spec S-25) ----------------------------------------------------------------------
+
+
+class Status(StrEnum):
+    """A replacement's status (S-25); "Draft" belongs to the editor, not to a saved row."""
+
+    PROBLEM = "problem"
+    DELETED = "deleted"
+    EDITED = "edited"
+    NEW = "new"
+    OFF = "off"
+    SEEN = "seen"
+    LIVE = "live"
+
+
+#: S-25: what wins when more than one status applies.
+PRECEDENCE: Final = (
+    Status.PROBLEM,
+    Status.DELETED,
+    Status.EDITED,
+    Status.NEW,
+    Status.OFF,
+    Status.SEEN,
+    Status.LIVE,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RowState:
+    """One row's status, and what its pill and tooltip need (S-25)."""
+
+    status: Status
+    #: Loads since Roblox started, and the time of the last one (Live · seen).
+    loads: int = 0
+    last: float | None = None
+    #: The problem's full reason (Problem), or a detail line (another row wins, the file changed).
+    detail: str = ""
+    #: The saved version differs from the applied one in a way the game sees (S-26 rule 5).
+    waiting: bool = False
+
+
+def _seen_by_game(replacement: Replacement) -> tuple[object, ...]:
+    return (
+        replacement.original.asset_id,
+        replacement.original.slot,
+        replacement.target.kind,
+        replacement.target.value,
+        replacement.enabled,
+    )
+
+
+def _applied_by_game(applied: Applied) -> tuple[object, ...]:
+    return (
+        applied.original.asset_id,
+        applied.original.slot,
+        applied.target.kind,
+        applied.target.value,
+        applied.enabled,
+    )
+
+
+class FileChecks:
+    """Whether the file behind a row is the applied one (S-26 rule 6), hashed only when its size
+    or modified time changed since the last look."""
+
+    def __init__(self) -> None:
+        self._known: dict[Path, tuple[int, int, str]] = {}
+
+    def sha256(self, path: Path) -> str | None:
+        """Return the file's SHA-256, or None if it can't be read."""
+        try:
+            info = path.stat()
+        except OSError:
+            return None
+        known = self._known.get(path)
+        if known is not None and known[:2] == (info.st_size, info.st_mtime_ns):
+            return known[2]
+        try:
+            digest = hashlib.sha256(atomic.read_bytes(path)).hexdigest()
+        except OSError:
+            return None
+        self._known[path] = (info.st_size, info.st_mtime_ns, digest)
+        return digest
+
+
+def row_state(
+    replacement: Replacement,
+    profile: Profile,
+    folder: Path,
+    *,
+    problems: Mapping[str, str],
+    loads: rules.Loads,
+    winners: Mapping[tuple[int, rules.Slot | None], tuple[str, str]],
+    files: FileChecks,
+) -> RowState:
+    """The status of one replacement (S-25), from its saved and applied versions.
+
+    `problems`: replacement ID -> why it can't be used (as saved or as applied); `winners`:
+    original -> (replacement ID, profile name) of the replacement the game gets for it.
+    """
+    applied = replacement.applied
+    path = (
+        resolve(replacement.target.value, folder / profile.name)
+        if replacement.target.kind == "file" and replacement.target.value
+        else None
+    )
+    digest = files.sha256(path) if path is not None else None
+    file_changed = (
+        applied is not None
+        and applied.sha256 is not None
+        and digest is not None
+        and digest != applied.sha256
+    )
+    waiting = (
+        replacement.deleted
+        or (applied is None and replacement.enabled)
+        or (applied is not None and _seen_by_game(replacement) != _applied_by_game(applied))
+        or file_changed
+    )
+    found = _problem(replacement, path, digest, problems, waiting=waiting)
+    if found is not None:
+        return found
+    if replacement.deleted or applied is None or waiting:
+        return _pending(replacement, applied, file_changed=file_changed, waiting=waiting)
+    return _live(replacement, profile, applied, loads, winners)
+
+
+def _problem(
+    replacement: Replacement,
+    path: Path | None,
+    digest: str | None,
+    problems: Mapping[str, str],
+    *,
+    waiting: bool,
+) -> RowState | None:
+    """Problem (S-25): the row can't be used, or its file is gone; else None.
+
+    A file gone from under an applied row says that the game keeps the applied version
+    (M-ROW-14), which is more than the plain reason preparing it gives."""
+    if replacement.id in problems and not (
+        path is not None and digest is None and replacement.applied is not None
+    ):
+        return RowState(Status.PROBLEM, detail=problems[replacement.id], waiting=waiting)
+    if path is not None and digest is None:
+        missing = QCoreApplication.translate(
+            "M-ROW-14",
+            "The file for this replacement is missing: {name}. The game keeps the applied "
+            "version until you apply.",
+        ).format(name=path.name)
+        return RowState(Status.PROBLEM, detail=missing, waiting=waiting)
+    return None
+
+
+def _pending(
+    replacement: Replacement, applied: Applied | None, *, file_changed: bool, waiting: bool
+) -> RowState:
+    """A row with a change waiting for the next apply, or never applied (S-25)."""
+    if replacement.deleted:
+        return RowState(Status.DELETED, waiting=True)
+    if applied is None:
+        return RowState(Status.NEW if replacement.enabled else Status.OFF, waiting=waiting)
+    if replacement.enabled and not applied.enabled:
+        return RowState(Status.NEW, waiting=True)  # switched on since it was applied off
+    detail = (
+        QCoreApplication.translate("M-ROW-15", "The file changed after it was applied.")
+        if file_changed
+        else ""
+    )
+    return RowState(Status.EDITED, detail=detail, waiting=True)
+
+
+def _live(
+    replacement: Replacement,
+    profile: Profile,
+    applied: Applied,
+    loads: rules.Loads,
+    winners: Mapping[tuple[int, rules.Slot | None], tuple[str, str]],
+) -> RowState:
+    """An applied row with nothing waiting: Off, Live, or Live · seen (S-25)."""
+    if not applied.enabled or not profile.applied_enabled:
+        return RowState(Status.OFF)
+    winner = winners.get((applied.original.asset_id, applied.original.slot))
+    if winner is not None and winner[0] != replacement.id:
+        wins = QCoreApplication.translate(
+            "M-ROW-13", "Another replacement for this asset wins (profile {name})."
+        ).format(name=winner[1])
+        return RowState(Status.LIVE, detail=wins)
+    count = loads.counts.get(applied.original.asset_id, 0)
+    if count:
+        return RowState(Status.SEEN, loads=count, last=loads.last.get(applied.original.asset_id))
+    return RowState(Status.LIVE)
+
+
 # --- The service the interface talks to ----------------------------------------------------------
 
 
@@ -1260,6 +1454,9 @@ class Grafts(QObject):
 
     changed = Signal()
     settled = Signal()
+    #: An original asset Roblox loaded or asked a further pack of (S-25), from the proxy's
+    #: thread (queued); `object` because asset IDs outgrow a Qt int.
+    loaded = Signal(object)
 
     def __init__(
         self,
@@ -1279,6 +1476,9 @@ class Grafts(QObject):
         #: Link -> why it has no content yet ("" while it downloads).
         self._links: dict[str, str] = {}
         self.holder = holder or rules.SnapshotHolder()
+        #: Loads since Roblox started (S-25), counted by the grafter; shared with sprout.
+        self.loads = rules.Loads(notify=self.loaded.emit)
+        self.files = FileChecks()
         self.store = ProfileStore(
             folder,
             settings.value("replacements.profile_order"),
@@ -1339,6 +1539,41 @@ class Grafts(QObject):
         )
         job.succeeded.connect(answer)
         job.failed.connect(unreachable)
+
+    def states(self, profile: Profile) -> dict[str, RowState]:
+        """Each replacement's status in `profile` (S-25), by replacement ID."""
+        saved = self.store.compile(self._cached_link)
+        problems = {**dict(saved.left_out), **self.warnings}
+        winners = {
+            key: (graft.replacement, graft.profile)
+            for key, graft in self.holder.current.grafts.items()
+        }
+        return {
+            replacement.id: row_state(
+                replacement,
+                profile,
+                self.store.folder,
+                problems=problems,
+                loads=self.loads,
+                winners=winners,
+                files=self.files,
+            )
+            for replacement in profile.replacements
+        }
+
+    def waiting(self) -> int:
+        """How many changes wait for the next apply (S-25 banner and button, S-27 rule 1):
+        rows whose saved version differs, profiles switched, and a changed order (one)."""
+        count = 0
+        for profile in self.store.profiles:
+            if profile.applied_enabled is not None and profile.enabled != profile.applied_enabled:
+                count += 1
+            count += sum(1 for state in self.states(profile).values() if state.waiting)
+        order = [p.id for p in self.store.profiles]
+        applied = [p for p in self.store.applied_order if p in order]
+        if applied and applied != [p for p in order if p in applied]:
+            count += 1
+        return count
 
     def preview(self) -> Preview:
         """Preview changes (S-23): what the next Apply now publishes (no download starts)."""

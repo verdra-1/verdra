@@ -33,6 +33,8 @@ signature).
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import re
@@ -82,6 +84,33 @@ class _Found:
     hashed: dict[Any, str] = field(default_factory=dict[Any, str])
     served: dict[Any, int] = field(default_factory=dict[Any, int])
     without_request_id: int = 0
+    #: Each replaced item: original asset ID, its pack (None if it names none), and how.
+    replaced: list[tuple[int, int | None, str]] = field(
+        default_factory=list[tuple[int, int | None, str]]
+    )
+
+
+#: A picture's fidelity is base64 for `ff ff ff fc 0N`, N the pack number plus one (decision
+#: record 0022): what a batch item asks for, whether Verdra swaps its ID or serves its content.
+_PACK_PREFIX: Final = b"\xff\xff\xff\xfc"
+_PACKS: Final = 3
+
+
+def item_pack(item: dict[str, Any]) -> int | None:
+    """Return the mip pack a batch item asks for (0 to 2), or None if it names none."""
+    listed = item.get("contentRepresentationPriorityList")
+    if not isinstance(listed, str):
+        return None
+    try:
+        choices = json.loads(base64.b64decode(listed, validate=True))
+        fidelity = choices[0]["fidelity"] if isinstance(choices, list) and choices else None
+        raw = base64.b64decode(str(fidelity), validate=True) if fidelity is not None else b""
+    except ValueError, TypeError, KeyError, binascii.Error:
+        return None
+    if len(raw) == len(_PACK_PREFIX) + 1 and raw.startswith(_PACK_PREFIX):
+        pack = raw[-1] - 1
+        return pack if 0 <= pack < _PACKS else None
+    return None
 
 
 def _take(
@@ -110,10 +139,12 @@ def _take(
     key = _key(item[_REQUEST_ID])
     if asset_id in swaps:
         target = swaps[asset_id]
+        found.replaced.append((asset_id, item_pack(item), "ID swap"))
         item[_ASSET_ID] = str(target) if isinstance(sent, str) else target
         found.originals[key] = sent
         return f"{label}->{target}"
     found.served[key] = asset_id
+    found.replaced.append((asset_id, item_pack(item), content[asset_id].source))
     return f"{label}=>{content[asset_id].source}"
 
 
@@ -145,8 +176,11 @@ class Grafter:
         on_unreadable: Callable[[str], None] | None = None,
         *,
         leave: frozenset[int] = frozenset(),
+        loads: rules.Loads | None = None,
     ) -> None:
         self.holder = holder
+        #: Loads of replaced assets since Roblox started (S-25 "seen"), in memory.
+        self.loads = loads
         #: Originals left alone whatever the snapshot says (a format capture is watching them,
         #: roots/litmus, source runs only): their batch items and downloads pass unchanged.
         self.leave = leave
@@ -223,6 +257,8 @@ class Grafter:
             _listed(asked),
             _fields(items),
         )
+        for original, pack, how in found.replaced:
+            self._loaded(original, pack, how)
         changed = None
         if originals:
             changed = replace(request, body=json.dumps(items, separators=(",", ":")).encode())
@@ -257,6 +293,7 @@ class Grafter:
         )
         if replacement is None:
             return None
+        self._loaded(original, None, "ID swap")
         if path_match is not None:
             path = path_match.group(1) + str(replacement) + path[path_match.end() :]
         else:
@@ -264,6 +301,17 @@ class Grafter:
                 lambda m: m.group(1) + m.group(2) + str(replacement), query, count=1
             )
         return replace(request, target=(path + mark + query).encode("latin-1"))
+
+    def _loaded(self, original: int, pack: int | None, how: str) -> None:
+        """One replaced item: a load or a further pack (S-25), one DEBUG line either way."""
+        load = self.loads.record(original, pack) if self.loads is not None else True
+        log.debug(
+            "Replaced asset %d in a batch: %s (%s, pack %s)",
+            original,
+            "load" if load else "further pack",
+            how,
+            "-" if pack is None else pack,
+        )
 
     # --- Responses -------------------------------------------------------------------------
 

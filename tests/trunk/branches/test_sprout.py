@@ -1509,3 +1509,14 @@ def test_the_control_experiment_runs_first_and_leaves_the_original_alone(
     assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)
     made.deleteLater()
     status.deleteLater()
+
+
+@pytest.mark.spec("S-25", 3)
+def test_starting_roblox_through_verdra_resets_the_load_counts(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+) -> None:
+    made, _platform, _ledger = routed
+    made.loads.record(1111111, 0)
+    made.launch("roblox-player:1")
+    assert made.loads.counts == {}
+    made.stop_watching()

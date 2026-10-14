@@ -559,6 +559,7 @@ class Sprout(QObject):
         control: tuple[int, int] | None = None,
         check: tuple[int, ...] = (),
         snapshots: rules.SnapshotHolder | None = None,
+        loads: rules.Loads | None = None,
         schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -573,6 +574,8 @@ class Sprout(QObject):
         self._not_ours: set[int] = set()
         #: The replacements the proxy applies (S-21), published by trunk/branches/grafts.
         self.snapshots = snapshots or rules.SnapshotHolder()
+        #: Loads of replaced assets since Roblox started (S-25), counted by the grafter.
+        self.loads = loads or rules.Loads()
         self.settings = settings
         self.status = status
         self.platform = platform or humus.current()
@@ -752,6 +755,7 @@ class Sprout(QObject):
     def _launch_now(self, link: str | None) -> None:
         """Start the Player and say what happened (M-LAUNCH-12, M-LAUNCH-13)."""
         assert self.client is not None and self.router.port is not None  # noqa: S101 - running
+        self.loads.reset()  # S-25: "seen" counts loads since Roblox was started through Verdra
         try:
             pid = self.launches.launch(self.client, link, self.router.port)
         except OSError as error:
@@ -1117,7 +1121,10 @@ class Sprout(QObject):
         """Decrypt only the hosts the current snapshot needs (plan 10.1, 10.2; S-21)."""
         left = frozenset(self.capture) | frozenset(self.control[:1] if self.control else ())
         grafter = Grafter(
-            self.snapshots, on_unreadable=self.router.report_unreadable_assets, leave=left
+            self.snapshots,
+            on_unreadable=self.router.report_unreadable_assets,
+            leave=left,
+            loads=self.loads,
         )
         pipeline = hyphae.Pipeline(request=(grafter,), response=(grafter,))
         extra: frozenset[str] = frozenset()

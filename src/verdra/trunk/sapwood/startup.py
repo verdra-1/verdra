@@ -283,6 +283,7 @@ def run(argv: list[str], build_interface: Callable[[Services], Interface]) -> in
         control=arguments.control_swap,
         check=arguments.format_check,
         snapshots=services.grafts.holder,
+        loads=services.grafts.loads,
     )
     services.detailed_logging = rings.DetailedLogging(logging_, settings, app)
     log.info(

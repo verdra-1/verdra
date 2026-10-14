@@ -1350,6 +1350,27 @@
     </message>
 </context>
 <context>
+    <name>M-ROW-13</name>
+    <message>
+        <source>Another replacement for this asset wins (profile {name}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-14</name>
+    <message>
+        <source>The file for this replacement is missing: {name}. The game keeps the applied version until you apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-15</name>
+    <message>
+        <source>The file changed after it was applied.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-SET-01</name>
     <message>
         <source>Your settings file was damaged. Verdra restored the last good copy.</source>
