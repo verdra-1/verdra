@@ -181,3 +181,11 @@ Applied folder), `trunk/sapwood/startup.py`, `canopy/screens/grafts/screen.py`,
   from the profile as read (the file or its `.bak`), so a version 1 Verdra can read it again; a
   damaged file whose `.bak` is version 1 is migrated from the `.bak`; a file target whose bytes
   can't be kept when migrating gets no applied copy, which S-25 shows as Problem.
+- Built (pull request b of phase A): startup and a finished link download publish the applied
+  versions (`Grafts.publish_applied`); Apply now (until S-27's review replaces it) makes every
+  saved change applied, then publishes. Removing an applied replacement marks it deleted until
+  the next apply; until S-25's table shows such rows, the table hides them. A saved change that
+  can't be applied (its file is missing) keeps the previous applied version and is reported like
+  any replacement left out (M-GRAFT-13). Known gap, closed with S-27: deleting a whole profile
+  still takes effect at once.
+

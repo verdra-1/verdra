@@ -824,9 +824,12 @@ class ProfileStore:
         *,
         on_order: Callable[[list[str]], None] | None = None,
         now: Callable[[], datetime] | None = None,
+        applied_order: Iterable[str] = (),
+        on_applied_order: Callable[[list[str]], None] | None = None,
     ) -> None:
         self.folder = folder
         self.on_order = on_order
+        self.on_applied_order = on_applied_order
         self.now = now or (lambda: datetime.now(UTC))
         self.unreadable: list[ProfileUnreadableError] = []
         #: Files from a newer Verdra, left untouched and not used (S-20 rule 4, M-PROF-11).
@@ -836,6 +839,10 @@ class ProfileStore:
         self._undo: list[_State] = []
         self._redo: list[_State] = []
         self.profiles = self._load(list(order))
+        #: The profile order as last applied (S-26 rule 3); the current order until then.
+        self.applied_order = list(applied_order) or [p.id for p in self.profiles]
+        #: Replacement ID -> why the last `promote` couldn't apply its saved version.
+        self.skipped: dict[str, str] = {}
 
     # Reading
 
@@ -885,8 +892,110 @@ class ProfileStore:
         return copy.deepcopy(_find(self.profiles, profile_id))
 
     def compile(self, fetched: Fetched | None = None) -> Compiled:
-        """Compile the current profiles into a snapshot (S-21), content prepared."""
-        return compile_snapshot(self.profiles, folder=self.folder, fetched=fetched)
+        """Compile the saved profiles into a snapshot (S-21), content prepared: what the next
+        apply publishes (Preview changes, S-23)."""
+        saved = copy.deepcopy(self.profiles)
+        for profile in saved:
+            profile.replacements = [r for r in profile.replacements if not r.deleted]
+        return compile_snapshot(saved, folder=self.folder, fetched=fetched)
+
+    def compile_applied(self, fetched: Fetched | None = None) -> Compiled:
+        """Compile the applied versions into the snapshot the game gets (S-26 rule 1)."""
+        return compile_snapshot(self.applied_profiles(), folder=self.folder, fetched=fetched)
+
+    def applied_profiles(self) -> list[Profile]:
+        """The profiles as last applied, in the applied order: each profile's applied switch,
+        each replacement's applied version, a file target pointing at its applied copy (S-26).
+
+        A profile never applied, and a replacement never applied, are left out. A file whose
+        copy is missing keeps its path, so preparing it fails with the reason (Problem, S-25).
+        """
+        rank = {profile_id: index for index, profile_id in enumerate(self.applied_order)}
+        ordered = sorted(
+            self.profiles, key=lambda p: (rank.get(p.id, len(rank)), p.name.casefold())
+        )
+        result = []
+        for profile in ordered:
+            if profile.applied_enabled is None:
+                continue
+            view = Profile(
+                id=profile.id,
+                name=profile.name,
+                enabled=profile.applied_enabled,
+                applied_enabled=profile.applied_enabled,
+                created=profile.created,
+                modified=profile.modified,
+            )
+            for replacement in profile.replacements:
+                applied = replacement.applied
+                if applied is None:
+                    continue
+                target = copy.deepcopy(applied.target)
+                kept = self.copies.path(applied.sha256) if applied.sha256 else None
+                if target.kind == "file" and kept is not None:
+                    target.value = str(kept)
+                view.replacements.append(
+                    Replacement(
+                        id=replacement.id,
+                        enabled=applied.enabled,
+                        original=copy.deepcopy(applied.original),
+                        target=target,
+                        asset_type=applied.asset_type,
+                    )
+                )
+            result.append(view)
+        return result
+
+    def promote(self) -> None:
+        """Apply every saved change: saved versions become the applied ones (S-26).
+
+        Deleted replacements go; a file target's bytes are copied into the Applied folder. A
+        file that can't be read keeps its previous applied version (the game keeps what it had;
+        the row shows Problem). Applying isn't an edit: undo and redo never change applied
+        versions.
+
+        Raises:
+            ProfileError: The applied copies would use more than 2 GB (M-EDIT-23); nothing
+                changed.
+        """
+        stamp = self.now()
+        skipped: dict[str, str] = {}
+        promoted = copy.deepcopy(self.profiles)
+        for profile in promoted:
+            profile.applied_enabled = profile.enabled
+            kept: list[Replacement] = []
+            for replacement in profile.replacements:
+                if replacement.deleted:
+                    continue
+                sha256 = None
+                if replacement.target.kind == "file" and replacement.target.value:
+                    path = resolve(replacement.target.value, self.folder / profile.name)
+                    try:
+                        sha256 = self.copies.keep(path)
+                    except OSError:
+                        skipped[replacement.id] = QCoreApplication.translate(
+                            "M-GRAFT-02", "The file for this replacement is missing: {path}."
+                        ).format(path=path)
+                        kept.append(replacement)  # its previous applied version stays
+                        continue
+                replacement.applied = Applied(
+                    original=copy.deepcopy(replacement.original),
+                    target=copy.deepcopy(replacement.target),
+                    enabled=replacement.enabled,
+                    asset_type=replacement.asset_type,
+                    sha256=sha256,
+                    at=stamp,
+                )
+                kept.append(replacement)
+            profile.replacements = kept
+        self._apply(self.profiles, promoted)
+        self.skipped = skipped
+        self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
+        self._redo = [_State(self._keep_applied(state.profiles)) for state in self._redo]
+        self.applied_order = [p.id for p in self.profiles]
+        if self.on_applied_order is not None:
+            self.on_applied_order(self.applied_order)
+        self.copies.prune(applied_hashes(self.profiles))
 
     @property
     def can_undo(self) -> bool:
@@ -1013,11 +1122,15 @@ class ProfileStore:
         self._edit(change)
 
     def remove_replacement(self, profile_id: str, replacement_id: str) -> None:
-        """Remove one replacement from a profile."""
+        """Remove one replacement from a profile; one that was applied stays, marked deleted,
+        until the deletion is applied (S-25 Deleted, S-26)."""
 
         def change(profiles: list[Profile]) -> None:
             items = _find(profiles, profile_id).replacements
-            items[:] = [r for r in items if r.id != replacement_id]
+            for replacement in items:
+                if replacement.id == replacement_id and replacement.applied is not None:
+                    replacement.deleted = True
+            items[:] = [r for r in items if r.id != replacement_id or r.deleted]
 
         self._edit(change)
 
@@ -1061,7 +1174,23 @@ class ProfileStore:
         self._redo.clear()
 
     def _restore(self, state: _State) -> None:
-        self._apply(self.profiles, state.profiles)
+        self._apply(self.profiles, self._keep_applied(state.profiles))
+
+    def _keep_applied(self, profiles: list[Profile]) -> list[Profile]:
+        """`profiles` (an undo or redo state) with today's applied versions: undo and redo
+        change saved versions only (S-26). A replacement deleted and since applied away, and so
+        never applied now, isn't brought back as deleted."""
+        current = {p.id: p.applied_enabled for p in self.profiles}
+        applied = {r.id: r.applied for p in self.profiles for r in p.replacements}
+        result = copy.deepcopy(profiles)
+        for profile in result:
+            profile.applied_enabled = current.get(profile.id)
+            for replacement in profile.replacements:
+                replacement.applied = copy.deepcopy(applied.get(replacement.id))
+            profile.replacements = [
+                r for r in profile.replacements if not (r.deleted and r.applied is None)
+            ]
+        return result
 
     def _apply(self, before: list[Profile], after: list[Profile]) -> None:
         """Write what changed between `before` and `after`, then make `after` current."""
@@ -1154,6 +1283,8 @@ class Grafts(QObject):
             folder,
             settings.value("replacements.profile_order"),
             on_order=lambda order: settings.set("replacements.profile_order", order),
+            applied_order=settings.value("replacements.applied_order"),
+            on_applied_order=lambda order: settings.set("replacements.applied_order", order),
         )
         #: Replacement ID -> why it was left out of the last published snapshot.
         self.warnings: dict[str, str] = {}
@@ -1214,14 +1345,26 @@ class Grafts(QObject):
         return preview(self.store.compile(self._cached_link).snapshot)
 
     def publish(self, *, retry: bool = True) -> int:
-        """Compile and publish the snapshot; return how many originals it replaces.
+        """Apply now: every saved change becomes applied (S-26), then the applied snapshot is
+        published; return how many originals it replaces.
 
         Apply now tries a link whose download failed again (`retry`); when it goes on after
         waiting for downloads, it doesn't, so a link that keeps failing can't keep it waiting.
+
+        Raises:
+            ProfileError: The applied copies would use more than 2 GB (M-EDIT-23).
         """
         if retry:
             for link in [link for link, reason in self._links.items() if reason]:
                 del self._links[link]
+        self.store.promote()
+        self.changed.emit()
+        count = self._publish()
+        self._log_left_out()
+        return count
+
+    def publish_applied(self) -> int:
+        """Publish what was last applied, nothing saved since (startup; S-26 rule 1)."""
         count = self._publish()
         self._log_left_out()
         return count
@@ -1256,9 +1399,11 @@ class Grafts(QObject):
             )
 
     def _publish(self) -> int:
-        compiled = self.store.compile(self._link)
+        """Publish the applied versions (S-26 rule 1: never what is only saved)."""
+        compiled = self.store.compile_applied(self._link)
         self.holder.publish(compiled.snapshot)
-        self.warnings = dict(compiled.left_out)
+        # A saved change that couldn't be applied is never silent (S-21, S-25 Problem).
+        self.warnings = {**dict(compiled.left_out), **self.store.skipped}
         return len(compiled.snapshot.grafts)
 
     def _cached_link(self, url: str) -> bytes | str:

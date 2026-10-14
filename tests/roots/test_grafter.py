@@ -589,7 +589,10 @@ class FakeSettings:
     """The one setting the replacement service reads and writes."""
 
     def __init__(self) -> None:
-        self.values: dict[str, Any] = {"replacements.profile_order": []}
+        self.values: dict[str, Any] = {
+            "replacements.profile_order": [],
+            "replacements.applied_order": [],
+        }
 
     def value(self, key: str) -> Any:
         return self.values[key]
