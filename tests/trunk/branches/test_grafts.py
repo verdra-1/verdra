@@ -65,8 +65,10 @@ def test_every_field_round_trips_byte_for_byte(tmp_path: Path) -> None:
     assert grafts.encode(loaded) == written
     data = json.loads(written)
     assert list(data) == [
-        "format", "version", "id", "name", "enabled", "created", "modified", "replacements"
+        "format", "version", "id", "name", "enabled", "applied_enabled", "created", "modified",
+        "replacements",
     ]  # fmt: skip
+    assert data["version"] == 2
     assert data["created"] == "2026-10-04T12:00:00Z"
     assert data["replacements"][0] == {
         "id": data["replacements"][0]["id"],
@@ -75,6 +77,10 @@ def test_every_field_round_trips_byte_for_byte(tmp_path: Path) -> None:
         "target": {"kind": "asset_id", "value": "9876543210"},
         "asset_type": "Image",
         "note": "n",
+        "name": "",
+        "deleted": False,
+        "applied": None,
+        "view": {},
     }
 
 
@@ -101,6 +107,9 @@ def test_the_published_schema_names_every_field() -> None:
     assert set(item["original"]["properties"]) == set(grafts.Original.__struct_fields__)
     assert set(item["target"]["properties"]) == set(grafts.Target.__struct_fields__)
     assert published["properties"]["replacements"]["maxItems"] == grafts.MAX_REPLACEMENTS
+    assert published["properties"]["version"] == {"const": grafts.VERSION}
+    applied = published["$defs"]["applied"]["properties"]
+    assert set(applied) == set(grafts.Applied.__struct_fields__)
 
 
 @pytest.mark.spec("S-20", 3)

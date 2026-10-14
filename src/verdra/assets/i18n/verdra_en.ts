@@ -646,6 +646,13 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-23</name>
+    <message>
+        <source>Applied copies of your files would use more than 2 GB. Delete replacements you don&apos;t need, then apply again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EMPTY-01</name>
     <message>
         <source>Nothing planted yet.</source>
@@ -1196,6 +1203,13 @@
     </message>
     <message>
         <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-11</name>
+    <message>
+        <source>The profile file {file} was saved by a newer version of Verdra, so this version leaves it as it is and doesn&apos;t use it.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

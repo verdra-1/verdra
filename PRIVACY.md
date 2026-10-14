@@ -23,6 +23,7 @@ Verdra keeps everything on your computer.
 | Kind | Folder |
 | --- | --- |
 | Settings, profiles, presets, system changes | `%LOCALAPPDATA%\Verdra\` |
+| Copies of the files behind applied replacements | `%LOCALAPPDATA%\Verdra\Applied\` |
 | Library | `%LOCALAPPDATA%\Verdra\Library\` |
 | Logs | `%LOCALAPPDATA%\Verdra\Logs\` |
 | Exports (only what you export) | `Documents\Verdra\` |

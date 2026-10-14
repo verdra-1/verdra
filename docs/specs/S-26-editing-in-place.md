@@ -175,3 +175,7 @@ Applied folder), `trunk/sapwood/startup.py`, `canopy/screens/grafts/screen.py`,
   Edited (question N3).
 - Profile switches and order wait for Review & apply like rows do (question N5).
 - `view` is the room phases B and C need inside a row, so they need no version 3.
+- Built (pull request a of phase A): the `.json.v1` copy holds the version 1 fields only, written
+  from the profile as read (the file or its `.bak`), so a version 1 Verdra can read it again; a
+  damaged file whose `.bak` is version 1 is migrated from the `.bak`; a file target whose bytes
+  can't be kept when migrating gets no applied copy, which S-25 shows as Problem.

@@ -61,6 +61,8 @@ Organize replacements into named profiles that can be switched on and off.
   "Undo".
 - M-PROF-07 (name, new) "My replacements": the first profile, made by the empty state's "Add
   replacement".
+- M-PROF-11 (Activity warning, new 2026-10-14) "The profile file <file> was saved by a newer
+  version of Verdra, so this version leaves it as it is and doesn't use it."
 - M-PROF-06 (Activity error, new) "The profile file <file> couldn't be read, so Verdra set it
   aside as <moved>."
 
@@ -103,3 +105,8 @@ Organize replacements into named profiles that can be switched on and off.
   row and per profile (`verdra.profile` version 2, with a migration from version 1), Deleted rows
   kept until applied, and undo that never touches applied versions. Built with S-25 to S-27
   (`docs/design/editor-2.md`); this spec's code changes with them.
+- **A file from a newer Verdra (2026-10-14, with S-26).** Rule 4's "opens read-only" is built as:
+  the file is left exactly as it is (never moved aside as broken, never rewritten) and not used,
+  and Activity names it (M-PROF-11). Before this, a version this Verdra didn't know was treated as
+  unreadable and moved aside; a Verdra older than this change still does that with a version 2
+  file (it is renamed, not deleted, and the `.json.v1` copy S-26 keeps stays readable).

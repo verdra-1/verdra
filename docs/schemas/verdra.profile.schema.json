@@ -1,52 +1,220 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/verdra-1/verdra/blob/main/docs/schemas/verdra.profile.schema.json",
-  "title": "Verdra replacement profile (verdra.profile v1)",
-  "description": "One replacement profile, as in Master plan 9.3 and spec S-20.",
+  "title": "Verdra replacement profile (verdra.profile v2)",
+  "description": "One replacement profile, as in Master plan 9.3 and specs S-20 and S-26. Version 1 files are migrated to version 2 when Verdra loads them.",
   "type": "object",
-  "required": ["format", "version", "id", "name", "created", "modified"],
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "created",
+    "modified"
+  ],
   "properties": {
-    "format": {"const": "verdra.profile"},
-    "version": {"const": 1},
-    "id": {"type": "string", "description": "A UUID."},
-    "name": {"type": "string", "minLength": 1, "maxLength": 100},
-    "enabled": {"type": "boolean", "default": true},
-    "created": {"type": "string", "format": "date-time"},
-    "modified": {"type": "string", "format": "date-time"},
+    "format": {
+      "const": "verdra.profile"
+    },
+    "version": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "description": "A UUID."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "applied_enabled": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null,
+      "description": "The switch as last applied; null if never applied (S-26)."
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modified": {
+      "type": "string",
+      "format": "date-time"
+    },
     "replacements": {
       "type": "array",
       "maxItems": 10000,
-      "items": {"$ref": "#/$defs/replacement"}
+      "items": {
+        "$ref": "#/$defs/replacement"
+      }
     }
   },
   "$defs": {
     "replacement": {
       "type": "object",
-      "required": ["id", "original", "target"],
+      "required": [
+        "id",
+        "original",
+        "target"
+      ],
       "properties": {
-        "id": {"type": "string"},
-        "enabled": {"type": "boolean", "default": true},
+        "id": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
         "original": {
           "type": "object",
-          "required": ["asset_id"],
+          "required": [
+            "asset_id"
+          ],
           "properties": {
-            "asset_id": {"type": "integer", "minimum": 1},
-            "slot": {"enum": ["color", "normal", "metalness", "roughness", null]}
+            "asset_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "slot": {
+              "enum": [
+                "color",
+                "normal",
+                "metalness",
+                "roughness",
+                null
+              ]
+            }
           }
         },
         "target": {
           "type": "object",
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "properties": {
-            "kind": {"enum": ["asset_id", "file", "url", "remove"]},
+            "kind": {
+              "enum": [
+                "asset_id",
+                "file",
+                "url",
+                "remove"
+              ]
+            },
             "value": {
               "type": "string",
               "description": "The target asset ID in decimal, a file path (./ for the profile's folder), an HTTPS URL, or empty for remove."
             }
           }
         },
-        "asset_type": {"type": "string"},
-        "note": {"type": "string"}
+        "asset_type": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The original's asset name, for display only (S-26)."
+        },
+        "deleted": {
+          "type": "boolean",
+          "default": false,
+          "description": "Deleted after it was applied; kept until the deletion is applied (S-25)."
+        },
+        "applied": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/applied"
+            }
+          ],
+          "default": null
+        },
+        "view": {
+          "type": "object",
+          "default": {},
+          "description": "Reserved for Editor 2.0 phases B and C; at most 4 KB as JSON (S-26)."
+        }
+      }
+    },
+    "applied": {
+      "type": "object",
+      "description": "The version of a replacement the game gets now (S-26).",
+      "required": [
+        "original",
+        "target",
+        "at"
+      ],
+      "properties": {
+        "original": {
+          "type": "object",
+          "required": [
+            "asset_id"
+          ],
+          "properties": {
+            "asset_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "slot": {
+              "enum": [
+                "color",
+                "normal",
+                "metalness",
+                "roughness",
+                null
+              ]
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "asset_id",
+                "file",
+                "url",
+                "remove"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "description": "The target asset ID in decimal, a file path (./ for the profile's folder), an HTTPS URL, or empty for remove."
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "asset_type": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of a file target's bytes; its copy is in the Applied folder."
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     }
   }
