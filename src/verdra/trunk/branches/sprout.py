@@ -385,7 +385,7 @@ def other_player_text() -> str:
     """M-LAUNCH-08: a Player Verdra didn't start is running (banner and routing status)."""
     return QCoreApplication.translate(
         "M-LAUNCH-08",
-        "Roblox is already running without Verdra. Close it completely, then click Apply now.",
+        "Roblox is already running without Verdra. Close it completely, then click Review & apply.",
     )
 
 
@@ -1067,7 +1067,7 @@ class Sprout(QObject):
             QCoreApplication.translate(
                 "M-CACHE-08",
                 "Verdra couldn't delete every backup of Roblox's saved assets ({reason}). It tries "
-                "again after the next Apply now.",
+                "again after the next apply.",
             ).format(reason=reason),
         )
         self.backups_changed.emit()

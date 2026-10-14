@@ -54,8 +54,7 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - M-APPLY-02 (Toast) "Applied <n> replacements. They'll appear next time Roblox starts."
 - M-APPLY-03 (Toast, new) "Applied <n> replacements. Assets Roblox already saved may change
   only after it refreshes them." (A restart in which the cache stayed.)
-- M-APPLY-04 (Toast, new) "Downloading <n> replacements first. Apply now goes on when they're
-  ready." (singular: "Downloading 1 replacement first. Apply now goes on when it's ready.")
+- M-APPLY-04 (Toast, new) "Downloading <n> replacements first. Applying goes on when they're ready." (singular: "Downloading 1 replacement first. Apply now goes on when it's ready.")
   Button "Cancel".
 - M-APPLY-05 (Toast, new 2026-10-11) "Nothing changed: <n> replacements couldn't be prepared,
   so none were applied and Roblox wasn't restarted. Activity says why for each one." (singular:
@@ -67,14 +66,13 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   stayed), or "No replacements are on, so Roblox shows the original assets." (no restart).
   Restarting still matters then: replacements applied before go away, and a format capture
   (source runs) sees fresh downloads.
-- M-APPLY-07 (Toast and Activity, new 2026-10-12) "Apply now is still restarting Roblox. Try
-  again in a moment." Apply now ignores clicks for 10 seconds after it restarted Roblox.
+- M-APPLY-07 (Toast and Activity, new 2026-10-12) "Verdra is still restarting Roblox. Try again in a moment." Apply now ignores clicks for 10 seconds after it restarted Roblox.
 - M-CACHE-01 (Toast and Activity, new) "Moved Roblox's saved assets (<names>) to <folder>. Reset
   everything puts them back."
 - M-CACHE-02 (Toast, new) "Roblox Studio is open, so Verdra didn't move Roblox's saved assets
-  aside. Close Studio, then click Apply now again."
+  aside. Close Studio, then click Review & apply again."
 - M-CACHE-03 (Toast, new) "A Roblox Player that Verdra didn't start is running, so Verdra didn't
-  move Roblox's saved assets aside. Close it, then click Apply now again."
+  move Roblox's saved assets aside. Close it, then click Review & apply again."
 - M-CACHE-04 (Activity, new) "Verdra couldn't move Roblox's saved assets aside (<reason>).
   Nothing was changed."
 - M-CACHE-05 (Reset everything, new) "Roblox has made new saved assets since, so Verdra kept the
@@ -82,7 +80,7 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - M-CACHE-06 (Job name, new) "Deleting backups of Roblox's saved assets"
 - M-CACHE-07 (Activity, new) "Deleted <n> backups of Roblox's saved assets (<size>)."
 - M-CACHE-08 (Activity, new) "Verdra couldn't delete every backup of Roblox's saved assets
-  (<reason>). It tries again after the next Apply now."
+  (<reason>). It tries again after the next apply."
 - M-CACHE-09 (Settings, new) "Backups of Roblox's saved assets use <size>."
 - M-CACHE-10 (Settings, new) "There are no backups of Roblox's saved assets."
 - M-CACHE-11 (Dialog, new) "Delete the backups of Roblox's saved assets?" Button "Delete

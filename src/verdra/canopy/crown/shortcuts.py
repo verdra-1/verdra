@@ -39,7 +39,7 @@ def bindings() -> list[Binding]:
         Binding("Ctrl+N", QCoreApplication.translate("Shortcuts", "Add a replacement")),
         Binding("Ctrl+Z", QCoreApplication.translate("Shortcuts", "Undo")),
         Binding("Shift+Ctrl+Z", QCoreApplication.translate("Shortcuts", "Redo")),
-        Binding("Ctrl+Return", QCoreApplication.translate("Shortcuts", "Apply now")),
+        Binding("Ctrl+Return", QCoreApplication.translate("Shortcuts", "Review & apply")),
         Binding("Ctrl+,", QCoreApplication.translate("Shortcuts", "Open Settings")),
         Binding("Esc", QCoreApplication.translate("Shortcuts", "Close drawers and dialogs")),
         Binding("F1", QCoreApplication.translate("Shortcuts", "Show these shortcuts")),

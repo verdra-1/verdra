@@ -76,7 +76,7 @@ wasn't in that look.
 
 ## Messages
 
-- M-REVIEW-01 (Dialog title) "Review changes before applying"
+- M-REVIEW-01 (Dialog title) "Review changes before applying"; the list's accessible name "Changes"
 - M-REVIEW-02 (Summary) "<n> changes. Roblox needs a restart to load them; unsaved progress in
   your game may be lost." / "<n> changes. They reach the game the next time Roblox starts." /
   with skipped rows "<n> will be skipped." appended (plural forms)
@@ -146,3 +146,13 @@ wasn't in that look.
   order goes where it stands among the applied ones. `undo_apply` puts the applied set before the
   last apply back (one level; a deletion applied away comes back as Deleted). Apply now uses the
   same path until the dialog (f2) replaces it.
+- Built (pull request f2 of phase A): the dialog, "Review & apply (n)" in the header, Ctrl+Enter,
+  "Apply only these", "Fix", the restart checkbox, the toast with Undo. Found while building it:
+  S-24's texts send the user back to apply again after Studio or another Player closed
+  (M-CACHE-02, M-CACHE-03, M-LAUNCH-08, M-LAUNCH-18), so that the cache can move. A button
+  disabled when nothing waits would leave no way to do that, so the button stays enabled: with
+  nothing waiting it applies again without a review (S-24's flow, with M-LAUNCH-03), and M-REVIEW-08
+  is its tooltip. Those texts now say "click Review & apply". Undo's toast lasts 10 s counted from
+  the end of the restart cooldown (rule 6), so an apply that restarted Roblox can be undone too.
+  S-01's "Apply now" in the header and Ctrl+Enter now mean Review & apply; the tray's unbuilt
+  "Apply now" item keeps its plan name until the tray is built.

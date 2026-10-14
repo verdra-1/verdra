@@ -9,9 +9,12 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
+from tests.canopy.applying import StubSprout
+from verdra.canopy.crown.window import Shell
 from verdra.soil import terrain
 from verdra.trunk import rings, tendrils
 from verdra.trunk.almanac.store import SettingsStore, StateStore
+from verdra.trunk.branches import grafts
 from verdra.trunk.sapwood import cli
 from verdra.trunk.sapwood.single import SingleInstance
 from verdra.trunk.sapwood.startup import Services
@@ -58,3 +61,19 @@ def shell(services: Services, qtbot: QtBot) -> Iterator[object]:
     yield made
     made.window.allow_close = True
     made.window.close()
+
+
+@pytest.fixture
+def made(services: Services, qtbot: QtBot) -> Iterator[tuple[Shell, StubSprout]]:
+    services.grafts = grafts.Grafts(terrain.config_dir() / "profiles", services.settings)
+    stub = StubSprout()
+    services.sprout = stub  # type: ignore[assignment]
+    shell = Shell(services)
+    shell.build()
+    qtbot.addWidget(shell.window)
+    yield shell, stub
+    shell.window.allow_close = True
+    shell.window.close()
+    services.sprout = None
+    stub.deleteLater()
+    services.grafts.deleteLater()

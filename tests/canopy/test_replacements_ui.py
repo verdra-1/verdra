@@ -11,77 +11,28 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
+from tests.canopy.applying import StubSprout, toasts
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.bark import rain
 from verdra.canopy.crown import window as window_module
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
+from verdra.canopy.screens.grafts.review import ReviewDialog
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
 from verdra.soil import terrain
 from verdra.strata import ochre
 from verdra.trunk import tendrils
-from verdra.trunk.branches import grafts, sprout
+from verdra.trunk.branches import grafts
 from verdra.trunk.sapwood import startup
 from verdra.trunk.sapwood.startup import Services
-
-
-class StubSprout(QObject):
-    """Records what Apply now asks of trunk's Sprout."""
-
-    refused = Signal(str)
-    other_tool = Signal(str)
-    backups_changed = Signal()
-    others_changed = Signal(bool)
-    held_back = Signal(str)
-    handed_off = Signal(str)
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.calls: list[str] = []
-        #: A Player this Verdra started is running.
-        self.running = False
-        #: Players Verdra didn't start, and Studios, that are running.
-        self.others: tuple[int, ...] = ()
-        self.studio: tuple[int, ...] = ()
-        self.routing = True
-        self.cache: sprout.CacheMove | None = sprout.CacheMove(
-            ("rbx-storage.db", "rbx-storage"), Path("C:/Verdra/Roblox cache backup/1")
-        )
-
-    def roblox_running(self) -> bool:
-        return self.running
-
-    def roblox_processes(self) -> sprout.RunningRoblox:
-        players = frozenset(((7,) if self.running else ()) + self.others)
-        return sprout.RunningRoblox(players, bool(self.studio))
-
-    def players_started_here(self) -> set[int]:
-        return {7} if self.running else set()
-
-    def refresh_others(self) -> frozenset[int]:
-        self.others_changed.emit(bool(self.others))
-        return frozenset(self.others)
-
-    def close_roblox(self) -> None:
-        self.calls.append("close")
-
-    def clear_cache(self) -> sprout.CacheMove | None:
-        self.calls.append("clear")
-        return self.cache
-
-    def launch(self, link: str | None = None) -> None:
-        self.calls.append("launch")
-
-    def start_routing(self) -> None:
-        self.calls.append("start")
 
 
 @pytest.fixture(autouse=True)
@@ -94,30 +45,24 @@ def catalog(qapp: QApplication) -> Iterator[None]:
     translator.deleteLater()
 
 
-@pytest.fixture
-def made(services: Services, qtbot: QtBot) -> Iterator[tuple[Shell, StubSprout]]:
-    services.grafts = grafts.Grafts(terrain.config_dir() / "profiles", services.settings)
-    stub = StubSprout()
-    services.sprout = stub  # type: ignore[assignment]
-    shell = Shell(services)
-    shell.build()
-    qtbot.addWidget(shell.window)
-    yield shell, stub
-    shell.window.allow_close = True
-    shell.window.close()
-    services.sprout = None
-    stub.deleteLater()
-    services.grafts.deleteLater()
+@pytest.fixture(autouse=True)
+def reviewed(monkeypatch: pytest.MonkeyPatch) -> list[ReviewDialog]:
+    """Review & apply (S-27) answers with what it shows: every change checked, the restart
+    checkbox as it starts. Tests of the review itself answer otherwise."""
+    shown: list[ReviewDialog] = []
+
+    def accept(dialog: ReviewDialog) -> int:
+        shown.append(dialog)
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(ReviewDialog, "exec", accept)
+    return shown
 
 
 def screen_of(shell: Shell) -> ReplacementsScreen:
     screen = shell.window.screens["replacements"]
     assert isinstance(screen, ReplacementsScreen)
     return screen
-
-
-def toasts(shell: Shell) -> list[str]:
-    return [t.text for t in shell.window.findChildren(Toast)]
 
 
 @pytest.mark.spec("S-22", 3)
@@ -371,18 +316,19 @@ def test_apply_now_without_roblox_running_publishes_and_says_next_time(
     )
     assert service.holder.current.swaps() == {}  # nothing applies before Apply now
     header = shell.window.header
-    assert header.apply_now.isEnabled()
-    header.apply_now.click()
+    assert header.review.isEnabled()
+    header.review.click()
     assert service.holder.current.swaps() == {1111111: 2222222}
     assert stub.calls == ["clear"]  # nothing runs: the cache moves aside, nothing is closed
     assert toasts(shell)[-2:] == [
         "Moved Roblox's saved assets (rbx-storage.db, rbx-storage) to "
         f"{Path('C:/Verdra/Roblox cache backup/1')}. Reset everything puts them back.",
-        "Applied 1 replacement. They'll appear next time Roblox starts.",
+        # The review's toast (S-27, M-REVIEW-06), with Undo:
+        "1 change applied. It reaches the game the next time Roblox starts.",
     ]
     stub.routing = False
     stub.calls.clear()
-    header.apply_now.click()
+    header.review.click()
     assert stub.calls == ["clear", "start"]  # S-24 rule 2: routing starts too
 
 
@@ -395,11 +341,11 @@ def test_canceling_the_restart_publishes_and_closes_nothing(
     asked: list[str] = []
 
     def answer(dialog: DestructiveConfirmation) -> int:
-        asked.append(dialog.findChildren(type(shell.window.header.apply_now))[-1].text())
+        asked.append(dialog.findChildren(type(shell.window.header.review))[-1].text())
         return QDialog.DialogCode.Rejected
 
     monkeypatch.setattr(DestructiveConfirmation, "exec", answer)
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert asked == ["Restart Roblox"]
     assert stub.calls == []
     assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
@@ -412,7 +358,7 @@ def test_confirming_restarts_only_the_roblox_verdra_launched(
     shell, stub = made
     stub.running = True
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     # Sprout closes only its own launches (S-12 rule 4), then the cache moves, then Roblox starts.
     assert stub.calls == ["close", "clear", "launch"]
     assert toasts(shell)[-1] == (
@@ -437,13 +383,13 @@ def test_the_cache_stays_while_studio_or_another_player_runs(
 ) -> None:
     shell, stub = made
     stub.others, stub.studio = others, studio
-    shell.window.header.apply_now.click()  # none of Verdra's own Players runs
+    shell.window.header.review.click()  # none of Verdra's own Players runs
     assert stub.calls == []  # nothing moved, nothing closed: Studio and others are never closed
     assert toasts(shell)[-2].startswith(told)
     assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
     stub.running = True  # with Verdra's own Player too: it restarts, the cache still stays
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert stub.calls == ["close", "launch"]
     assert toasts(shell)[-1].startswith("No replacements are on. Roblox is restarting, but assets")
 
@@ -463,21 +409,21 @@ def test_apply_now_ignores_clicks_while_it_restarts_roblox(
     monkeypatch.setattr(DestructiveConfirmation, "exec", accept)
     now = [1000.0]
     shell.monotonic = lambda: now[0]
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
     now[0] += 3  # clicked again while Roblox restarts: no second dialog, no second Player
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
-    assert toasts(shell)[-1] == "Apply now is still restarting Roblox. Try again in a moment."
+    assert toasts(shell)[-1] == "Verdra is still restarting Roblox. Try again in a moment."
     now[0] += window_module.APPLY_COOLDOWN_SECONDS  # later, it works again
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert len(asked) == 2  # noqa: PLR2004
 
 
 def test_without_the_service_the_screen_and_apply_now_say_why(shell: Shell) -> None:
     screen = screen_of(shell)
     assert not any(b.isEnabled() for b in screen.empty.buttons)
-    assert not shell.window.header.apply_now.isEnabled()
+    assert not shell.window.header.review.isEnabled()
 
 
 def test_startup_publishes_saved_replacements(home: Path, services: Services) -> None:
@@ -594,10 +540,10 @@ def test_the_first_texture_swap_guide_steps_6_to_9_with_real_size_ids(
     assert saved["replacements"][0]["original"] == {"asset_id": ABOVE_UINT32, "slot": None}
     assert saved["replacements"][0]["target"] == {"kind": "asset_id", "value": str(ABOVE_INT32)}
     # Step 7: Apply now with Roblox closed: the snapshot holds the exact IDs, and the toast says so.
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert service.holder.current.swaps() == {ABOVE_UINT32: ABOVE_INT32}
     assert service.holder.current.hosts() == {rules.ASSET_BATCH_HOST}
-    assert toasts(shell)[-1] == "Applied 1 replacement. They'll appear next time Roblox starts."
+    assert toasts(shell)[-1] == "1 change applied. It reaches the game the next time Roblox starts."
     assert stub.calls == ["clear"]
     # Steps 8 and 9: the Player's asset batch asks for the target; the answer comes back under
     # the original's ID, in both the number and the text form.
@@ -662,7 +608,7 @@ def test_apply_now_says_when_replacements_couldnt_be_prepared(
         grafts.Target(kind="asset_id", value="3333333"),
     )
     with caplog.at_level(logging.WARNING, logger="verdra.trunk.branches.grafts"):
-        shell.window.header.apply_now.click()
+        shell.window.header.review.click()
     assert "1 replacement couldn't be prepared. See the warnings in Replacements." in toasts(shell)
     assert stub.calls == ["clear"]  # the other one was applied
     # Which row, which file and why, in plain words (maintainer, 11 October 2026).
@@ -688,7 +634,7 @@ def test_apply_now_changes_nothing_when_no_replacement_could_be_prepared(
         grafts.Original(asset_id=1111111),
         grafts.Target(kind="file", value="./gone.png"),
     )
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     assert asked == []  # no "Restart Roblox now?"
     assert toasts(shell) == [
         "Nothing changed: 1 replacement couldn't be prepared, so it wasn't applied and Roblox "
@@ -754,16 +700,16 @@ def test_apply_now_waits_for_a_link_still_downloading_then_goes_on(
     service = shell.services.grafts
     assert service is not None
     add_link(service, "https://pictures.example/wall.png")
-    shell.window.header.apply_now.click()
-    assert toasts(shell) == ["Downloading 1 replacement first. Apply now goes on when it's ready."]
+    shell.window.header.review.click()
+    assert toasts(shell) == ["Downloading 1 replacement first. Applying goes on when it's ready."]
     assert stub.calls == []  # nothing moved or restarted yet
     assert not any("couldn't be prepared" in text for text in toasts(shell))
-    shell.window.header.apply_now.click()  # a second click while waiting changes nothing
+    shell.window.header.review.click()  # a second click while waiting changes nothing
     assert len(fetched) == 1
     gate.set()
     qtbot.waitUntil(lambda: stub.calls == ["clear"], timeout=5000)
     assert ABOVE_UINT32 in service.holder.current.content  # applied, no second Apply now
-    assert "Applied 1 replacement. They'll appear next time Roblox starts." in toasts(shell)
+    assert "1 change applied. It reaches the game the next time Roblox starts." in toasts(shell)
     shown = [t.text for t in shell.window.findChildren(Toast) if t.isVisibleTo(shell.window)]
     assert not any(text.startswith("Downloading") for text in shown)  # the wait is over
 
@@ -776,7 +722,7 @@ def test_a_link_that_fails_while_apply_now_waits_is_not_tried_in_a_loop(
     service = shell.services.grafts
     assert service is not None
     add_link(service, "https://pictures.example/gone.png")
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     gate.set()
     qtbot.waitUntil(
         lambda: any(t.startswith("Nothing changed") for t in toasts(shell)), timeout=5000
@@ -792,7 +738,7 @@ def test_canceling_the_wait_leaves_the_download_running(
     service = shell.services.grafts
     assert service is not None
     add_link(service, "https://pictures.example/wall.png")
-    shell.window.header.apply_now.click()
+    shell.window.header.review.click()
     [toast] = [t for t in shell.window.findChildren(Toast) if t.text.startswith("Downloading")]
     assert toast.action_button is not None
     toast.action_button.click()  # "Cancel"

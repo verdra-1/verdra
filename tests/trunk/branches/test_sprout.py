@@ -1242,7 +1242,7 @@ def test_a_join_waits_while_a_player_verdra_didnt_start_runs(
     assert seen == [True]
     assert made.status.current.state.value == "degraded"
     assert made.status.current.reason == (
-        "Roblox is already running without Verdra. Close it completely, then click Apply now."
+        "Roblox is already running without Verdra. Close it completely, then click Review & apply."
     )
     assert "Verdra didn't start Roblox yet: Roblox is already running without Verdra" in (
         caplog.text
