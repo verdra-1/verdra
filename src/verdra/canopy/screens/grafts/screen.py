@@ -238,7 +238,10 @@ class ReplacementsScreen(QWidget):
             "url": self.tr("URL"),
             "remove": self.tr("Remove"),
         }
-        for row, replacement in enumerate(profile.replacements):
+        # A deleted replacement waits for the next apply (S-26); the table shows it once S-25's
+        # status column does.
+        shown = [r for r in profile.replacements if not r.deleted]
+        for row, replacement in enumerate(shown):
             self.table.insertRow(row)
             original = QTableWidgetItem(str(replacement.original.asset_id))
             original.setData(Qt.ItemDataRole.UserRole, replacement.id)

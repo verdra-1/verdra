@@ -322,6 +322,7 @@ def test_every_r2_key_has_its_default() -> None:
         "accounts.displayed_name": "",
         "accounts.privacy_mode": False,
         "replacements.profile_order": [],  # spec S-20 (refinement: not in R2 yet)
+        "replacements.applied_order": [],  # spec S-26 rule 3
         "traffic.editing": False,
         "traffic.rules": [],
     }

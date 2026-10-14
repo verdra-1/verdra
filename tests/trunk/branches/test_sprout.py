@@ -753,7 +753,10 @@ def test_apply_now_deletes_and_changes_no_roblox_file(
 
     class Settings:
         def __init__(self) -> None:
-            self.values: dict[str, object] = {"replacements.profile_order": []}
+            self.values: dict[str, object] = {
+                "replacements.profile_order": [],
+                "replacements.applied_order": [],
+            }
 
         def value(self, key: str) -> object:
             return self.values[key]

@@ -155,6 +155,9 @@ class Replacements(Struct, kw_only=True):
 
     #: Profile IDs, highest first: the higher profile wins for the same original (S-20 rule 1).
     profile_order: list[str] = field(default_factory=list)
+    #: The profile order as last applied (spec S-26 rule 3); empty until the first apply, then
+    #: `profile_order` stands in.
+    applied_order: list[str] = field(default_factory=list)
 
 
 class Traffic(Struct, kw_only=True):
