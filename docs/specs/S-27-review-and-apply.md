@@ -28,7 +28,7 @@ wasn't in that look.
   | A row switched off | Turning off | "Turned off: goes back to the original <type>." |
   | An Off row switched on | Turning on | "Turned on: <target>" |
   | A Deleted row | Deleted | "Deleted: goes back to the original <type>." |
-  | A profile switch | Profile on / Profile off | "Profile <name> turning off: %n replacements go back to the originals." (and on) |
+  | A profile switch | Profile on / Profile off | "Profile <name> turning off: <n> replacements go back to the originals." (and on) |
   | A new winner after a reorder or move | Changed | "Asset <id> now comes from profile <name>." |
   | A Problem row with a waiting change | Problem | "<reason> Fix it or turn the row off. It will be skipped." and a "Fix" link that opens the row |
   | A link still downloading | Waiting | "Downloading from <host>. It applies as soon as it's ready." |
@@ -37,7 +37,7 @@ wasn't in that look.
   from the same prepared content the proxy will serve (no second conversion), 64 × 64; the
   family icon otherwise and for the original, until phase B brings originals. Warnings stay
   visible on the line: scaled size ("Scaled to 1024 × 576."), and the type mismatch of S-22.
-- **Selection.** Each line has a checkbox, all checked; "Apply %n changes" applies the checked
+- **Selection.** Each line has a checkbox, all checked; "Apply <n> changes" applies the checked
   ones (M-REVIEW-05). Opened from "Apply only these", only those rows are checked. Unchecked
   changes stay waiting.
 - **Restart.** A checkbox "Restart Roblox after applying" (M-REVIEW-04), on by default when a
@@ -77,30 +77,30 @@ wasn't in that look.
 ## Messages
 
 - M-REVIEW-01 (Dialog title) "Review changes before applying"
-- M-REVIEW-02 (Summary) "%n changes. Roblox needs a restart to load them; unsaved progress in
-  your game may be lost." / "%n changes. They reach the game the next time Roblox starts." /
-  with skipped rows "%n will be skipped." appended (plural forms)
+- M-REVIEW-02 (Summary) "<n> changes. Roblox needs a restart to load them; unsaved progress in
+  your game may be lost." / "<n> changes. They reach the game the next time Roblox starts." /
+  with skipped rows "<n> will be skipped." appended (plural forms)
 - M-REVIEW-03 (Line details) as in the table above: "New: <target>", "Edited: <old> → <new>",
   "Stops replacing <A>, starts replacing <B>.", "Turned off: goes back to the original <type>.",
   "Turned on: <target>", "Deleted: goes back to the original <type>.", "Profile <name> turning
-  off: %n replacements go back to the originals.", "Profile <name> turning on: %n replacements
+  off: <n> replacements go back to the originals.", "Profile <name> turning on: <n> replacements
   apply.", "Asset <id> now comes from profile <name>.", "<reason> Fix it or turn the row off. It
   will be skipped.", "Downloading from <host>. It applies as soon as it's ready.", "Profile
   order changed; no asset changes."; badges "New", "Changed", "Turning off", "Turning on",
   "Deleted", "Profile on", "Profile off", "Problem", "Waiting"; link "Fix"
 - M-REVIEW-04 (Checkbox) "Restart Roblox after applying"; disabled tooltips "Roblox isn't
   running. The changes reach the game the next time it starts." and M-CACHE-03's sentence
-- M-REVIEW-05 (Buttons) "Back to editing", "Apply %n changes" (plural forms), "Apply" when
+- M-REVIEW-05 (Buttons) "Back to editing", "Apply <n> changes" (plural forms), "Apply" when
   nothing is checked (disabled)
-- M-REVIEW-06 (Toast) "%n changes applied. Roblox is restarting." / "%n changes applied. They
+- M-REVIEW-06 (Toast) "<n> changes applied. Roblox is restarting." / "<n> changes applied. They
   reach the game the next time Roblox starts." (plural forms), button "Undo"
 - M-REVIEW-07 (Toast) "Put back the replacements applied before." / with a restart: "Put back
   the replacements applied before. Roblox is restarting."
 - M-REVIEW-08 (Button tooltip) "Nothing is waiting. Every replacement is already live."
-- M-REVIEW-09 (Activity) "Applied %n changes: %a new, %c changed, %o off, %d deleted." (only the
+- M-REVIEW-09 (Activity) "Applied <n> changes: %a new, %c changed, %o off, %d deleted." (only the
   non-zero parts)
 - M-REVIEW-10 (Line warning) "Scaled to <w> × <h>."
-- M-REVIEW-11 (Summary, skipped) "%n will be skipped." (plural forms)
+- M-REVIEW-11 (Summary, skipped) "<n> will be skipped." (plural forms)
 - M-REVIEW-12 (Toast) "Can't undo now: the replacements changed since." (Undo after the applied
   set changed again)
 - M-APPLY-07 reworded: "Verdra is still restarting Roblox. Try again in a moment."
@@ -139,3 +139,10 @@ wasn't in that look.
 - The review is also the restart question (M-LAUNCH-03 isn't asked a second time).
 - Undo is one level and lasts while its toast shows (question N6).
 - Phase A shows after-thumbnails only (question N10); before-thumbnails come with phase B.
+- Built (pull request f1 of phase A, trunk only): `pending_changes()` gives the lines with a key
+  each (a replacement's ID, `profile:<id>`, or `order` for every line the profile order makes);
+  `waiting()` counts them, the order once. `apply(chosen)` promotes only the chosen keys and skips
+  Problem rows with their reason (M-GRAFT-13); a profile applied for the first time without the
+  order goes where it stands among the applied ones. `undo_apply` puts the applied set before the
+  last apply back (one level; a deletion applied away comes back as Deleted). Apply now uses the
+  same path until the dialog (f2) replaces it.

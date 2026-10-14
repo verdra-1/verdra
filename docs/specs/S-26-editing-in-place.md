@@ -199,3 +199,6 @@ Applied folder), `trunk/sapwood/startup.py`, `canopy/screens/grafts/screen.py`,
   of question N8 couldn't be made from the build machine (its network policy refuses Roblox's
   hosts), so it is a step of the phase A test; until then, rows whose answer has no name show the
   ID and type only, as N8 decides.
+- Built (pull request f1 of phase A): a copy only the applied set before the last apply names is
+  kept until the next apply, because that apply's Undo (S-27) puts it back; test 9 checks it
+  goes then.

@@ -254,6 +254,25 @@
     </message>
 </context>
 <context>
+    <name>Grafts</name>
+    <message numerus="yes">
+        <source>Profile {name} turning on: %n replacements apply.</source>
+        <comment>M-REVIEW-03</comment>
+        <translation>
+            <numerusform>Profile {name} turning on: %n replacement applies.</numerusform>
+            <numerusform>Profile {name} turning on: %n replacements apply.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Profile {name} turning off: %n replacements go back to the originals.</source>
+        <comment>M-REVIEW-03</comment>
+        <translation>
+            <numerusform>Profile {name} turning off: %n replacement goes back to the original.</numerusform>
+            <numerusform>Profile {name} turning off: %n replacements go back to the originals.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>Header</name>
     <message>
         <source>No profile yet</source>
@@ -1403,6 +1422,53 @@
     <name>M-RESET-12</name>
     <message>
         <source>Your library in {path} stays, because you chose that folder; delete it yourself if you no longer need it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-03</name>
+    <message>
+        <source>asset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading from {host}. It applies as soon as it&apos;s ready.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{reason} Fix it or turn the row off. It will be skipped.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deleted: goes back to the original {type}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New: {target}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Turned off: goes back to the original {type}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Turned on: {target}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stops replacing {a}, starts replacing {b}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edited: {old} → {new}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Asset {id} now comes from profile {name}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Profile order changed; no asset changes.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
