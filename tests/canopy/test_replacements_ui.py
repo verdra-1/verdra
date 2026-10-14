@@ -188,14 +188,16 @@ def test_a_local_file_dropped_on_the_drawer_is_saved_relative_to_the_profile(
     saved = json.loads((folder.parent / "My replacements.json").read_bytes())
     assert saved["replacements"][0]["target"] == {"kind": "file", "value": "./sky/top.png"}
     assert saved["replacements"][0]["asset_type"] == "Image"
-    note = screen.table.item(0, 3)
-    # Only a PNG signature, not a picture: it is saved, but can't be used in game, and says why.
-    assert note is not None and note.text().startswith("This file couldn't be used:")
+    status = screen.table.item(0, 4)
+    # Only a PNG signature, not a picture: it is saved, but can't be used in game, and says why
+    # (S-25: the status pill says Problem, its tooltip the reason).
+    assert status is not None and status.text().startswith("Problem · ")
+    assert status.toolTip().startswith("This file couldn't be used:")
     picture.write_bytes(ochre.to_png(ochre.Pixels(1, 1, b"\0\0\0\xff")))
     service.publish()
     screen.refresh()
-    note = screen.table.item(0, 3)
-    assert note is None or note.text() == ""  # a real picture: used in game, nothing to say
+    status = screen.table.item(0, 4)
+    assert status is not None and status.text() == "Live · not seen yet"  # used in game
 
 
 @pytest.mark.spec("S-22", 1)

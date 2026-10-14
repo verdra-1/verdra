@@ -1135,6 +1135,132 @@ class ProfileStore:
 
         self._edit(change)
 
+    def remove_replacements(self, profile_id: str, replacement_ids: Iterable[str]) -> None:
+        """Remove several replacements in one edit (one undo step); applied ones stay, marked
+        deleted, until the deletion is applied (S-26)."""
+        gone = set(replacement_ids)
+
+        def change(profiles: list[Profile]) -> None:
+            items = _find(profiles, profile_id).replacements
+            for replacement in items:
+                if replacement.id in gone and replacement.applied is not None:
+                    replacement.deleted = True
+            items[:] = [r for r in items if r.id not in gone or r.deleted]
+
+        self._edit(change)
+
+    def set_replacements_enabled(
+        self,
+        profile_id: str,
+        replacement_ids: Iterable[str],
+        enabled: bool,  # noqa: FBT001 - mirrors the switch
+    ) -> None:
+        """Switch several replacements on or off in one edit (S-26)."""
+        chosen = set(replacement_ids)
+
+        def change(profiles: list[Profile]) -> None:
+            for replacement in _find(profiles, profile_id).replacements:
+                if replacement.id in chosen:
+                    replacement.enabled = enabled
+
+        self._edit(change)
+
+    def duplicate_replacement(self, profile_id: str, replacement_id: str) -> Replacement:
+        """Copy a replacement right below it, switched off, noted "Copy of <note>" (S-26, N7).
+
+        Off, because two replacements of one original are a conflict (S-20 rule 1).
+        """
+        source = next(r for r in self.get(profile_id).replacements if r.id == replacement_id)
+        note = (
+            QCoreApplication.translate("M-EDIT-21", "Copy of {note}").format(note=source.note)
+            if source.note
+            else QCoreApplication.translate("M-EDIT-21", "Copy")
+        )
+        copied = Replacement(
+            id=str(uuid.uuid4()),
+            enabled=False,
+            original=copy.deepcopy(source.original),
+            target=copy.deepcopy(source.target),
+            asset_type=source.asset_type,
+            note=note,
+            name=source.name,
+            view=copy.deepcopy(source.view),
+        )
+
+        def change(profiles: list[Profile]) -> None:
+            items = _find(profiles, profile_id).replacements
+            if len(items) >= MAX_REPLACEMENTS:
+                raise ProfileError(
+                    QCoreApplication.translate(
+                        "M-PROF-05", "A profile can hold at most {n} replacements."
+                    ).format(n=f"{MAX_REPLACEMENTS:,}")
+                )
+            index = next(i for i, r in enumerate(items) if r.id == replacement_id)
+            items.insert(index + 1, copy.deepcopy(copied))
+
+        self._edit(change)
+        return copied
+
+    def move_replacements(
+        self, profile_id: str, replacement_ids: Iterable[str], to_profile_id: str
+    ) -> int:
+        """Move replacements to another profile, at its end; return how many moved (S-26).
+
+        A replacement the game has stays where it is, marked deleted, until applied; the moved
+        copy is new in the other profile (N5: the game changes only when applied).
+        """
+        chosen = [r for r in self.get(profile_id).replacements if r.id in set(replacement_ids)]
+        moved = [
+            Replacement(
+                id=str(uuid.uuid4()) if r.applied is not None else r.id,
+                enabled=r.enabled,
+                original=copy.deepcopy(r.original),
+                target=copy.deepcopy(r.target),
+                asset_type=r.asset_type,
+                note=r.note,
+                name=r.name,
+                view=copy.deepcopy(r.view),
+            )
+            for r in chosen
+            if not r.deleted
+        ]
+
+        def change(profiles: list[Profile]) -> None:
+            source = _find(profiles, profile_id).replacements
+            target = _find(profiles, to_profile_id).replacements
+            if len(target) + len(moved) > MAX_REPLACEMENTS:
+                raise ProfileError(
+                    QCoreApplication.translate(
+                        "M-PROF-05", "A profile can hold at most {n} replacements."
+                    ).format(n=f"{MAX_REPLACEMENTS:,}")
+                )
+            ids = {r.id for r in chosen}
+            for replacement in source:
+                if replacement.id in ids and replacement.applied is not None:
+                    replacement.deleted = True
+            source[:] = [r for r in source if r.id not in ids or r.deleted]
+            target.extend(copy.deepcopy(moved))
+
+        self._edit(change)
+        return len(moved)
+
+    def revert(self, profile_id: str, replacement_ids: Iterable[str]) -> None:
+        """Revert to live version: the saved version becomes the applied one again (S-26)."""
+        chosen = set(replacement_ids)
+
+        def change(profiles: list[Profile]) -> None:
+            for replacement in _find(profiles, profile_id).replacements:
+                applied = replacement.applied
+                if replacement.id not in chosen or applied is None:
+                    continue
+                replacement.deleted = False
+                replacement.original = copy.deepcopy(applied.original)
+                replacement.target = copy.deepcopy(applied.target)
+                replacement.enabled = applied.enabled
+                replacement.asset_type = applied.asset_type
+
+        self._edit(change)
+
     def undo(self) -> None:
         """Undo the last edit."""
         if self._undo:
@@ -1304,6 +1430,18 @@ class FileChecks:
     def __init__(self) -> None:
         self._known: dict[Path, tuple[int, int, str]] = {}
 
+    def known(self, path: Path) -> tuple[bool, str | None]:
+        """(True, SHA-256) if the file is as last hashed; (True, None) if it is gone or
+        unreadable; (False, None) if it must be hashed again (`sha256`, on a worker)."""
+        try:
+            info = path.stat()
+        except OSError:
+            return True, None
+        found = self._known.get(path)
+        if found is not None and found[:2] == (info.st_size, info.st_mtime_ns):
+            return True, found[2] or None  # "": couldn't be read, like gone
+        return False, None
+
     def sha256(self, path: Path) -> str | None:
         """Return the file's SHA-256, or None if it can't be read."""
         try:
@@ -1316,9 +1454,9 @@ class FileChecks:
         try:
             digest = hashlib.sha256(atomic.read_bytes(path)).hexdigest()
         except OSError:
-            return None
+            digest = ""  # remembered, so an unreadable file isn't hashed again and again
         self._known[path] = (info.st_size, info.st_mtime_ns, digest)
-        return digest
+        return digest or None
 
 
 def row_state(
@@ -1329,12 +1467,14 @@ def row_state(
     problems: Mapping[str, str],
     loads: rules.Loads,
     winners: Mapping[tuple[int, rules.Slot | None], tuple[str, str]],
-    files: FileChecks,
+    digest_of: Callable[[Path, str | None], str | None],
 ) -> RowState:
     """The status of one replacement (S-25), from its saved and applied versions.
 
     `problems`: replacement ID -> why it can't be used (as saved or as applied); `winners`:
-    original -> (replacement ID, profile name) of the replacement the game gets for it.
+    original -> (replacement ID, profile name) of the replacement the game gets for it;
+    `digest_of(path, applied)`: the file's SHA-256, `applied` while it isn't hashed yet, or
+    None if it is gone (S-26 rule 6).
     """
     applied = replacement.applied
     path = (
@@ -1342,7 +1482,7 @@ def row_state(
         if replacement.target.kind == "file" and replacement.target.value
         else None
     )
-    digest = files.sha256(path) if path is not None else None
+    digest = digest_of(path, applied.sha256 if applied is not None else None) if path else None
     file_changed = (
         applied is not None
         and applied.sha256 is not None
@@ -1479,6 +1619,8 @@ class Grafts(QObject):
         #: Loads since Roblox started (S-25), counted by the grafter; shared with sprout.
         self.loads = rules.Loads(notify=self.loaded.emit)
         self.files = FileChecks()
+        #: Files being hashed on a worker (S-26 rule 6).
+        self._hashing: set[Path] = set()
         self.store = ProfileStore(
             folder,
             settings.value("replacements.profile_order"),
@@ -1556,10 +1698,34 @@ class Grafts(QObject):
                 problems=problems,
                 loads=self.loads,
                 winners=winners,
-                files=self.files,
+                digest_of=self._digest,
             )
             for replacement in profile.replacements
         }
+
+    def _digest(self, path: Path, applied: str | None) -> str | None:
+        """A file's SHA-256 for its row's status (S-26 rule 6): known, or hashed on a worker
+        (the status is "unchanged" until then, and `changed` redraws it), or None if gone."""
+        known, digest = self.files.known(path)
+        if known:
+            return digest
+        if path not in self._hashing:
+            self._hashing.add(path)
+            if self.pool is None:
+                self.files.sha256(path)
+                self._hashing.discard(path)
+                return self.files.known(path)[1]
+            job = self.pool.submit(
+                QCoreApplication.translate("M-EDIT-25", "Checking replacement files"),
+                lambda _handle: self.files.sha256(path),
+            )
+            job.succeeded.connect(lambda _digest: self._hashed(path))
+            job.failed.connect(lambda _reason: self._hashed(path))
+        return applied if applied is not None else ""
+
+    def _hashed(self, path: Path) -> None:
+        self._hashing.discard(path)
+        self.changed.emit()
 
     def waiting(self) -> int:
         """How many changes wait for the next apply (S-25 banner and button, S-27 rule 1):

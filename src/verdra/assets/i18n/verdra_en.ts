@@ -646,9 +646,67 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-16</name>
+    <message>
+        <source>Revert to live version</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-17</name>
+    <message>
+        <source>Duplicate</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-18</name>
+    <message>
+        <source>Switch on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move to profile…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete…</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-19</name>
+    <message>
+        <source>Delete</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-21</name>
+    <message>
+        <source>Copy of {note}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-23</name>
     <message>
         <source>Applied copies of your files would use more than 2 GB. Delete replacements you don&apos;t need, then apply again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-25</name>
+    <message>
+        <source>Checking replacement files</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1350,6 +1408,134 @@
     </message>
 </context>
 <context>
+    <name>M-ROW-02</name>
+    <message>
+        <source>New · not applied</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-03</name>
+    <message>
+        <source>Edited · apply to update</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-04</name>
+    <message>
+        <source>Live · not seen yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-06</name>
+    <message>
+        <source>Problem · {reason}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>file missing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>too large</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>link failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>wrong type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>not built yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>can&apos;t read the file</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-07</name>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-08</name>
+    <message>
+        <source>Saved. It reaches the game when you click Review &amp; apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changed since it was applied. The game keeps the applied version until you click Review &amp; apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deleted. The game keeps it until you click Review &amp; apply.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Applied. Roblox hasn&apos;t asked for this asset since it started.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Kept in the profile but not used. The game gets the original.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-11</name>
+    <message>
+        <source>Images</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Meshes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sounds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Waiting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Problem</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-12</name>
+    <message>
+        <source>Deleted · apply to remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-ROW-13</name>
     <message>
         <source>Another replacement for this asset wins (profile {name}).</source>
@@ -1755,6 +1941,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Selected rows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Original</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1771,7 +1961,19 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>On</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Replacements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select all</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1792,6 +1994,38 @@
         <translation>
             <numerusform>Its %n replacement is deleted with it. Undo brings it back.</numerusform>
             <numerusform>Its %n replacements are deleted with it. Undo brings them back.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete %n replacements?</source>
+        <comment>M-EDIT-19</comment>
+        <translation>
+            <numerusform>Delete this replacement?</numerusform>
+            <numerusform>Delete %n replacements?</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>The game keeps them until you click Review &amp; apply. Undo brings them back.</source>
+        <comment>M-EDIT-19</comment>
+        <translation>
+            <numerusform>The game keeps it until you click Review &amp; apply. Undo brings it back.</numerusform>
+            <numerusform>The game keeps them until you click Review &amp; apply. Undo brings them back.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Undo brings them back.</source>
+        <comment>M-EDIT-19</comment>
+        <translation>
+            <numerusform>Undo brings it back.</numerusform>
+            <numerusform>Undo brings them back.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Moved %n replacements to {profile}.</source>
+        <comment>M-EDIT-22</comment>
+        <translation>
+            <numerusform>Moved %n replacement to {profile}.</numerusform>
+            <numerusform>Moved %n replacements to {profile}.</numerusform>
         </translation>
     </message>
 </context>
@@ -2376,6 +2610,25 @@
     </message>
 </context>
 <context>
+    <name>StatusWords</name>
+    <message numerus="yes">
+        <source>Live · seen %n×</source>
+        <comment>M-ROW-05</comment>
+        <translation>
+            <numerusform>Live · seen %n×</numerusform>
+            <numerusform>Live · seen %n×</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Roblox loaded it %n times since it started (last at {time}; a picture arrives in up to 3 parts).</source>
+        <comment>M-ROW-08</comment>
+        <translation>
+            <numerusform>Roblox loaded it once since it started (last at {time}; a picture arrives in up to 3 parts).</numerusform>
+            <numerusform>Roblox loaded it %n times since it started (last at {time}; a picture arrives in up to 3 parts).</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>Toast</name>
     <message>
         <source>Close notification</source>
@@ -2419,6 +2672,17 @@
     <message>
         <source>{state}: {reason}</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>WaitingBanner</name>
+    <message numerus="yes">
+        <source>%n changes are waiting. They reach the game when you click Review &amp; apply.</source>
+        <comment>M-ROW-09</comment>
+        <translation>
+            <numerusform>%n change is waiting. It reaches the game when you click Review &amp; apply.</numerusform>
+            <numerusform>%n changes are waiting. They reach the game when you click Review &amp; apply.</numerusform>
+        </translation>
     </message>
 </context>
 </TS>
