@@ -20,7 +20,7 @@ import hashlib
 import logging
 import re
 import uuid
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -811,6 +811,31 @@ class _State:
     profiles: list[Profile]
 
 
+@dataclass(slots=True)
+class _Applied:
+    """The applied set before an apply: the profiles as they were, and the applied order."""
+
+    profiles: list[Profile]
+    order: list[str]
+
+
+#: `pending_changes` keys: a profile switch, and the profile order.
+PROFILE_KEY: Final = "profile:"
+ORDER: Final = "order"
+
+
+def _merged_order(applied: list[str], current: list[str]) -> list[str]:
+    """The applied order with profiles applied for the first time put where they are now, the
+    others keeping their applied order (an apply that leaves the order out)."""
+    merged = [p for p in applied if p in current]
+    for index, profile_id in enumerate(current):
+        if profile_id in merged:
+            continue
+        later = [p for p in current[index + 1 :] if p in merged]
+        merged.insert(merged.index(later[0]) if later else len(merged), profile_id)
+    return merged
+
+
 class ProfileStore:
     """The profiles in `folder`, in order, with undo and redo of the last 50 edits.
 
@@ -844,6 +869,11 @@ class ProfileStore:
         self.applied_order = list(applied_order) or [p.id for p in self.profiles]
         #: Replacement ID -> why the last `promote` couldn't apply its saved version.
         self.skipped: dict[str, str] = {}
+        #: The applied set before the last apply, for its Undo (S-27, one level), and the apply
+        #: it belongs to.
+        self._before: _Applied | None = None
+        #: Counts applies, so an Undo can tell it still belongs to the last one (M-REVIEW-12).
+        self.applies = 0
 
     # Reading
 
@@ -947,25 +977,42 @@ class ProfileStore:
             result.append(view)
         return result
 
-    def promote(self) -> None:
-        """Apply every saved change: saved versions become the applied ones (S-26).
+    def promote(
+        self, chosen: Collection[str] | None = None, skip: Mapping[str, str] | None = None
+    ) -> None:
+        """Apply saved changes: their saved versions become the applied ones (S-26, S-27).
 
-        Deleted replacements go; a file target's bytes are copied into the Applied folder. A
-        file that can't be read keeps its previous applied version (the game keeps what it had;
-        the row shows Problem). Applying isn't an edit: undo and redo never change applied
-        versions.
+        `chosen`: the changes to apply, as `pending_changes` keys (a replacement's ID,
+        "profile:<id>", ORDER), or None for every one; `skip`: replacements not applied (Problem,
+        S-27 rule 4), with why: reported like a file that can't be read. Deleted replacements
+        chosen go; a file target's bytes are copied into the Applied folder. A file that can't
+        be read keeps its previous applied version (the game keeps what it had; the row shows
+        Problem). Applying isn't an edit: undo and redo never change applied versions;
+        `undo_apply` puts the applied set before this one back.
 
         Raises:
             ProfileError: The applied copies would use more than 2 GB (M-EDIT-23); nothing
                 changed.
         """
         stamp = self.now()
+        before = _Applied(copy.deepcopy(self.profiles), list(self.applied_order))
+
+        def picked(key: str) -> bool:
+            return chosen is None or key in chosen
+
+        skip = skip or {}
         skipped: dict[str, str] = {}
         promoted = copy.deepcopy(self.profiles)
         for profile in promoted:
-            profile.applied_enabled = profile.enabled
             kept: list[Replacement] = []
+            applied_any = False
             for replacement in profile.replacements:
+                if not picked(replacement.id) or replacement.id in skip:
+                    if picked(replacement.id):
+                        skipped[replacement.id] = skip[replacement.id]
+                    kept.append(replacement)
+                    continue
+                applied_any = True
                 if replacement.deleted:
                     continue
                 sha256 = None
@@ -989,14 +1036,62 @@ class ProfileStore:
                 )
                 kept.append(replacement)
             profile.replacements = kept
+            if picked(f"{PROFILE_KEY}{profile.id}") or (
+                profile.applied_enabled is None and applied_any
+            ):
+                profile.applied_enabled = profile.enabled
         self._apply(self.profiles, promoted)
         self.skipped = skipped
         self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
         self._redo = [_State(self._keep_applied(state.profiles)) for state in self._redo]
-        self.applied_order = [p.id for p in self.profiles]
+        order = [p.id for p in self.profiles]
+        self._set_applied_order(
+            order if picked(ORDER) else _merged_order(self.applied_order, order)
+        )
+        self.applies += 1
+        self._before = before
+        # The applied set before stays usable while its Undo can be pressed (one level).
+        self.copies.prune(applied_hashes(self.profiles) | applied_hashes(before.profiles))
+
+    def _set_applied_order(self, order: list[str]) -> None:
+        self.applied_order = order
         if self.on_applied_order is not None:
             self.on_applied_order(self.applied_order)
-        self.copies.prune(applied_hashes(self.profiles))
+
+    def undo_apply(self, applies: int) -> bool:
+        """Put back the applied set from before apply number `applies` (S-27 Undo, question
+        N6); saved versions stay, so the rows show their waiting status again. Return False,
+        changing nothing, when another apply came since (M-REVIEW-12)."""
+        before = self._before
+        if before is None or applies != self.applies:
+            return False
+        old = {p.id: p for p in before.profiles}
+        rows = {r.id: r for p in before.profiles for r in p.replacements}
+        restored = copy.deepcopy(self.profiles)
+        for profile in restored:
+            previous = old.get(profile.id)
+            profile.applied_enabled = previous.applied_enabled if previous is not None else None
+            present = {r.id for r in profile.replacements}
+            for replacement in profile.replacements:
+                earlier = rows.get(replacement.id)
+                replacement.applied = copy.deepcopy(earlier.applied) if earlier else None
+            if previous is not None:
+                # A deletion applied away comes back, still deleted: it waits again.
+                for gone in previous.replacements:
+                    if gone.id not in present and gone.applied is not None:
+                        back = copy.deepcopy(gone)
+                        back.deleted = True
+                        profile.replacements.append(back)
+            profile.replacements = [
+                r for r in profile.replacements if not (r.deleted and r.applied is None)
+            ]
+        self._apply(self.profiles, restored)
+        self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
+        self._redo = [_State(self._keep_applied(state.profiles)) for state in self._redo]
+        self._set_applied_order(before.order)
+        self._before = None
+        self.applies += 1
+        return True
 
     @property
     def can_undo(self) -> bool:
@@ -1424,6 +1519,39 @@ class RowState:
     waiting: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class Change:
+    """One line of the review (S-27): a change waiting for the next apply.
+
+    `key` is what `apply` takes to apply it: a replacement's ID, PROFILE_KEY + a profile's ID,
+    or ORDER (every line that comes from the profile order shares it).
+    """
+
+    key: str
+    #: "new", "changed", "off", "on", "deleted", "profile_on", "profile_off", "winner",
+    #: "order", "problem" or "waiting" (the badge).
+    kind: str
+    detail: str
+    profile_id: str = ""
+    replacement_id: str = ""
+
+
+def _applied_winners(
+    profiles: Sequence[Profile], order: Sequence[str]
+) -> dict[tuple[int, rules.Slot | None], str]:
+    """Original -> the profile whose applied replacement the game gets, for this profile order."""
+    rank = {profile_id: index for index, profile_id in enumerate(order)}
+    winners: dict[tuple[int, rules.Slot | None], str] = {}
+    for profile in sorted(profiles, key=lambda p: rank.get(p.id, len(rank))):
+        if not profile.applied_enabled:
+            continue
+        for replacement in profile.replacements:
+            applied = replacement.applied
+            if applied is not None and applied.enabled:
+                winners.setdefault((applied.original.asset_id, applied.original.slot), profile.id)
+    return winners
+
+
 def _seen_by_game(replacement: Replacement) -> tuple[object, ...]:
     return (
         replacement.original.asset_id,
@@ -1755,29 +1883,157 @@ class Grafts(QObject):
         self.changed.emit()
 
     def waiting(self) -> int:
-        """How many changes wait for the next apply (S-25 banner and button, S-27 rule 1):
-        rows whose saved version differs, profiles switched, and a changed order (one)."""
-        count = 0
+        """How many changes wait for the next apply (S-25 banner and button, S-27 rule 1): the
+        review's lines, counting the profile order once."""
+        changes = self.pending_changes()
+        return sum(1 for c in changes if c.key != ORDER) + any(c.key == ORDER for c in changes)
+
+    def pending_changes(self) -> list[Change]:
+        """The review's lines (S-27), in table order: each row whose saved version differs from
+        the applied one in a way the game sees, each profile switched, and what the profile
+        order changes. A note or a name alone is never one (rule 2)."""
+        changes: list[Change] = []
         for profile in self.store.profiles:
-            if profile.applied_enabled is not None and profile.enabled != profile.applied_enabled:
-                count += 1
-            count += sum(1 for state in self.states(profile).values() if state.waiting)
-        order = [p.id for p in self.store.profiles]
-        applied = [p for p in self.store.applied_order if p in order]
-        if applied and applied != [p for p in order if p in applied]:
-            count += 1
-        return count
+            switched = (
+                profile.applied_enabled is not None and profile.enabled != profile.applied_enabled
+            )
+            if switched:
+                changes.append(self._profile_change(profile))
+            states = self.states(profile)
+            for replacement in profile.replacements:
+                change = self._row_change(profile, replacement, states[replacement.id])
+                if change is not None:
+                    changes.append(change)
+        changes.extend(self._order_changes())
+        return changes
+
+    def _profile_change(self, profile: Profile) -> Change:
+        count = sum(1 for r in profile.replacements if r.applied is not None and r.applied.enabled)
+        if profile.enabled:
+            text = self.tr(
+                "Profile {name} turning on: %n replacements apply.", "M-REVIEW-03", count
+            )
+        else:
+            text = self.tr(
+                "Profile {name} turning off: %n replacements go back to the originals.",
+                "M-REVIEW-03",
+                count,
+            )
+        return Change(
+            f"{PROFILE_KEY}{profile.id}",
+            "profile_on" if profile.enabled else "profile_off",
+            text.format(name=profile.name),
+            profile.id,
+        )
+
+    def _row_change(
+        self, profile: Profile, replacement: Replacement, state: RowState
+    ) -> Change | None:
+        if not state.waiting:
+            return None
+        applied, target = replacement.applied, _target_text(replacement.target)
+        kind = (
+            replacement.asset_type or QCoreApplication.translate("M-REVIEW-03", "asset")
+        ).lower()
+        if state.status is Status.PROBLEM:
+            if state.detail == self._downloading():
+                host = urlsplit(replacement.target.value).hostname or "?"
+                detail = QCoreApplication.translate(
+                    "M-REVIEW-03", "Downloading from {host}. It applies as soon as it's ready."
+                ).format(host=host)
+                return Change(replacement.id, "waiting", detail, profile.id, replacement.id)
+            detail = QCoreApplication.translate(
+                "M-REVIEW-03", "{reason} Fix it or turn the row off. It will be skipped."
+            ).format(reason=state.detail)
+            return Change(replacement.id, "problem", detail, profile.id, replacement.id)
+        if replacement.deleted:
+            kind_text, detail = (
+                "deleted",
+                QCoreApplication.translate(
+                    "M-REVIEW-03", "Deleted: goes back to the original {type}."
+                ).format(type=kind),
+            )
+        elif applied is None:
+            kind_text, detail = (
+                "new",
+                QCoreApplication.translate("M-REVIEW-03", "New: {target}").format(target=target),
+            )
+        elif applied.enabled and not replacement.enabled:
+            kind_text, detail = (
+                "off",
+                QCoreApplication.translate(
+                    "M-REVIEW-03", "Turned off: goes back to the original {type}."
+                ).format(type=kind),
+            )
+        elif replacement.enabled and not applied.enabled:
+            kind_text, detail = (
+                "on",
+                QCoreApplication.translate("M-REVIEW-03", "Turned on: {target}").format(
+                    target=target
+                ),
+            )
+        elif (applied.original.asset_id, applied.original.slot) != (
+            replacement.original.asset_id,
+            replacement.original.slot,
+        ):
+            kind_text, detail = (
+                "changed",
+                QCoreApplication.translate(
+                    "M-REVIEW-03", "Stops replacing {a}, starts replacing {b}."
+                ).format(a=applied.original.asset_id, b=replacement.original.asset_id),
+            )
+        else:
+            kind_text, detail = (
+                "changed",
+                QCoreApplication.translate("M-REVIEW-03", "Edited: {old} → {new}").format(
+                    old=_target_text(applied.target), new=target
+                ),
+            )
+            if state.detail:  # the file changed in place (M-ROW-15)
+                detail = f"{detail} {state.detail}"
+        return Change(replacement.id, kind_text, detail, profile.id, replacement.id)
+
+    def _order_changes(self) -> list[Change]:
+        """What the profile order changes in the game (S-27): an asset now coming from another
+        profile, or one line when the order changes no asset (rule 2)."""
+        current = [p.id for p in self.store.profiles]
+        applied = [p for p in self.store.applied_order if p in current]
+        if not applied or applied == [p for p in current if p in applied]:
+            return []
+        profiles = self.store.profiles
+        before = _applied_winners(profiles, self.store.applied_order)
+        after = _applied_winners(profiles, current)
+        names = {p.id: p.name for p in profiles}
+        changes = [
+            Change(
+                ORDER,
+                "winner",
+                QCoreApplication.translate(
+                    "M-REVIEW-03", "Asset {id} now comes from profile {name}."
+                ).format(id=original[0], name=names[profile_id]),
+                profile_id,
+            )
+            for original, profile_id in after.items()
+            if before.get(original) != profile_id
+        ]
+        return changes or [
+            Change(
+                ORDER,
+                "order",
+                QCoreApplication.translate(
+                    "M-REVIEW-03", "Profile order changed; no asset changes."
+                ),
+            )
+        ]
 
     def preview(self) -> Preview:
         """Preview changes (S-23): what the next Apply now publishes (no download starts)."""
         return preview(self.store.compile(self._cached_link).snapshot)
 
-    def publish(self, *, retry: bool = True) -> int:
-        """Apply now: every saved change becomes applied (S-26), then the applied snapshot is
-        published; return how many originals it replaces.
-
-        Apply now tries a link whose download failed again (`retry`); when it goes on after
-        waiting for downloads, it doesn't, so a link that keeps failing can't keep it waiting.
+    def apply(self, chosen: Collection[str] | None = None, *, retry: bool = True) -> int:
+        """Review & apply (S-27): the `chosen` changes (`pending_changes` keys; None: all)
+        become applied, Problem rows skipped (rule 4), then the applied snapshot is published;
+        return how many originals it replaces. `store.applies` names this apply for Undo.
 
         Raises:
             ProfileError: The applied copies would use more than 2 GB (M-EDIT-23).
@@ -1785,11 +2041,44 @@ class Grafts(QObject):
         if retry:
             for link in [link for link, reason in self._links.items() if reason]:
                 del self._links[link]
-        self.store.promote()
+        self.store.promote(chosen, self.states_problems())
         self.changed.emit()
         count = self._publish()
         self._log_left_out()
         return count
+
+    def states_problems(self) -> dict[str, str]:
+        """Replacement ID -> why its waiting change can't be applied (S-27 rule 4: skipped)."""
+        return {
+            replacement_id: state.detail
+            for profile in self.store.profiles
+            for replacement_id, state in self.states(profile).items()
+            if state.status is Status.PROBLEM
+            and state.waiting
+            and state.detail != self._downloading()
+        }
+
+    def undo_apply(self, applies: int) -> bool:
+        """Undo of an apply (S-27, question N6): the applied set before it is published again.
+        Return False, changing nothing, when another apply came since (M-REVIEW-12)."""
+        if not self.store.undo_apply(applies):
+            return False
+        self.changed.emit()
+        self._publish()
+        self._log_left_out()
+        return True
+
+    def publish(self, *, retry: bool = True) -> int:
+        """Apply now: every saved change becomes applied, then the applied snapshot is
+        published (`apply` with every change; S-27's review replaces the button).
+
+        Apply now tries a link whose download failed again (`retry`); when it goes on after
+        waiting for downloads, it doesn't, so a link that keeps failing can't keep it waiting.
+
+        Raises:
+            ProfileError: The applied copies would use more than 2 GB (M-EDIT-23).
+        """
+        return self.apply(retry=retry)
 
     def publish_applied(self) -> int:
         """Publish what was last applied, nothing saved since (startup; S-26 rule 1)."""

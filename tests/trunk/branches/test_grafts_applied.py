@@ -260,6 +260,11 @@ def test_applying_prunes_copies_no_applied_version_names(tmp_path: Path) -> None
     [kept] = copies.folder.iterdir()  # saved, not applied: the live copy stays
     assert kept.read_bytes() == red.read_bytes()
     made.publish()
+    # Red is still the applied set before, which this apply's Undo puts back (S-27, N6).
+    assert sorted(p.read_bytes() for p in copies.folder.iterdir()) == sorted(
+        [red.read_bytes(), blue.read_bytes()]
+    )
+    made.publish()  # the next apply: Undo can only go back to blue now
     [left] = copies.folder.iterdir()
     assert left.read_bytes() == blue.read_bytes()
 
