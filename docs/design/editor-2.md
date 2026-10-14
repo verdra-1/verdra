@@ -347,14 +347,35 @@ Checked against `main` at 6270633 (after pull requests 128 to 131).
 | Preview changes | `canopy/screens/grafts/preview.py`, S-23 | stays (conflicts by original); computed from the applied snapshot or, inside the review, from the snapshot the review would publish |
 | Activity | `trunk/branches/grafts.py`, S-03 | one line per applied change set ("Applied 3 changes: …"); unchanged otherwise (linking Activity to rows is backlog) |
 | Settings | `trunk/almanac/schema.py` (S-02) | `replacements.applied_order` next to `profile_order` |
-| Messages | `assets/i18n/verdra_en.ts` | M-ROW-01 to M-ROW-15, M-EDIT-14 to M-EDIT-23, M-REVIEW-01 to M-REVIEW-12; M-APPLY-07 reworded ("Verdra is still restarting Roblox…") |
+| Messages | `assets/i18n/verdra_en.ts` | M-ROW-01 to M-ROW-15, M-EDIT-14 to M-EDIT-24, M-REVIEW-01 to M-REVIEW-12; M-APPLY-07 reworded ("Verdra is still restarting Roblox…") |
 | Specs | S-20, S-22, S-23, S-24 | refinements pointing to S-25 to S-27; S-24's button becomes Review & apply |
 | Docs | `docs/guides/replacements.md`, `PRIVACY.md` (the Applied folder), README | after phase A is built |
 
 No new dependency and no new network call: the asset name shown on a row comes from the same
 public asset-details answer the type check already reads (S-22).
 
-## N. Open questions, each with a recommendation
+## N. Open questions, recommendations and the owner's decisions
+
+**Decided by the owner on 14 October 2026:** every recommendation below is approved as written,
+except N2. S-25 to S-27 are Agreed with these decisions in them.
+
+| Question | Decision |
+| --- | --- |
+| N1 Deleting a live row | Approved: struck through, "Deleted · apply to remove", live until applied |
+| N2 What "seen" counts | **Changed: loads, not packs.** A picture load is its pack 0 (or the first pack asked for when pack 0 wasn't); a mesh, a sound or an ID swap counts each replaced request; each pack writes its own DEBUG line saying "load" or "further pack"; the hover says "Roblox loaded it 3 times since it started (last at 21:14; a picture arrives in up to 3 parts)". Refined in S-25 (ID swaps of pictures follow the pack rule; no time window) |
+| N3 Changed file | Approved: Edited with "the file changed"; a missing file is Problem; the applied copy keeps working |
+| N4 Losing row | Approved: Live · not seen yet with "Another replacement for this asset wins (profile X)" |
+| N5 Profile switches, order, moves | Approved: they wait for Review & apply and are listed in it |
+| N6 Undo after apply | Approved: one step; restarts again if the apply restarted Roblox |
+| N7 Duplicate | Approved: starts Off, right below, note "Copy of <note>" |
+| N8 Asset names | Approved, after a source run shows Roblox's real answer carries the name; otherwise ID and type only, said plainly |
+| N9 Loudness words (phase B) | Approved: "8 dB louder than the original"; warning "Much louder than the original" from +6 dB |
+| N10 Phase A thumbnails | Approved: after-thumbnails for picture files and links, the type icon otherwise |
+| N11 Risks | Approved as written; the wheel's FFmpeg license is checked in its files, not assumed |
+| N12 Applied copies | Approved: at most 2 GB in total, shown in Settings › System changes, refused in the review with a plain reason |
+
+The original questions and recommendations follow.
+
 
 1. **Deleting a live row.** It must stay live until applied (E lists "deleted"). Recommendation:
    keep it in the table, struck through, with the Edited color and the word "Deleted · apply to

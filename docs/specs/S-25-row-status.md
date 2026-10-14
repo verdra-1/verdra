@@ -1,6 +1,6 @@
 # S-25 Row status
 
-**Status:** Draft (waits for the owner's approval; no code before it)
+**Status:** Agreed (approved by the owner on 14 October 2026)
 **Milestone:** M2 follow-up, Editor 2.0 phase A (internal label 0.1.x)
 **Risk badge:** Cosmetic
 **Plan sections:** 5.6 (tokens), 7.2 (Replacements screen), 12.5 (accessibility), 16.2 (Editor 2.0,
@@ -24,7 +24,7 @@ Show at a glance, for every replacement, what the game gets now and what is wait
   | Edited | `primary` | Edited · apply to update (M-ROW-03) | applied, and the saved version differs in a way the game sees (S-26 rule 5) |
   | Deleted | `primary`, struck through | Deleted · apply to remove (M-ROW-12) | deleted after it was applied; the game still gets it (question N1) |
   | Live · not seen yet | `success` | Live · not seen yet (M-ROW-04) | applied and on, no served event since Roblox started |
-  | Live · seen | `success`, edge twice as thick | Live · seen %n× (M-ROW-05) | applied and on, and Roblox asked for it %n times since it started |
+  | Live · seen | `success`, edge twice as thick | Live · seen %n× (M-ROW-05) | applied and on, and Roblox loaded it %n times since it started (loads, not packs) |
   | Problem | `danger` | Problem · <short reason> (M-ROW-06) | it can't be prepared, or its applied file is missing |
   | Off | `ink-disabled`, row dimmed | Off (M-ROW-07) | switched off and applied off |
 
@@ -44,13 +44,23 @@ Show at a glance, for every replacement, what the game gets now and what is wait
 - **Filters**: chips with counts, All, Live, Waiting, Problem, Off (M-ROW-11), then one chip per
   asset family present (Images, Meshes, Sounds…). Live counts both Live states; Waiting counts
   Not applied yet, Edited and Deleted. One chip at a time, plus one family chip.
-- **The seen counter.** The grafter reports each batch item it replaces (an Asset ID swap) or
-  answers itself (a file, a link, Remove), by original asset ID, through a callback like the
-  existing `on_unreadable`. Trunk counts them per original, in memory, and resets every count
-  when Roblox is started through Verdra or Verdra starts. A picture is asked for in up to three
-  parts (mip packs), and each counts (question N2). Each counted event also writes one DEBUG log
-  line ("Replaced asset <id> in a batch (<kind>, pack <n>)"), so acceptance test 3 compares the
-  count with the log.
+- **The seen counter counts loads, not packs** (owner, 14 October 2026, question N2). The grafter
+  sees each batch item it replaces (an Asset ID swap) or answers itself (a file, a link, Remove).
+  A picture item names its pack in its representation (fidelity `ff ff ff fc 0N`, N = 1 to 3 for
+  packs 0 to 2), whether Verdra swaps its ID or serves its content, so the same rule applies to
+  both:
+  - a picture item for **pack 0** is a load;
+  - a picture item for **pack 1 or 2** is a load only if it is the first item for that original
+    since Roblox started (pack 0 wasn't asked for); otherwise it is a further pack of a load;
+  - every other replaced item (a mesh, a sound, any non-picture swap) is a load.
+
+  The grafter keeps, per original, only "seen since Roblox started", in memory, and tells trunk
+  through a callback like the existing `on_unreadable` (rule 2). Trunk counts loads per original
+  and the time of the last one, and resets both when Roblox is started through Verdra or Verdra
+  starts. Every replaced item writes one DEBUG log line that says which it is: "Replaced asset
+  <id> in a batch: load (<kind>, pack <n>)" or "Replaced asset <id> in a batch: further pack
+  (<kind>, pack <n>)" (pack "-" when the item names none), so acceptance test 3 compares the
+  count with the load lines.
 - **The routing pill** (S-14) stays separate and unchanged.
 
 ## Rules
@@ -87,8 +97,8 @@ Show at a glance, for every replacement, what the game gets now and what is wait
     Review & apply."
   - Deleted: "Deleted. The game keeps it until you click Review & apply."
   - Live · not seen yet: "Applied. Roblox hasn't asked for this asset since it started."
-  - Live · seen: "Roblox asked for this replacement %n times since it started, last at <time>."
-    (plural forms)
+  - Live · seen: "Roblox loaded it %n times since it started (last at <time>; a picture arrives
+    in up to 3 parts)." (plural forms; the part in parentheses after the time only for pictures)
   - Problem: "<full reason> The game gets <the applied version | the original>."
   - Off: "Kept in the profile but not used. The game gets the original."
 - M-ROW-09 (Banner) "%n changes are waiting. They reach the game when you click Review & apply."
@@ -108,9 +118,10 @@ Show at a glance, for every replacement, what the game gets now and what is wait
    and question N1 say, and precedence picks one status when several apply.
 2. Editing a live row and saving shows Edited, and the published snapshot still holds the
    applied version (design J1, first half; the second half is S-26 test 1).
-3. With the fake Roblox server, the seen count of a row equals the number of "Replaced asset …"
-   log lines for its original since Roblox was started through Verdra; it resets when Roblox is
-   started again (design J3).
+3. With the fake Roblox server, the seen count of a row equals the number of "Replaced asset …:
+   load" log lines for its original since Roblox was started through Verdra; a picture asked for
+   in packs 0, 1 and 2 counts once, packs 1 and 2 alone count once, an Asset ID swap of a picture
+   counts like served content, and the count resets when Roblox is started again (design J3).
 4. Every status has a distinct word and accessible name; rendering each pill in a grayscale
    screenshot still tells all of them apart by text (design J4).
 5. The banner and the button count the same changes as the review dialog lists (S-27 test 1).
@@ -130,6 +141,16 @@ callback), `canopy/screens/grafts/screen.py` (table, banner, filters), `canopy/c
 
 - Deleted is an eighth look, not an eighth state (question N1): it uses Edited's color and only
   appears between deleting an applied row and the next apply.
-- "Seen" counts requests, not loads, so acceptance test 3 holds exactly (question N2).
+- "Seen" counts loads, as the owner decided (question N2, 14 October 2026). Two refinements of
+  the owner's wording: an Asset ID swap of a picture also arrives in up to three pack requests,
+  so the pack rule applies to it too (the batch item names its pack either way); and a pack 1 or
+  2 asked for minutes after pack 0 (the player walking closer) is a further pack, not a new load,
+  so the rule uses "first item for that original since Roblox started" rather than a time
+  window.
+- Not settled by evidence yet: whether Roblox asks for pack 0 again without a new load (for
+  example after dropping it from memory). The 12 October capture shows the original's three
+  packs downloaded twice (17:38 and 17:42), but not whether a second join came between. The final
+  M2 test's log (one join per step) shows how often pack 0 is asked for per join; if it is more
+  than once, the rule changes before phase A is built, with that evidence.
 - The counter resets when Roblox is started through Verdra, the only start Verdra sees for sure;
   a Roblox the user started without Verdra isn't routed (S-12) and can't load replacements.
