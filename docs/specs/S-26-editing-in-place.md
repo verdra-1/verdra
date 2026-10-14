@@ -7,7 +7,7 @@
 (atomic writes, `.bak`, migrations), 10.7 (limits), 12.5 (keyboard), 16.2 (Editor 2.0,
 13 October 2026), Feature specs S-20, S-21, S-22; design `docs/design/editor-2.md` sections A, C
 and I; Reference R1 (`trunk/branches/grafts`, `canopy/screens/grafts`), R5 (M-EDIT-14 to
-M-EDIT-24)
+M-EDIT-25)
 
 ## Purpose
 
@@ -131,17 +131,19 @@ the seen counter (memory). None of them needs a profile change.
   "Delete…"
 - M-EDIT-18 (Bulk actions) "Switch on", "Switch off", "Delete…", "Move to profile…", "Apply only
   these"
-- M-EDIT-19 (Dialog) "Delete this replacement?" / "Delete %n replacements?" Body for applied
-  rows: "The game keeps it until you click Review & apply. Undo brings it back." (plural: "…keeps
-  them… brings them back."); for rows never applied: "Undo brings it back." Buttons "Delete",
-  "Cancel".
+- M-EDIT-19 (Dialog) "Delete this replacement?" / "Delete <n> replacements?" Body for applied
+  rows: "The game keeps it until you click Review & apply. Undo brings it back." (plural: "The
+  game keeps them until you click Review & apply. Undo brings them back."); for rows never
+  applied: "Undo brings it back." (plural: "Undo brings them back.") Buttons "Delete", "Cancel".
 - M-EDIT-20 (Dialog) "Discard your changes to this replacement?" Buttons "Discard", "Keep
   editing".
 - M-EDIT-21 (Note of a duplicate) "Copy of <note>" ("Copy" when the note is empty)
-- M-EDIT-22 (Toast) "Moved %n replacements to <profile>." (plural forms)
+- M-EDIT-22 (Toast) "Moved <n> replacements to <profile>." (plural forms)
 - M-EDIT-23 (Review refusal) "Applied copies of your files would use more than 2 GB. Delete
   replacements you don't need, then apply again."
 - M-EDIT-24 (Settings, System changes) "Copies of applied files use <size>."
+- M-EDIT-25 (Activity job, new) "Checking replacement files" (a changed file is hashed on a worker
+  before its row says Edited; rule 6)
 
 ## Acceptance tests
 

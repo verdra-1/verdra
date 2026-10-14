@@ -389,6 +389,7 @@ class Shell:
                 "Ctrl+N": self.add_replacement,
                 "Ctrl+Z": lambda: self._replacements_button("undo"),
                 "Shift+Ctrl+Z": lambda: self._replacements_button("redo"),
+                "Ctrl+Y": lambda: self._replacements_button("redo"),  # S-26 keyboard
                 "Ctrl+Return": self.apply_now,
             }
         self.shortcuts = Shortcuts(self.window, actions)

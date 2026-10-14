@@ -24,8 +24,8 @@ Show at a glance, for every replacement, what the game gets now and what is wait
   | Edited | `primary` | Edited · apply to update (M-ROW-03) | applied, and the saved version differs in a way the game sees (S-26 rule 5) |
   | Deleted | `primary`, struck through | Deleted · apply to remove (M-ROW-12) | deleted after it was applied; the game still gets it (question N1) |
   | Live · not seen yet | `success` | Live · not seen yet (M-ROW-04) | applied and on, no served event since Roblox started |
-  | Live · seen | `success`, edge twice as thick | Live · seen %n× (M-ROW-05) | applied and on, and Roblox loaded it %n times since it started (loads, not packs) |
-  | Problem | `danger` | Problem · <short reason> (M-ROW-06) | it can't be prepared, or its applied file is missing |
+  | Live · seen | `success`, edge twice as thick | Live · seen <n>× (M-ROW-05) | applied and on, and Roblox loaded it <n> times since it started (loads, not packs) |
+  | Problem | `danger` | Problem · <reason> (M-ROW-06) | it can't be prepared, or its applied file is missing |
   | Off | `ink-disabled`, row dimmed | Off (M-ROW-07) | switched off and applied off |
 
 - **Precedence**, when more than one applies: Draft, Problem, Deleted, Edited, Not applied yet,
@@ -35,11 +35,11 @@ Show at a glance, for every replacement, what the game gets now and what is wait
 - **Details** under the pill when they matter: "Another replacement for this asset wins
   (profile <name>)." (M-ROW-13) for a live row that loses a conflict (S-20 rule 1); "The file
   changed after it was applied." (M-ROW-15) on an Edited row whose saved file is the same path.
-- **Waiting banner** above the table when something waits: M-ROW-09 ("%n changes are waiting.
+- **Waiting banner** above the table when something waits: M-ROW-09 ("<n> changes are waiting.
   They reach the game when you click Review & apply."). A change is a row that is Not applied
   yet, Edited, Deleted, or switched off since it was applied, or a profile switch or order change
   (S-27 rule 2).
-- **Button** "Review & apply (%n)" in the header (M-ROW-10), "Review & apply" when nothing waits
+- **Button** "Review & apply (<n>)" in the header (M-ROW-10), "Review & apply" when nothing waits
   (then disabled, with M-REVIEW-08 as its tooltip).
 - **Filters**: chips with counts, All, Live, Waiting, Problem, Off (M-ROW-11), then one chip per
   asset family present (Images, Meshes, Sounds…). Live counts both Live states; Waiting counts
@@ -86,8 +86,8 @@ Show at a glance, for every replacement, what the game gets now and what is wait
 - M-ROW-02 "New · not applied"
 - M-ROW-03 "Edited · apply to update"
 - M-ROW-04 "Live · not seen yet"
-- M-ROW-05 "Live · seen %n×" (plural forms: "Live · seen 1×", "Live · seen %n×")
-- M-ROW-06 "Problem · <short reason>" (short reasons: "file missing", "too large", "can't read the
+- M-ROW-05 "Live · seen <n>×" (plural forms: "Live · seen 1×", "Live · seen <n>×")
+- M-ROW-06 "Problem · <reason>" (short reasons: "file missing", "too large", "can't read the
   file", "link failed", "wrong type", "not built yet")
 - M-ROW-07 "Off"
 - M-ROW-08 (tooltips, one per status)
@@ -97,13 +97,13 @@ Show at a glance, for every replacement, what the game gets now and what is wait
     Review & apply."
   - Deleted: "Deleted. The game keeps it until you click Review & apply."
   - Live · not seen yet: "Applied. Roblox hasn't asked for this asset since it started."
-  - Live · seen: "Roblox loaded it %n times since it started (last at <time>; a picture arrives
+  - Live · seen: "Roblox loaded it <n> times since it started (last at <time>; a picture arrives
     in up to 3 parts)." (plural forms; the part in parentheses after the time only for pictures)
   - Problem: "<full reason> The game gets <the applied version | the original>."
   - Off: "Kept in the profile but not used. The game gets the original."
-- M-ROW-09 (Banner) "%n changes are waiting. They reach the game when you click Review & apply."
+- M-ROW-09 (Banner) "<n> changes are waiting. They reach the game when you click Review & apply."
   (singular: "1 change is waiting. It reaches the game when you click Review & apply.")
-- M-ROW-10 (Button) "Review & apply (%n)", "Review & apply"
+- M-ROW-10 (Button) "Review & apply (<n>)", "Review & apply"
 - M-ROW-11 (Filter chips) "All", "Live", "Waiting", "Problem", "Off", each with its count; family
   chips use the type names of S-22 ("Images", "Meshes", "Sounds")
 - M-ROW-12 "Deleted · apply to remove"
