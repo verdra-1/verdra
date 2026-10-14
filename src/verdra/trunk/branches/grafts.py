@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 """Replacement profiles: store, validation, conflicts, snapshot compile, undo and redo.
 
-Spec S-20. Each profile is one `verdra.profile` v1 file, `profiles/<name>.json` (plan 9.2, 9.3),
-written atomically with `.bak` (plan 9.7). `ProfileStore` keeps the profiles in their order
-(the setting `replacements.profile_order`), records every edit for undo and redo, and compiles
-the enabled replacements into the `roots.rules.GraftSnapshot` the proxy reads (spec S-21):
-a profile higher in the list wins for the same original, and within one profile the later
+Spec S-20. Each profile is one `verdra.profile` file, `profiles/<name>.json` (plan 9.2, 9.3),
+written atomically with `.bak` (plan 9.7). Version 2 (spec S-26) keeps, per replacement, the
+version last applied next to the saved one, and per profile its applied switch; a version 1 file
+is migrated when it is loaded (applied = saved, the old file kept as `<name>.json.v1`), and a
+file from a newer Verdra is left untouched and unused. `ProfileStore` keeps the profiles in
+their order (the setting `replacements.profile_order`), records every edit for undo and redo,
+and compiles the enabled replacements into the `roots.rules.GraftSnapshot` the proxy reads (spec
+S-21): a profile higher in the list wins for the same original, and within one profile the later
 replacement wins (rule 1).
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import re
 import uuid
@@ -37,7 +41,13 @@ from verdra.strata import clay, ochre
 log = logging.getLogger(__name__)
 
 FORMAT = terrain.FORMAT_PROFILE
-VERSION = 1
+VERSION = 2
+#: Spec S-26 rule 7: all copies of applied files together.
+MAX_APPLIED_BYTES = 2 * 1024**3
+#: Spec S-26: the room phases B and C have inside a replacement, as its JSON.
+MAX_VIEW_BYTES = 4096
+#: The suffix the version 1 file is kept under after migrating (plan 9.7).
+V1_SUFFIX = ".v1"
 #: Rule 3.
 MAX_REPLACEMENTS = 10_000
 #: Undo and redo cover the last 50 edits of the session.
@@ -65,8 +75,20 @@ class Target(Struct, kw_only=True):
     value: str = ""
 
 
+class Applied(Struct, kw_only=True):
+    """The version of a replacement the game gets now (spec S-26), set by applying it."""
+
+    original: Original
+    target: Target
+    enabled: bool = True
+    asset_type: str = ""
+    #: The SHA-256 of a file target's bytes, whose copy is in the Applied folder (rule 4).
+    sha256: str | None = None
+    at: UtcTimestamp
+
+
 class Replacement(Struct, kw_only=True):
-    """One replacement in a profile."""
+    """One replacement in a profile: its saved version, and the applied one (or None)."""
 
     id: str
     enabled: bool = True
@@ -74,16 +96,25 @@ class Replacement(Struct, kw_only=True):
     target: Target
     asset_type: str = ""
     note: str = ""
+    #: The original's asset name, for display only (S-26).
+    name: str = ""
+    #: Deleted after it was applied: it stays until the deletion is applied (S-25, question N1).
+    deleted: bool = False
+    applied: Applied | None = None
+    #: Reserved for Editor 2.0 phases B and C; kept as it is (S-26).
+    view: dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 class Profile(Struct, kw_only=True):
-    """A `verdra.profile` v1 file."""
+    """A `verdra.profile` v2 file."""
 
     format: str = FORMAT
     version: int = VERSION
     id: str
     name: str
     enabled: bool = True
+    #: The switch as last applied, or None if the profile was never applied (S-26 rule 3).
+    applied_enabled: bool | None = None
     created: UtcTimestamp
     modified: UtcTimestamp
     replacements: list[Replacement] = field(default_factory=list)
@@ -91,6 +122,15 @@ class Profile(Struct, kw_only=True):
 
 class ProfileError(ValueError):
     """A profile can't be saved as it is; the message is the sentence the user sees."""
+
+
+class ProfileNewerError(RuntimeError):
+    """A profile file comes from a newer Verdra: it is left untouched and not used (S-20 rule 4)."""
+
+    def __init__(self, path: Path, version: int) -> None:
+        super().__init__(f"{path} is a {FORMAT} v{version} file; this Verdra reads v{VERSION}")
+        self.path = path
+        self.version = version
 
 
 class ProfileUnreadableError(RuntimeError):
@@ -314,15 +354,60 @@ def encode(profile: Profile) -> bytes:
     return msgspec.json.format(msgspec.json.encode(profile), indent=2) + b"\n"
 
 
-def decode(data: bytes) -> Profile:
-    """Parse and validate a profile; raises `msgspec.DecodeError` or `msgspec.ValidationError`."""
-    profile = msgspec.json.decode(data, type=Profile)
-    if profile.format != FORMAT or profile.version != VERSION:
-        msg = f"not a {FORMAT} v{VERSION} file"
+class _Header(Struct):
+    """The two fields every version has, read before the rest."""
+
+    format: str = ""
+    version: int = 0
+
+
+def file_version(data: bytes) -> int:
+    """Return the `verdra.profile` version of a file; raises `msgspec.DecodeError` and
+    `msgspec.ValidationError` for anything that isn't a profile."""
+    header = msgspec.json.decode(data, type=_Header)
+    if header.format != FORMAT or header.version < 1:
+        msg = f"not a {FORMAT} file"
         raise msgspec.ValidationError(msg)
+    return header.version
+
+
+def encode_v1(profile: Profile) -> bytes:
+    """A version 1 profile's bytes, as a version 1 Verdra writes them (the `.v1` copy kept when
+    migrating, readable by that Verdra again)."""
+    fields = ("id", "enabled", "original", "target", "asset_type", "note")
+    data = {
+        "format": FORMAT,
+        "version": 1,
+        "id": profile.id,
+        "name": profile.name,
+        "enabled": profile.enabled,
+        "created": profile.created,
+        "modified": profile.modified,
+        "replacements": [
+            {key: getattr(replacement, key) for key in fields}
+            for replacement in profile.replacements
+        ],
+    }
+    return msgspec.json.format(msgspec.json.encode(data), indent=2) + b"\n"
+
+
+def decode(data: bytes) -> Profile:
+    """Parse and validate a profile of this version or version 1 (read as version 2, nothing
+    applied yet: `migrate` sets that); raises `msgspec.DecodeError` or
+    `msgspec.ValidationError`."""
+    version = file_version(data)
+    if version > VERSION:
+        msg = f"a {FORMAT} v{version} file"
+        raise msgspec.ValidationError(msg)
+    profile = msgspec.json.decode(data, type=Profile)
+    profile.version = VERSION
     if len(profile.replacements) > MAX_REPLACEMENTS:
         msg = f"more than {MAX_REPLACEMENTS} replacements"
         raise msgspec.ValidationError(msg)
+    for replacement in profile.replacements:
+        if len(msgspec.json.encode(replacement.view)) > MAX_VIEW_BYTES:
+            log.debug("A replacement's view settings were too large and were dropped.")
+            replacement.view = {}
     return profile
 
 
@@ -330,12 +415,33 @@ def read_profile(path: Path, now: Callable[[], datetime] | None = None) -> Profi
     """Read a profile, falling back to its `.bak`; if both fail, move the file aside (rule 4).
 
     Raises:
+        ProfileNewerError: The file comes from a newer Verdra; it is left as it is.
+        ProfileUnreadableError: Neither the file nor its `.bak` could be read.
+    """
+    return read_profile_version(path, now)[0]
+
+
+def read_profile_version(
+    path: Path, now: Callable[[], datetime] | None = None
+) -> tuple[Profile, int]:
+    """`read_profile`, and the version of the file it was read from (the file or its `.bak`).
+
+    Raises:
+        ProfileNewerError: The file comes from a newer Verdra; it is left as it is.
         ProfileUnreadableError: Neither the file nor its `.bak` could be read.
     """
     for candidate in (path, atomic.backup_path(path)):
         try:
-            return decode(atomic.read_bytes(candidate))
+            data = atomic.read_bytes(candidate)
+            version = file_version(data)
         except (OSError, msgspec.DecodeError, msgspec.ValidationError) as error:
+            log.debug("Couldn't read the profile %s: %s", candidate.name, error)
+            continue
+        if version > VERSION:
+            raise ProfileNewerError(path, version)
+        try:
+            return decode(data), version
+        except (msgspec.DecodeError, msgspec.ValidationError) as error:
             log.debug("Couldn't read the profile %s: %s", candidate.name, error)
     stamp = (now or (lambda: datetime.now(UTC)))().strftime("%Y%m%d-%H%M%S")
     moved = atomic.move_aside(path, f"broken-{stamp}")
@@ -351,6 +457,117 @@ def write_profile(path: Path, profile: Profile) -> None:
             ).format(n=f"{MAX_REPLACEMENTS:,}")
         )
     atomic.write_atomic(path, encode(profile), keep_backup=True)
+
+
+# --- Applied versions (spec S-26) ---------------------------------------------------------------
+
+
+class AppliedCopies:
+    """Copies of the files behind applied replacements, named by their SHA-256 (S-26 rule 4).
+
+    A copy is written once and shared by every replacement whose file has the same bytes, so the
+    game keeps an applied version when the user's file changes or disappears. It keeps the
+    file's suffix in lower case (`<sha256>.obj`), because an OBJ is told by its suffix (`sniff`).
+    `prune` deletes the copies no applied version names any more.
+    """
+
+    def __init__(self, folder: Path, limit: int = MAX_APPLIED_BYTES) -> None:
+        self.folder = folder
+        self.limit = limit
+
+    def path(self, sha256: str) -> Path | None:
+        """Return the copy with this SHA-256, or None if there is none."""
+        if not self.folder.is_dir():
+            return None
+        return next((p for p in sorted(self.folder.glob(f"{sha256}*")) if p.stem == sha256), None)
+
+    def has(self, sha256: str) -> bool:
+        """Return whether the copy with this SHA-256 exists."""
+        return self.path(sha256) is not None
+
+    def size(self) -> int:
+        """Return the bytes all copies use."""
+        if not self.folder.is_dir():
+            return 0
+        return sum(path.stat().st_size for path in self.folder.iterdir() if path.is_file())
+
+    def keep(self, path: Path) -> str:
+        """Copy a file in (unless its bytes are there already) and return its SHA-256.
+
+        Raises:
+            OSError: The file can't be read, or the copy can't be written.
+            ProfileError: The copies would use more than the limit (M-EDIT-23).
+        """
+        data = atomic.read_bytes(path)
+        sha256 = hashlib.sha256(data).hexdigest()
+        if self.has(sha256):
+            return sha256
+        if self.size() + len(data) > self.limit:
+            raise ProfileError(
+                QCoreApplication.translate(
+                    "M-EDIT-23",
+                    "Applied copies of your files would use more than 2 GB. Delete replacements "
+                    "you don't need, then apply again.",
+                )
+            )
+        self.folder.mkdir(parents=True, exist_ok=True)
+        atomic.write_atomic(self.folder / f"{sha256}{path.suffix.lower()}", data)
+        return sha256
+
+    def prune(self, named: Iterable[str]) -> int:
+        """Delete every copy whose SHA-256 isn't in `named`; return how many went."""
+        if not self.folder.is_dir():
+            return 0
+        keep = set(named)
+        gone = 0
+        for path in self.folder.iterdir():
+            if path.is_file() and path.stem not in keep:
+                path.unlink(missing_ok=True)
+                gone += 1
+        return gone
+
+
+def applied_hashes(profiles: Iterable[Profile]) -> set[str]:
+    """Return the SHA-256 of every file an applied version names (what `prune` keeps)."""
+    return {
+        replacement.applied.sha256
+        for profile in profiles
+        for replacement in profile.replacements
+        if replacement.applied is not None and replacement.applied.sha256
+    }
+
+
+def migrate(profile: Profile, folder: Path, copies: AppliedCopies, at: datetime) -> Profile:
+    """Turn a version 1 profile into version 2: everything saved counts as applied (S-26).
+
+    Under version 1 Verdra published every saved replacement at its next start, so the game had
+    exactly the saved set: each replacement's applied version is its saved one, and the
+    profile's applied switch is its switch. A file target's bytes are copied into the Applied
+    folder; a file that is missing gets no copy (the row then shows Problem, as it would have
+    failed to prepare).
+    """
+    migrated = copy.deepcopy(profile)
+    migrated.applied_enabled = migrated.enabled
+    for replacement in migrated.replacements:
+        sha256 = None
+        if replacement.target.kind == "file" and replacement.target.value:
+            try:
+                sha256 = copies.keep(resolve(replacement.target.value, folder))
+            except (OSError, ProfileError) as error:
+                log.debug(  # the row shows Problem (S-25, M-ROW-14), which says it in plain words
+                    "The file of a replacement of asset %d couldn't be kept: %s",
+                    replacement.original.asset_id,
+                    error,
+                )
+        replacement.applied = Applied(
+            original=copy.deepcopy(replacement.original),
+            target=copy.deepcopy(replacement.target),
+            enabled=replacement.enabled,
+            asset_type=replacement.asset_type,
+            sha256=sha256,
+            at=at,
+        )
+    return migrated
 
 
 # --- Snapshot (spec S-21, S-23) ------------------------------------------------------------------
@@ -612,6 +829,10 @@ class ProfileStore:
         self.on_order = on_order
         self.now = now or (lambda: datetime.now(UTC))
         self.unreadable: list[ProfileUnreadableError] = []
+        #: Files from a newer Verdra, left untouched and not used (S-20 rule 4, M-PROF-11).
+        self.newer: list[ProfileNewerError] = []
+        #: Copies of the files behind applied replacements (S-26 rule 4).
+        self.copies = AppliedCopies(folder.parent / terrain.APPLIED_FOLDER)
         self._undo: list[_State] = []
         self._redo: list[_State] = []
         self.profiles = self._load(list(order))
@@ -623,7 +844,17 @@ class ProfileStore:
         if self.folder.is_dir():
             for path in sorted(self.folder.glob("*.json")):
                 try:
-                    loaded.append(read_profile(path, self.now))
+                    loaded.append(self._read(path))
+                except ProfileNewerError as error:
+                    self.newer.append(error)
+                    log.warning(
+                        "%s",
+                        QCoreApplication.translate(
+                            "M-PROF-11",
+                            "The profile file {file} was saved by a newer version of Verdra, so "
+                            "this version leaves it as it is and doesn't use it.",
+                        ).format(file=path.name),
+                    )
                 except ProfileUnreadableError as error:
                     self.unreadable.append(error)
                     log.error(
@@ -636,6 +867,18 @@ class ProfileStore:
                     )
         rank = {profile_id: index for index, profile_id in enumerate(order)}
         return sorted(loaded, key=lambda p: (rank.get(p.id, len(rank)), p.name.casefold()))
+
+    def _read(self, path: Path) -> Profile:
+        """Read one profile file, migrating a version 1 file to version 2 on disk (S-26)."""
+        profile, version = read_profile_version(path, self.now)
+        if version == 1:
+            kept = path.with_name(path.name + V1_SUFFIX)
+            if not kept.exists():
+                atomic.write_atomic(kept, encode_v1(profile))
+            profile = migrate(profile, self.folder / profile.name, self.copies, self.now())
+            write_profile(path, profile)
+            log.debug("Updated the profile file %s to version %d.", path.name, VERSION)
+        return profile
 
     def get(self, profile_id: str) -> Profile:
         """Return a copy of the profile with this ID (edits go through the store)."""
