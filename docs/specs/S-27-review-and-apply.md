@@ -1,6 +1,6 @@
 # S-27 Review and apply
 
-**Status:** Draft (waits for the owner's approval; no code before it)
+**Status:** Agreed (approved by the owner on 14 October 2026)
 **Milestone:** M2 follow-up, Editor 2.0 phase A (internal label 0.1.x)
 **Risk badge:** Cosmetic
 **Plan sections:** 7.1 (header), 7.2 (Replacements screen), 12.4 (the 10 s Apply budget), 12.5

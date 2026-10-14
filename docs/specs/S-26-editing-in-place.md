@@ -1,13 +1,13 @@
 # S-26 Editing replacements in place
 
-**Status:** Draft (waits for the owner's approval; no code before it)
+**Status:** Agreed (approved by the owner on 14 October 2026)
 **Milestone:** M2 follow-up, Editor 2.0 phase A (internal label 0.1.x)
 **Risk badge:** Cosmetic
 **Plan sections:** 7.2 (Replacements screen, editor drawer), 9.2 and 9.3 (`verdra.profile`), 9.7
 (atomic writes, `.bak`, migrations), 10.7 (limits), 12.5 (keyboard), 16.2 (Editor 2.0,
 13 October 2026), Feature specs S-20, S-21, S-22; design `docs/design/editor-2.md` sections A, C
 and I; Reference R1 (`trunk/branches/grafts`, `canopy/screens/grafts`), R5 (M-EDIT-14 to
-M-EDIT-23)
+M-EDIT-24)
 
 ## Purpose
 
@@ -47,7 +47,9 @@ what was applied until the user applies again.
 - **Asset names.** When the original's ID is entered, the name from the type check's answer
   (S-22, the same public asset details) is saved with the row and shown next to its ID
   ("15553230204 · Wall picture"); rows saved before get it when the editor opens. No lookup
-  happens just to show the table.
+  happens just to show the table. Before this is built, one lookup in a source run checks that
+  Roblox's real answer carries `Name` (today only the test fixtures have it); if it doesn't, rows
+  show the ID and type only, and this spec says so (owner, question N8).
 
 ## Rules
 
@@ -76,7 +78,8 @@ what was applied until the user applies again.
    M-ROW-15 (question N3). The applied copy keeps working either way.
 7. **Limits.** At most 10,000 rows per profile (S-20 rule 3) counts Deleted rows too. Applied
    copies are limited per file by plan 10.7, and in total to 2 GB; past that, the review refuses
-   with M-EDIT-23 until rows are deleted and applied.
+   with M-EDIT-23 until rows are deleted and applied. Settings › System changes shows the space
+   they use, next to the cache backups (M-EDIT-24; owner, question N12).
 8. **Keyboard**: Enter opens the editor, Space switches, Delete asks to delete, Ctrl+Z, Ctrl+Y and
    Shift+Ctrl+Z undo and redo, Ctrl+Enter opens the review, Esc closes the drawer (asking first
    when there are unsaved fields: M-EDIT-20).
@@ -136,6 +139,7 @@ the seen counter (memory). None of them needs a profile change.
 - M-EDIT-22 (Toast) "Moved %n replacements to <profile>." (plural forms)
 - M-EDIT-23 (Review refusal) "Applied copies of your files would use more than 2 GB. Delete
   replacements you don't need, then apply again."
+- M-EDIT-24 (Settings, System changes) "Copies of applied files use <size>."
 
 ## Acceptance tests
 
