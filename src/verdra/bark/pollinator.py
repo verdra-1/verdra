@@ -14,14 +14,17 @@ must have the original's type.
 
 from __future__ import annotations
 
+import logging
 import ssl
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 import httpx
 import truststore
 
-#: Public asset details (no sign-in needed): {"AssetTypeId": n, ...}.
+log = logging.getLogger(__name__)
+
+#: Public asset details (no sign-in needed): {"AssetTypeId": n, "Name": "...", ...}.
 DETAILS_URL: Final = "https://economy.roblox.com/v2/assets/{asset_id}/details"
 #: Plan 10.6: timeouts of 5 s to connect and 15 s in all.
 TIMEOUT: Final = httpx.Timeout(15.0, connect=5.0)
@@ -51,6 +54,8 @@ class AssetKind:
     """What Roblox says an asset is."""
 
     type_id: int
+    #: The asset's name, for display only ("" when the answer has none; spec S-26, question N8).
+    name: str = field(default="", compare=False)
 
     @property
     def family(self) -> str:
@@ -98,4 +103,21 @@ def asset_kind(asset_id: int, client: httpx.Client | None = None) -> AssetKind |
     if not isinstance(type_id, int) or isinstance(type_id, bool):
         msg = "Roblox's answer had no asset type"
         raise PollinatorError(msg)
-    return AssetKind(type_id)
+    name = display_name(response.json())
+    # Owner, question N8: whether Roblox's real answer carries the name (the fixtures do).
+    log.debug("Asset details answer %s a name.", "carries" if name else "doesn't carry")
+    return AssetKind(type_id, name)
+
+
+#: The longest asset name shown; Roblox's own limit is shorter.
+NAME_LIMIT: Final = 100
+
+
+def display_name(answer: object) -> str:
+    """The answer's `Name`, made safe to show: no control characters, one line, at most
+    NAME_LIMIT characters; "" when there is none."""
+    raw = answer.get("Name") if isinstance(answer, dict) else None
+    if not isinstance(raw, str):
+        return ""
+    text = " ".join("".join(c if c.isprintable() else " " for c in raw).split())
+    return text[:NAME_LIMIT]

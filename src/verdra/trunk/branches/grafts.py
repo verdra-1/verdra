@@ -1261,6 +1261,27 @@ class ProfileStore:
 
         self._edit(change)
 
+    def remember_name(self, asset_id: int, name: str) -> None:
+        """Give every row replacing `asset_id` without a name this one (S-26, asset names).
+
+        Display only: not an edit, so no undo step; the undo and redo states get it too, so
+        undoing an unrelated edit doesn't take it away again.
+        """
+        if not name:
+            return
+
+        def named(profiles: list[Profile]) -> None:
+            for profile in profiles:
+                for replacement in profile.replacements:
+                    if replacement.original.asset_id == asset_id and not replacement.name:
+                        replacement.name = name
+
+        after = copy.deepcopy(self.profiles)
+        named(after)
+        for state in (*self._undo, *self._redo):
+            named(state.profiles)
+        self._apply(self.profiles, after)
+
     def undo(self) -> None:
         """Undo the last edit."""
         if self._undo:
@@ -1619,6 +1640,8 @@ class Grafts(QObject):
         #: Loads since Roblox started (S-25), counted by the grafter; shared with sprout.
         self.loads = rules.Loads(notify=self.loaded.emit)
         self.files = FileChecks()
+        #: Asset ID -> its name, from the type check's answers (S-26; owner, question N8).
+        self.names: dict[int, str] = {}
         #: Files being hashed on a worker (S-26 rule 6).
         self._hashing: set[Path] = set()
         self.store = ProfileStore(
@@ -1650,6 +1673,10 @@ class Grafts(QObject):
         """
 
         def answer(kind: pollinator.AssetKind | None) -> None:
+            if kind is not None and kind.name:
+                self.names[asset_id] = kind.name
+                self.store.remember_name(asset_id, kind.name)
+                self.changed.emit()
             if kind is None:
                 done(
                     None,

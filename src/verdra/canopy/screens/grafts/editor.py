@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """Editor drawer (Asset ID · Local file · URL · Remove).
 
-Spec S-22. The original is entered by asset ID; the target is chosen with the segmented control.
-Save is disabled until the target is valid, with the reason as its tooltip (rule 1); Enter in
-the target field saves. A Local file is checked by its content (format and size), stored as a
-`./` path when it is inside the profile's folder, and can be dropped on the drawer; a URL must
-be HTTPS and its host is shown under the field. Checking the original's type on Roblox arrives
-with `bark/pollinator`.
+Specs S-22 and S-26. The original is entered by asset ID; the target is chosen with the
+segmented control. Save is disabled until the target is valid, with the reason as its tooltip
+(rule 1); Enter in the target field saves. A Local file is checked by its content (format and
+size), stored as a `./` path when it is inside the profile's folder, and can be dropped on the
+drawer; a URL must be HTTPS and its host is shown under the field. Checking the original's type
+on Roblox arrives with `bark/pollinator`.
+
+S-26: the drawer also opens on an existing row, filled in and titled "Edit replacement", with
+the row's status, "Revert to live version" for an Edited or Deleted row, and "Save · apply
+later"; closing it with unsaved changes asks first (M-EDIT-20).
 """
 
 from __future__ import annotations
@@ -16,8 +20,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import QCoreApplication, QTimer, QUrl, Signal
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtCore import QCoreApplication, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFileDialog,
@@ -31,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.trunk.branches import grafts
 
 #: The segmented control's buttons, in order.
@@ -43,6 +48,7 @@ class Editor(QFrame):
     Signals:
         saved(Original, Target, str): Save was pressed: the original, the target and the asset
             family the target's file belongs to ("" when unknown).
+        revert_pressed(): "Revert to live version" was pressed for the row being edited.
 
     The IDs travel inside Python objects, never as a Qt `int`: Qt's `int` is 32 bits and real
     asset IDs are larger (a Toolbox image can be 15553230204), so an `int` signal argument
@@ -50,6 +56,7 @@ class Editor(QFrame):
     """
 
     saved = Signal(object, object, str)
+    revert_pressed = Signal()
 
     #: S-22: a lookup goes to Roblox once typing has paused this long.
     LOOKUP_DELAY_MS = 400
@@ -65,8 +72,11 @@ class Editor(QFrame):
         self.setAcceptDrops(True)
         #: The profile's own folder: Local files inside it are stored as `./` paths.
         self.folder = Path()
+        #: The replacement being edited, or None when adding (S-26).
+        self.editing: str | None = None
+        self._opened: tuple[str, str, str] = ("", "asset_id", "")
         column = QVBoxLayout(self)
-        column.addWidget(QLabel(self.tr("Add replacement"), self))
+        column.addLayout(self._heading())
 
         column.addWidget(QLabel(self.tr("Original asset ID"), self))
         self.original = QLineEdit(self)
@@ -112,12 +122,28 @@ class Editor(QFrame):
         self.kinds.idClicked.connect(self._kind_changed)
         self._kind_changed()
 
+    def _heading(self) -> QHBoxLayout:
+        heading = QHBoxLayout()
+        self.heading = QLabel(self.tr("Add replacement"), self)
+        heading.addWidget(self.heading, 1)
+        #: The row's status pill (S-25) while editing.
+        self.status = QLabel(self)
+        self.status.hide()
+        heading.addWidget(self.status)
+        return heading
+
     def _footer(self) -> QHBoxLayout:
         footer = QHBoxLayout()
+        self.revert = QPushButton(
+            QCoreApplication.translate("M-EDIT-16", "Revert to live version"), self
+        )
+        self.revert.clicked.connect(self.revert_pressed)
+        self.revert.hide()
+        footer.addWidget(self.revert)
         footer.addStretch(1)
         self.cancel = QPushButton(self.tr("Cancel"), self)
-        self.cancel.clicked.connect(self.hide)
-        self.save = QPushButton(self.tr("Save"), self)
+        self.cancel.clicked.connect(self.close_asking)
+        self.save = QPushButton(QCoreApplication.translate("M-EDIT-15", "Save · apply later"), self)
         self.save.setProperty("primary", True)
         self.save.clicked.connect(self._save)
         footer.addWidget(self.cancel)
@@ -141,11 +167,75 @@ class Editor(QFrame):
         """Open the drawer empty, with the cursor in the original's field."""
         if folder is not None:
             self.folder = folder
+        self.editing = None
+        self.heading.setText(self.tr("Add replacement"))
+        self.status.hide()
+        self.revert.hide()
         self.original.clear()
         self.target.clear()
         self.choose("asset_id")
+        self._opened = self._fields()
         self.show()
         self.original.setFocus()
+
+    def edit(
+        self,
+        replacement: grafts.Replacement,
+        folder: Path,
+        status: str,
+        *,
+        can_revert: bool,
+    ) -> None:
+        """Open the drawer on `replacement`, every field filled in (S-26, M-EDIT-14)."""
+        self.folder = folder
+        self.editing = replacement.id
+        self.heading.setText(QCoreApplication.translate("M-EDIT-14", "Edit replacement"))
+        self.show_status(status, can_revert=can_revert)
+        self.original.setText(str(replacement.original.asset_id))
+        self.choose(replacement.target.kind)
+        self.target.setText(replacement.target.value)
+        self._opened = self._fields()
+        self.show()
+        self.target.setFocus()
+
+    def show_status(self, status: str, *, can_revert: bool) -> None:
+        """Show the edited row's status pill, and Revert for an Edited or Deleted row."""
+        self.status.setText(status)
+        self.status.setAccessibleName(status)
+        self.status.setVisible(bool(status))
+        self.revert.setVisible(can_revert)
+
+    def unsaved(self) -> bool:
+        """Whether a field differs from when the drawer opened."""
+        return self.isVisible() and self._fields() != self._opened
+
+    def close_asking(self) -> bool:
+        """Close the drawer, asking first when there are unsaved changes (M-EDIT-20); return
+        whether it closed."""
+        if self.unsaved():
+            dialog = DestructiveConfirmation(
+                QCoreApplication.translate(
+                    "M-EDIT-20", "Discard your changes to this replacement?"
+                ),
+                QCoreApplication.translate("M-EDIT-20", "Discard"),
+                parent=self,
+            )
+            dialog.cancel.setText(QCoreApplication.translate("M-EDIT-20", "Keep editing"))
+            if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
+                return False
+        self.hide()
+        self.editing = None
+        return True
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt API
+        """Esc closes the drawer, asking first when something is unsaved (S-26 rule 8)."""
+        if event.key() == Qt.Key.Key_Escape:
+            self.close_asking()
+        else:
+            super().keyPressEvent(event)
+
+    def _fields(self) -> tuple[str, str, str]:
+        return (self.original.text().strip(), self.kind(), self.target.text().strip())
 
     def kind(self) -> str:
         """Return the chosen target kind."""

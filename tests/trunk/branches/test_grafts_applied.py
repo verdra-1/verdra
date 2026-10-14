@@ -239,6 +239,7 @@ def test_a_profile_switch_and_order_wait_for_apply(tmp_path: Path) -> None:
     assert settings.values["replacements.applied_order"] == [low.id, high.id]
 
 
+@pytest.mark.spec("S-26", 9)
 def test_applying_prunes_copies_no_applied_version_names(tmp_path: Path) -> None:
     made = service(tmp_path)
     profile = made.edit("create", "A")
@@ -256,6 +257,8 @@ def test_applying_prunes_copies_no_applied_version_names(tmp_path: Path) -> None
     profile_id, row = first_row(made)
     row.target = Target(kind="file", value=str(blue))
     made.edit("edit_replacement", profile_id, row)
+    [kept] = copies.folder.iterdir()  # saved, not applied: the live copy stays
+    assert kept.read_bytes() == red.read_bytes()
     made.publish()
     [left] = copies.folder.iterdir()
     assert left.read_bytes() == blue.read_bytes()
@@ -272,3 +275,77 @@ def test_the_snapshot_holder_starts_empty_before_anything_is_applied(tmp_path: P
     )
     made.publish_applied()  # nothing applied yet: saved isn't live
     assert made.holder.current == rules.GraftSnapshot()
+
+
+@pytest.mark.spec("S-26", 6)
+def test_undo_and_redo_cover_every_edit_and_never_touch_an_applied_version(
+    tmp_path: Path,
+) -> None:
+    made = service(tmp_path)
+    profile = made.edit("create", "A")
+    other = made.edit("create", "B")
+    for original, target in ((ORIGINAL, 1111111), (ABOVE_UINT32, 2222222), (3333333, 4444444)):
+        made.edit(
+            "add_replacement",
+            profile.id,
+            Original(asset_id=original),
+            Target(kind="asset_id", value=str(target)),
+        )
+    made.publish()
+
+    def applied() -> list[object]:
+        return [
+            (p.id, r.id, r.applied)
+            for p in made.store.profiles
+            for r in p.replacements
+            if r.applied is not None
+        ]
+
+    live = applied()
+    first, second, third = (r.id for r in made.store.get(profile.id).replacements)
+    row = made.store.get(profile.id).replacements[0]
+    row.target = Target(kind="asset_id", value="5555555")
+    made.edit("edit_replacement", profile.id, row)  # edit
+    made.edit("set_replacements_enabled", profile.id, [second], False)  # switch
+    made.edit("remove_replacements", profile.id, [third])  # delete
+    made.edit("duplicate_replacement", profile.id, first)  # duplicate
+    made.edit("move_replacements", profile.id, [second], other.id)  # move
+    edited = [r.id for p in made.store.profiles for r in p.replacements]
+    for _ in range(5):
+        made.edit("undo")
+        assert applied() == live
+    assert [r.target.value for r in made.store.get(profile.id).replacements] == [
+        "1111111",
+        "2222222",
+        "4444444",
+    ]
+    assert made.store.get(other.id).replacements == []
+    for _ in range(5):
+        made.edit("redo")
+        assert applied() == live
+    assert [r.id for p in made.store.profiles for r in p.replacements] == edited
+    assert swaps(made) == {ORIGINAL: 1111111, ABOVE_UINT32: 2222222, 3333333: 4444444}
+
+
+def test_fifty_steps_of_undo(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    profile = made.edit("create", "A")
+    made.edit(
+        "add_replacement",
+        profile.id,
+        Original(asset_id=ORIGINAL),
+        Target(kind="asset_id", value="1"),
+    )
+    made.publish()
+    for value in range(2, 62):
+        _, row = first_row(made)
+        row.target = Target(kind="asset_id", value=str(value))
+        made.edit("edit_replacement", profile.id, row)
+    undone = 0
+    while made.store.can_undo:
+        made.edit("undo")
+        undone += 1
+    assert undone == 50  # S-20: the last 50 edits
+    _, row = first_row(made)
+    assert row.target.value == "11"
+    assert row.applied is not None and row.applied.target.value == "1"

@@ -191,3 +191,11 @@ Applied folder), `trunk/sapwood/startup.py`, `canopy/screens/grafts/screen.py`,
   any replacement left out (M-GRAFT-13). Known gap, closed with S-27: deleting a whole profile
   still takes effect at once.
 
+- Built (pull request e of phase A): a plain click on a row (not on its switch or note, and not
+  with Shift or Ctrl), Enter, or the row menu's Edit opens the drawer filled in; saving an edited
+  Deleted row brings it back. The asset name is taken from the type check's answer when it
+  carries `Name` (made one line, at most 100 characters) and given to every row of that original
+  without an undo step; a DEBUG line says whether the answer carried one. The source-run check
+  of question N8 couldn't be made from the build machine (its network policy refuses Roblox's
+  hosts), so it is a step of the phase A test; until then, rows whose answer has no name show the
+  ID and type only, as N8 decides.
