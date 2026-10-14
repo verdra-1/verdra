@@ -59,3 +59,29 @@ def test_every_message_with_a_count_is_a_plural_entry() -> None:
         if "%n" in message.findtext("source", "") and message.get("numerus") != "yes"
     ]
     assert plain == []
+
+
+def test_every_context_is_a_class_or_a_message_id() -> None:
+    """lupdate names a context after the class around a `self.tr`; when it misreads the code it
+    makes one up ("QCoreApplication.self"), and Qt never finds that message's translation."""
+    import xml.etree.ElementTree as ET  # noqa: PLC0415, N817
+
+    root = ET.parse(i18n.CATALOG).getroot()  # noqa: S314 - our own file
+    odd = [name for c in root.iter("context") if "." in (name := c.findtext("name", ""))]
+    assert odd == []
+
+
+def test_no_plural_entry_is_left_unfinished() -> None:
+    """lrelease leaves "unfinished" entries out of the compiled catalogue, so their singular
+    form would never show ("Apply 1 changes")."""
+    import xml.etree.ElementTree as ET  # noqa: PLC0415, N817
+
+    root = ET.parse(i18n.CATALOG).getroot()  # noqa: S314 - our own file
+    unfinished = [
+        message.findtext("source", "")
+        for message in root.iter("message")
+        if message.get("numerus") == "yes"
+        and (translation := message.find("translation")) is not None
+        and translation.get("type") == "unfinished"
+    ]
+    assert unfinished == []

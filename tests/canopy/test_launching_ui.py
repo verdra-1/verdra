@@ -183,7 +183,7 @@ def test_how_a_dialog_was_answered_is_logged(
 
 # --- A Roblox Player Verdra didn't start (M-LAUNCH-08 to M-LAUNCH-18) ------------------------
 
-BANNER = "Roblox is already running without Verdra. Close it completely, then click Apply now."
+BANNER = "Roblox is already running without Verdra. Close it completely, then click Review & apply."
 
 
 def banner_of(shell: Shell) -> Notice | None:

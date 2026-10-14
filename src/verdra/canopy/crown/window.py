@@ -37,6 +37,7 @@ from verdra.canopy.crown.tray import Tray
 from verdra.canopy.leaves.dialogs import Choice, DestructiveConfirmation, Information
 from verdra.canopy.leaves.notice import Notice, Tone
 from verdra.canopy.screens.garden import TweaksScreen
+from verdra.canopy.screens.grafts.review import ReviewDialog, ReviewText, Roblox
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.canopy.screens.hive import AccountsScreen
 from verdra.canopy.screens.rings import ActivityScreen
@@ -236,6 +237,8 @@ class MainWindow(QMainWindow):
 #: How long Apply now ignores clicks after it restarted Roblox (as long as Sprout waits before
 #: checking that the new Player stayed, `Sprout.HANDOFF_SECONDS`).
 APPLY_COOLDOWN_SECONDS = 10.0
+#: How long the toast after a reviewed apply offers Undo (S-27).
+UNDO_SECONDS = 10.0
 
 
 class ApplyText(QObject):
@@ -275,7 +278,7 @@ class ApplyText(QObject):
 
     def busy(self) -> str:
         return QCoreApplication.translate(
-            "M-APPLY-07", "Apply now is still restarting Roblox. Try again in a moment."
+            "M-APPLY-07", "Verdra is still restarting Roblox. Try again in a moment."
         )
 
     def nothing_applied(self, count: int) -> str:
@@ -288,7 +291,7 @@ class ApplyText(QObject):
 
     def waiting(self, count: int) -> str:
         return self.tr(
-            "Downloading %n replacements first. Apply now goes on when they're ready.",
+            "Downloading %n replacements first. Applying goes on when they're ready.",
             "M-APPLY-04",
             count,
         )
@@ -325,6 +328,8 @@ class Shell:
         #: second restart while the first is under way would start another Player (12 October
         #: 2026: four "Restart Roblox now?" in 17 seconds).
         self.apply_busy_until = 0.0
+        #: The reviewed apply that waits for downloads: (chosen keys, restart, change count).
+        self._reviewed: tuple[list[str], bool, int] | None = None
         #: The clock for that (tests replace it; never patch `time.monotonic` itself, which
         #: other threads use too).
         self.monotonic: Callable[[], float] = time.monotonic
@@ -353,21 +358,7 @@ class Shell:
             )
             popover.fix_requested.connect(self.fix_routing)
             services.sprout.refresh_others()
-        if services.grafts is not None:
-            self.window.header.enable_apply()
-            self.window.header.apply_now.clicked.connect(self.apply_now)
-            grafts = services.grafts
-            grafts.changed.connect(lambda: self.window.header.show_profiles(grafts.profiles))
-            self.window.header.show_profiles(grafts.profiles)
-        replacements = self.window.screens["replacements"]
-        if isinstance(replacements, ReplacementsScreen):
-            replacements.deleted.connect(
-                lambda text: self.window.dew.show(
-                    text,
-                    Kind.INFO,
-                    (QCoreApplication.translate("M-PROF-09", "Undo"), replacements.undo_delete),
-                )
-            )
+        self._wire_replacements()
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
@@ -390,7 +381,8 @@ class Shell:
                 "Ctrl+Z": lambda: self._replacements_button("undo"),
                 "Shift+Ctrl+Z": lambda: self._replacements_button("redo"),
                 "Ctrl+Y": lambda: self._replacements_button("redo"),  # S-26 keyboard
-                "Ctrl+Return": self.apply_now,
+                "Ctrl+Return": self.review_and_apply,
+                "Ctrl+Enter": self.review_and_apply,
             }
         self.shortcuts = Shortcuts(self.window, actions)
         if services.errors is not None:
@@ -551,7 +543,7 @@ class Shell:
                 "1. Leave your game and close every Roblox window.\n"
                 "2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each "
                 '"Roblox" entry and click End task.\n'
-                "3. Back in Verdra, click Apply now, then join your game.",
+                "3. Back in Verdra, click Review & apply, then join your game.",
             ),
             self.window,
         ).exec()
@@ -616,7 +608,76 @@ class Shell:
         if isinstance(screen, ReplacementsScreen) and self.window.stack.currentWidget() is screen:
             getattr(screen, name).click()  # a disabled button ignores the click
 
-    def apply_now(self, *, retry: bool = True) -> None:
+    def _wire_replacements(self) -> None:
+        """The header's Review & apply (S-27) and the Replacements screen's signals."""
+        grafts = self.services.grafts
+        if grafts is not None:
+            header = self.window.header
+            # `clicked` passes `checked`, which isn't a list of changes.
+            header.review.clicked.connect(lambda _checked=False: self.review_and_apply())
+            grafts.changed.connect(lambda: header.show_profiles(grafts.profiles))
+            grafts.changed.connect(lambda: header.show_waiting(grafts.waiting()))
+            header.show_profiles(grafts.profiles)
+            header.show_waiting(grafts.waiting())
+        replacements = self.window.screens["replacements"]
+        if isinstance(replacements, ReplacementsScreen):
+            replacements.apply_only.connect(self.review_and_apply)
+            replacements.deleted.connect(
+                lambda text: self.window.dew.show(
+                    text,
+                    Kind.INFO,
+                    (QCoreApplication.translate("M-PROF-09", "Undo"), replacements.undo_delete),
+                )
+            )
+
+    def review_and_apply(self, only: list[str] | None = None) -> None:
+        """Review & apply (S-27): show every waiting change, then apply the checked ones.
+
+        `only`: "Apply only these" (S-26): just these changes start checked.
+        """
+        grafts, sprout = self.services.grafts, self.services.sprout
+        if grafts is None:
+            return
+        changes = grafts.pending_changes()
+        if not changes:
+            # Nothing to review (M-REVIEW-08): apply again as S-24 does, so the cache can move
+            # and Roblox restart after Studio or another Player closed (M-CACHE-02, -03).
+            self.apply_now()
+            return
+        roblox = Roblox.NONE
+        if sprout is not None:
+            others = sprout.refresh_others()
+            if sprout.players_started_here():
+                roblox = Roblox.OURS
+            elif others:
+                roblox = Roblox.OTHERS
+        dialog = ReviewDialog(
+            changes,
+            roblox,
+            self.window,
+            only=only,
+            busy=self.monotonic() < self.apply_busy_until,
+        )
+        dialog.fix.connect(self._fix_row)
+        if dialog.exec() != ReviewDialog.DialogCode.Accepted:
+            return
+        self.apply_now(chosen=dialog.chosen(), restart=dialog.restart, changes=dialog.count)
+
+    def _fix_row(self, replacement_id: str) -> None:
+        """A Problem line's "Fix" (S-27): open its row in Replacements."""
+        self.window.show_screen("replacements")
+        screen = self.window.screens["replacements"]
+        if isinstance(screen, ReplacementsScreen):
+            screen.open_row(replacement_id)
+
+    def apply_now(
+        self,
+        *,
+        retry: bool = True,
+        chosen: list[str] | None = None,
+        restart: bool | None = None,
+        changes: int = 0,
+    ) -> None:
         """Apply now (spec S-24): publish, move Roblox's cache aside, restart Roblox if it runs.
 
         Links still downloading are waited for first, with a toast that shows it (M-APPLY-04);
@@ -626,6 +687,9 @@ class Shell:
         The cache moves only while no Player or Studio runs (S-24 rule 4): Studio, or a Player
         Verdra didn't start, is never closed; Apply now then says why the cache stayed. A Player
         Verdra started is closed after M-LAUNCH-03 and started again once the cache has moved.
+
+        From the review (S-27): `chosen` are the changes to apply, `restart` the review's answer
+        (M-LAUNCH-03 isn't asked again), `changes` how many; the toast says so, with Undo.
         """
         grafts, sprout = self.services.grafts, self.services.sprout
         if grafts is None:
@@ -634,10 +698,14 @@ class Shell:
             log.info("%s", ApplyText().busy())
             self.window.dew.show(ApplyText().busy())
             return
-        count = grafts.publish(retry=retry)
+        count = grafts.apply(chosen, retry=retry)
+        reviewed = None if restart is None else (chosen or [], restart, changes)
         if grafts.downloading:  # M-APPLY-04: go on once the links are here, without a 2nd click
+            if self.apply_waiting is None:  # a click while waiting keeps the first one's review
+                self._reviewed = reviewed
             self._wait_for_downloads(grafts.downloading)
             return
+        self._reviewed = None
         self._stop_waiting()
         if grafts.warnings and not count:
             # Every replacement failed: nothing to restart Roblox or move its cache for.
@@ -646,20 +714,87 @@ class Shell:
         if grafts.warnings:  # S-21: a replacement that can't be prepared is never silent
             self.window.dew.show(ApplyText().not_prepared(len(grafts.warnings)), Kind.WARNING)
         if sprout is None:
-            self.window.dew.show(self._next_time(count))
+            self._applied(count, reviewed, restarted=False)
             return
         running = sprout.roblox_processes()
         others = sprout.refresh_others()
         ours = sprout.players_started_here()
         clear = self._cache_can_move(running, others)
-        if ours:
-            self._restart_roblox(sprout, count, clear=clear)
+        if ours and (restart is None or restart):
+            if restart is None:
+                self._restart_roblox(sprout, count, clear=clear)
+            else:
+                self._restart(sprout, clear=clear)
+                self._applied(count, reviewed, restarted=True)
             return
-        moved = sprout.clear_cache() if clear else None
-        self._show_moved(moved)
+        if not ours:
+            moved = sprout.clear_cache() if clear else None
+            self._show_moved(moved)
         if not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
-        self.window.dew.show(self._next_time(count))
+        self._applied(count, reviewed, restarted=False)
+
+    def _restart(self, sprout: Sprout, *, clear: bool) -> CacheMove | None:
+        """Close Verdra's Player, move the cache, start it again (S-24 rule 3); Apply and Undo
+        then wait APPLY_COOLDOWN_SECONDS (M-APPLY-07)."""
+        sprout.close_roblox()
+        moved = sprout.clear_cache() if clear else None
+        self._show_moved(moved)
+        sprout.launch()
+        self.apply_busy_until = self.monotonic() + APPLY_COOLDOWN_SECONDS
+        return moved
+
+    def _applied(
+        self, count: int, reviewed: tuple[list[str], bool, int] | None, *, restarted: bool
+    ) -> None:
+        """The toast after an apply: S-24's, or from the review M-REVIEW-06 with Undo."""
+        grafts = self.services.grafts
+        if reviewed is None or grafts is None:
+            self.window.dew.show(self._next_time(count))
+            return
+        applies = grafts.store.applies
+        toast = self.window.dew.show(
+            ReviewText().applied(reviewed[2], restarting=restarted),
+            Kind.INFO,
+            (
+                QCoreApplication.translate("M-REVIEW-06", "Undo"),
+                lambda: self._undo_apply(applies, restarted=restarted),
+            ),
+        )
+        # S-27: Undo lasts 10 s, counted from when it can be used: after a restart, Apply and
+        # Undo wait for the cooldown first (rule 6).
+        wait = max(0.0, self.apply_busy_until - self.monotonic())
+        toast.timer.start(int((UNDO_SECONDS + wait) * 1000))
+
+    def _undo_apply(self, applies: int, *, restarted: bool) -> None:
+        """Undo (S-27, M-REVIEW-07): the applied set before is published again, and Roblox
+        restarted again if that apply restarted it."""
+        grafts, sprout = self.services.grafts, self.services.sprout
+        if grafts is None:
+            return
+        if self.monotonic() < self.apply_busy_until:
+            self.window.dew.show(ApplyText().busy())
+            return
+        if not grafts.undo_apply(applies):
+            self.window.dew.show(
+                QCoreApplication.translate(
+                    "M-REVIEW-12", "Can't undo now: the replacements changed since."
+                ),
+                Kind.WARNING,
+            )
+            return
+        again = restarted and sprout is not None and bool(sprout.players_started_here())
+        if again and sprout is not None:
+            running = sprout.roblox_processes()
+            self._restart(sprout, clear=self._cache_can_move(running, sprout.refresh_others()))
+            text = QCoreApplication.translate(
+                "M-REVIEW-07", "Put back the replacements applied before. Roblox is restarting."
+            )
+        else:
+            text = QCoreApplication.translate(
+                "M-REVIEW-07", "Put back the replacements applied before."
+            )
+        self.window.dew.show(text)
 
     def _restart_roblox(self, sprout: Sprout, count: int, *, clear: bool) -> None:
         """M-LAUNCH-03: close Verdra's Player, move the cache, start it again (S-24 rule 3)."""
@@ -673,11 +808,7 @@ class Shell:
         if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
             self.window.dew.show(self._next_time(count))  # S-24 rule 3
             return
-        sprout.close_roblox()
-        moved = sprout.clear_cache() if clear else None
-        self._show_moved(moved)
-        sprout.launch()
-        self.apply_busy_until = self.monotonic() + APPLY_COOLDOWN_SECONDS
+        moved = self._restart(sprout, clear=clear)
         text = ApplyText()
         if not count:
             # Restarting still matters: replacements applied before are gone, and a format
@@ -707,7 +838,12 @@ class Shell:
         if self.apply_waiting is None:
             return
         self._stop_waiting()
-        self.apply_now(retry=False)
+        reviewed = self._reviewed
+        if reviewed is None:
+            self.apply_now(retry=False)
+        else:
+            chosen, restart, changes = reviewed
+            self.apply_now(retry=False, chosen=chosen, restart=restart, changes=changes)
 
     def _stop_waiting(self) -> None:
         """Stop waiting for downloads (they carry on and apply when ready, S-21)."""
@@ -728,7 +864,7 @@ class Shell:
                 QCoreApplication.translate(
                     "M-CACHE-02",
                     "Roblox Studio is open, so Verdra didn't move Roblox's saved assets aside. "
-                    "Close Studio, then click Apply now again.",
+                    "Close Studio, then click Review & apply again.",
                 ),
                 Kind.WARNING,
             )
@@ -738,7 +874,7 @@ class Shell:
                 QCoreApplication.translate(
                     "M-CACHE-03",
                     "A Roblox Player that Verdra didn't start is running, so Verdra didn't move "
-                    "Roblox's saved assets aside. Close it, then click Apply now again.",
+                    "Roblox's saved assets aside. Close it, then click Review & apply again.",
                 ),
                 Kind.WARNING,
             )

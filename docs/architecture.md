@@ -58,7 +58,7 @@ src/verdra/
 ├── canopy/                  Everything the user sees. Qt widgets only: no network, disk or OS calls of its own.
 │   ├── crown/               The window frame and app-wide UI.
 │   │   ├── window.py        Main window: sidebar, header, content stack, splitter and geometry memory.
-│   │   ├── header.py        Screen title, status pill and its popover, profile selector, Apply now button.
+│   │   ├── header.py        Screen title, status pill and its popover, profile selector, Review & apply button.
 │   │   ├── sidebar.py       Navigation, collapse to icons, items shown only in Advanced mode.
 │   │   ├── tray.py          Tray or menu-bar icon, the tray menu (7.10), status-variant icons.
 │   │   ├── theme.py         Turns tokens.json into QPalette and a style sheet; live light/dark switching; text scale; density.
@@ -89,6 +89,7 @@ src/verdra/
 │       │   ├── screen.py    Profiles list, replacements table, toolbar.
 │       │   ├── editor.py    Editor drawer (Asset ID · Local file · URL · Remove).
 │       │   ├── preview.py   Preview changes dialog.
+│       │   ├── review.py    Review & apply dialog.
 │       │   ├── presets.py   Presets dialog (catalogue cards).
 │       │   └── imports.py   Import and pack dialogs.
 │       ├── seedbank.py      Library screen.

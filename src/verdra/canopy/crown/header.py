@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-"""Screen title, status pill and its popover, profile selector, Apply now button.
+"""Screen title, status pill and its popover, profile selector, Review & apply button.
 
 Master plan 7.1. The header is 56 px tall. The pill and its popover render the one routing
 status (spec S-14): its state, its reason, the other active reasons and at most one fix button,
 which emits `fix_requested` with the fix's key. A fix nobody handles yet is disabled with a
-tooltip saying why, as are the profile selector and "Apply now" until replacements exist (M2;
-plan 5.4, rule 5).
+tooltip saying why, as are the profile selector and "Review & apply" until replacements exist
+(M2; plan 5.4, rule 5). "Review & apply" counts the changes waiting (S-25, M-ROW-10).
 """
 
 from __future__ import annotations
@@ -184,12 +184,12 @@ class Header(QFrame):
         self.profiles.setToolTip(not_yet)
         layout.addWidget(self.profiles)
 
-        self.apply_now = QPushButton(self.tr("Apply now"), self)
-        self.apply_now.setProperty("primary", True)
-        self.apply_now.setAccessibleName(self.tr("Apply now"))
-        self.apply_now.setEnabled(False)
-        self.apply_now.setToolTip(not_yet)
-        layout.addWidget(self.apply_now)
+        self.review = QPushButton(QCoreApplication.translate("M-ROW-10", "Review & apply"), self)
+        self.review.setProperty("primary", True)
+        self.review.setAccessibleName(self.review.text())
+        self.review.setEnabled(False)
+        self.review.setToolTip(not_yet)
+        layout.addWidget(self.review)
 
     def show_profiles(self, profiles: Sequence[object]) -> None:
         """List the profiles that apply (switching from here comes later, M-SOON-01)."""
@@ -198,10 +198,26 @@ class Header(QFrame):
         self.profiles.addItems(names)
         self.profiles.setCurrentIndex(0 if names else -1)
 
-    def enable_apply(self) -> None:
-        """Replacements exist (M2): "Apply now" works (spec S-24)."""
-        self.apply_now.setEnabled(True)
-        self.apply_now.setToolTip(self.tr("Use the replacements now"))
+    def show_waiting(self, count: int) -> None:
+        """How many changes wait for the next apply (S-25, S-27): "Review & apply (n)", or
+        "Review & apply" with M-REVIEW-08 as its tooltip when every replacement is live."""
+        text = (
+            QCoreApplication.translate("M-ROW-10", "Review & apply ({n})").format(n=count)
+            if count
+            else QCoreApplication.translate("M-ROW-10", "Review & apply")
+        )
+        self.review.setText(text)
+        self.review.setAccessibleName(text)
+        # Enabled with nothing waiting too: it then applies again without a review, to move
+        # Roblox's saved assets aside or restart it (S-24's flows, e.g. after M-CACHE-03).
+        self.review.setEnabled(True)
+        self.review.setToolTip(
+            ""
+            if count
+            else QCoreApplication.translate(
+                "M-REVIEW-08", "Nothing is waiting. Every replacement is already live."
+            )
+        )
 
     def set_title(self, title: str) -> None:
         """Show the current screen's title."""

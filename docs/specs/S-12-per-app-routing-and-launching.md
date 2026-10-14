@@ -67,7 +67,7 @@ Start Roblox through Verdra on every platform without administrator rights.
   then try again. Nothing was changed."
 - M-LAUNCH-06 (Activity, new) "Verdra couldn't take over Roblox links: <reason>."
 - M-LAUNCH-08 (Notice and routing status, new) "Roblox is already running without Verdra.
-  Close it completely, then click Apply now." Buttons "How to close it" (M-LAUNCH-18) and
+  Close it completely, then click Review & apply." Buttons "How to close it" (M-LAUNCH-18) and
   "Close Roblox…" (M-LAUNCH-10).
 - M-LAUNCH-09 (Activity, new) "Verdra didn't start Roblox yet: Roblox is already running without
   Verdra, so the game would open there without your replacements."
@@ -92,7 +92,7 @@ Start Roblox through Verdra on every platform without administrator rights.
   opens through Verdra." Buttons "Close Roblox and continue", "Continue anyway", "Cancel".
 - M-LAUNCH-18 (Dialog, new) "How to close Roblox completely" / "1. Leave your game and close every
   Roblox window. 2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each
-  "Roblox" entry and click End task. 3. Back in Verdra, click Apply now, then join your game."
+  "Roblox" entry and click End task. 3. Back in Verdra, click Review & apply, then join your game."
 - M-SHELL-02 (Dialog, new) "Quit Verdra while Roblox is running? Your replacements stop the next
   time Roblox starts." Buttons "Quit", "Cancel".
 

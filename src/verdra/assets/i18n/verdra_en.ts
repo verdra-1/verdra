@@ -148,11 +148,11 @@
         </translation>
     </message>
     <message numerus="yes">
-        <source>Downloading %n replacements first. Apply now goes on when they&apos;re ready.</source>
+        <source>Downloading %n replacements first. Applying goes on when they&apos;re ready.</source>
         <comment>M-APPLY-04</comment>
         <translation>
-            <numerusform>Downloading %n replacement first. Apply now goes on when it&apos;s ready.</numerusform>
-            <numerusform>Downloading %n replacements first. Apply now goes on when they&apos;re ready.</numerusform>
+            <numerusform>Downloading %n replacement first. Applying goes on when it&apos;s ready.</numerusform>
+            <numerusform>Downloading %n replacements first. Applying goes on when they&apos;re ready.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -282,14 +282,6 @@
         <source>Active profile</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Apply now</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Use the replacements now</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 <context>
     <name>M-ABOUT-02</name>
@@ -330,7 +322,7 @@
 <context>
     <name>M-APPLY-07</name>
     <message>
-        <source>Apply now is still restarting Roblox. Try again in a moment.</source>
+        <source>Verdra is still restarting Roblox. Try again in a moment.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -365,14 +357,14 @@
 <context>
     <name>M-CACHE-02</name>
     <message>
-        <source>Roblox Studio is open, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close Studio, then click Apply now again.</source>
+        <source>Roblox Studio is open, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close Studio, then click Review &amp; apply again.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>M-CACHE-03</name>
     <message>
-        <source>A Roblox Player that Verdra didn&apos;t start is running, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close it, then click Apply now again.</source>
+        <source>A Roblox Player that Verdra didn&apos;t start is running, so Verdra didn&apos;t move Roblox&apos;s saved assets aside. Close it, then click Review &amp; apply again.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -400,7 +392,7 @@
 <context>
     <name>M-CACHE-08</name>
     <message>
-        <source>Verdra couldn&apos;t delete every backup of Roblox&apos;s saved assets ({reason}). It tries again after the next Apply now.</source>
+        <source>Verdra couldn&apos;t delete every backup of Roblox&apos;s saved assets ({reason}). It tries again after the next apply.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -707,6 +699,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Apply only these</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Delete…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -970,7 +966,7 @@
 <context>
     <name>M-LAUNCH-08</name>
     <message>
-        <source>Roblox is already running without Verdra. Close it completely, then click Apply now.</source>
+        <source>Roblox is already running without Verdra. Close it completely, then click Review &amp; apply.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1078,7 +1074,7 @@
     <message>
         <source>1. Leave your game and close every Roblox window.
 2. If Roblox still runs, open Task Manager (Ctrl+Shift+Esc), select each &quot;Roblox&quot; entry and click End task.
-3. Back in Verdra, click Apply now, then join your game.</source>
+3. Back in Verdra, click Review &amp; apply, then join your game.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1426,6 +1422,17 @@
     </message>
 </context>
 <context>
+    <name>M-REVIEW-01</name>
+    <message>
+        <source>Review changes before applying</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-REVIEW-03</name>
     <message>
         <source>asset</source>
@@ -1469,6 +1476,96 @@
     </message>
     <message>
         <source>Profile order changed; no asset changes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Turning off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Turning on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deleted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Profile on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Profile off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Problem</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Waiting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fix</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-04</name>
+    <message>
+        <source>Restart Roblox after applying</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Roblox isn&apos;t running. The changes reach the game the next time it starts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-05</name>
+    <message>
+        <source>Back to editing</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-06</name>
+    <message>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-07</name>
+    <message>
+        <source>Put back the replacements applied before. Roblox is restarting.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Put back the replacements applied before.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-08</name>
+    <message>
+        <source>Nothing is waiting. Every replacement is already live.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-12</name>
+    <message>
+        <source>Can&apos;t undo now: the replacements changed since.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1581,6 +1678,17 @@
     </message>
     <message>
         <source>Kept in the profile but not used. The game gets the original.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-ROW-10</name>
+    <message>
+        <source>Review &amp; apply</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Review &amp; apply ({n})</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2144,6 +2252,62 @@
     </message>
 </context>
 <context>
+    <name>ReviewText</name>
+    <message numerus="yes">
+        <source>%n changes. Roblox needs a restart to load them; unsaved progress in your game may be lost.</source>
+        <comment>M-REVIEW-02</comment>
+        <translation>
+            <numerusform>%n change. Roblox needs a restart to load it; unsaved progress in your game may be lost.</numerusform>
+            <numerusform>%n changes. Roblox needs a restart to load them; unsaved progress in your game may be lost.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n changes. They reach the game the next time Roblox starts.</source>
+        <comment>M-REVIEW-02</comment>
+        <translation>
+            <numerusform>%n change. It reaches the game the next time Roblox starts.</numerusform>
+            <numerusform>%n changes. They reach the game the next time Roblox starts.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n will be skipped.</source>
+        <comment>M-REVIEW-11</comment>
+        <translation>
+            <numerusform>%n will be skipped.</numerusform>
+            <numerusform>%n will be skipped.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <comment>M-REVIEW-05</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Apply %n changes</source>
+        <comment>M-REVIEW-05</comment>
+        <translation>
+            <numerusform>Apply %n change</numerusform>
+            <numerusform>Apply %n changes</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n changes applied. Roblox is restarting.</source>
+        <comment>M-REVIEW-06</comment>
+        <translation>
+            <numerusform>%n change applied. Roblox is restarting.</numerusform>
+            <numerusform>%n changes applied. Roblox is restarting.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n changes applied. They reach the game the next time Roblox starts.</source>
+        <comment>M-REVIEW-06</comment>
+        <translation>
+            <numerusform>%n change applied. It reaches the game the next time Roblox starts.</numerusform>
+            <numerusform>%n changes applied. They reach the game the next time Roblox starts.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>RiskBadge</name>
     <message>
         <source>Risk: {level}</source>
@@ -2586,7 +2750,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Apply now</source>
+        <source>Review &amp; apply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

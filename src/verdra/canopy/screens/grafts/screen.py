@@ -349,9 +349,11 @@ class ReplacementsScreen(QWidget):
 
     Signals:
         deleted(str): A profile was deleted (M-PROF-09); the window shows it with "Undo".
+        apply_only(list[str]): "Apply only these" (S-26): the selected replacements, to review.
     """
 
     deleted = Signal(str)
+    apply_only = Signal(list)
 
     def __init__(self, parent: QWidget | None = None, service: grafts.Grafts | None = None) -> None:
         super().__init__(parent)
@@ -576,6 +578,10 @@ class ReplacementsScreen(QWidget):
             (QCoreApplication.translate("M-EDIT-17", "Duplicate"), self._duplicate),
             (QCoreApplication.translate("M-EDIT-18", "Move to profile…"), self._move),
             (QCoreApplication.translate("M-EDIT-16", "Revert to live version"), self._revert),
+            (
+                QCoreApplication.translate("M-EDIT-18", "Apply only these"),
+                lambda: self.apply_only.emit(self.selected_rows()),
+            ),
             (QCoreApplication.translate("M-EDIT-18", "Delete…"), self._remove),
         ):
             action = QAction(text, menu)
