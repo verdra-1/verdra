@@ -65,9 +65,11 @@ what was applied until the user applies again.
    bytes in `%LOCALAPPDATA%\Verdra\Applied\<sha256>` (content-addressed: two rows with the same
    file share one copy) and records the SHA-256 in the applied version. The applied version is
    prepared from that copy, so it keeps working if the user's file changes or disappears. A copy
-   that no applied version names any more is deleted after the next successful apply. Links
-   already have such a copy (`Downloads`, by SHA-256, bark/rain); the applied version names it
-   and it isn't deleted while named.
+   that no applied version names any more is deleted after the next successful apply. A link's
+   applied version uses its download in `Downloads` (bark/rain names it by the SHA-256 of the
+   link, not of its content); a link is downloaded again only when Review & apply retries a
+   failed one, so in practice the game keeps what was downloaded, but a link whose download is
+   replaced serves the new bytes (not copied into `Applied`: a known limit of phase A).
 5. **What counts as a change** the game sees: the original (ID and slot), the target kind and
    value, the switch, and for a file the content (its SHA-256). The note and the asset name are
    saved without making a row Edited.

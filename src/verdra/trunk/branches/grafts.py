@@ -466,21 +466,24 @@ class AppliedCopies:
     """Copies of the files behind applied replacements, named by their SHA-256 (S-26 rule 4).
 
     A copy is written once and shared by every replacement whose file has the same bytes, so the
-    game keeps an applied version when the user's file changes or disappears. `prune` deletes
-    the copies no applied version names any more.
+    game keeps an applied version when the user's file changes or disappears. It keeps the
+    file's suffix in lower case (`<sha256>.obj`), because an OBJ is told by its suffix (`sniff`).
+    `prune` deletes the copies no applied version names any more.
     """
 
     def __init__(self, folder: Path, limit: int = MAX_APPLIED_BYTES) -> None:
         self.folder = folder
         self.limit = limit
 
-    def path(self, sha256: str) -> Path:
-        """Return where the copy with this SHA-256 lives."""
-        return self.folder / sha256
+    def path(self, sha256: str) -> Path | None:
+        """Return the copy with this SHA-256, or None if there is none."""
+        if not self.folder.is_dir():
+            return None
+        return next((p for p in sorted(self.folder.glob(f"{sha256}*")) if p.stem == sha256), None)
 
     def has(self, sha256: str) -> bool:
         """Return whether the copy with this SHA-256 exists."""
-        return self.path(sha256).is_file()
+        return self.path(sha256) is not None
 
     def size(self) -> int:
         """Return the bytes all copies use."""
@@ -508,7 +511,7 @@ class AppliedCopies:
                 )
             )
         self.folder.mkdir(parents=True, exist_ok=True)
-        atomic.write_atomic(self.path(sha256), data)
+        atomic.write_atomic(self.folder / f"{sha256}{path.suffix.lower()}", data)
         return sha256
 
     def prune(self, named: Iterable[str]) -> int:
@@ -518,7 +521,7 @@ class AppliedCopies:
         keep = set(named)
         gone = 0
         for path in self.folder.iterdir():
-            if path.is_file() and path.name not in keep:
+            if path.is_file() and path.stem not in keep:
                 path.unlink(missing_ok=True)
                 gone += 1
         return gone

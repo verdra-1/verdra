@@ -88,7 +88,7 @@ def test_a_version_1_profile_migrates_with_applied_equal_to_saved(tmp_path: Path
     by_id = {r.original.asset_id: r.applied for r in profile.replacements}
     sha = hashlib.sha256(PNG).hexdigest()
     assert by_id[2] is not None and by_id[2].sha256 == sha
-    assert (tmp_path / terrain.APPLIED_FOLDER / sha).read_bytes() == PNG
+    assert (tmp_path / terrain.APPLIED_FOLDER / f"{sha}.png").read_bytes() == PNG
     assert by_id[3] is not None and by_id[3].sha256 is None  # missing file: no copy
     assert by_id[1] is not None and by_id[1].sha256 is None  # an Asset ID needs none
     # The file on disk is version 2 now; the version 1 profile is kept beside it.
@@ -223,3 +223,14 @@ def test_real_size_ids_migrate_and_round_trip_exactly(tmp_path: Path, asset_id: 
     assert grafts.encode(grafts.read_profile(path)) == path.read_bytes()
     kept = json.loads((tmp_path / "A.json.v1").read_bytes())
     assert kept["replacements"][0]["original"]["asset_id"] == asset_id
+
+
+def test_a_copy_keeps_its_suffix_so_an_obj_is_still_an_obj(tmp_path: Path) -> None:
+    copies = grafts.AppliedCopies(tmp_path / "Applied")
+    mesh = tmp_path / "Cube.OBJ"
+    mesh.write_bytes(b"v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    sha = copies.keep(mesh)
+    kept = copies.path(sha)
+    assert kept is not None and kept.name == f"{sha}.obj"
+    assert grafts.sniff(kept.read_bytes()[:64], str(kept)) == "obj"
+    assert copies.prune({sha}) == 0 and copies.has(sha)
