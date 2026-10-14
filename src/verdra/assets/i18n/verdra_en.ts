@@ -252,10 +252,6 @@
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Save</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 <context>
     <name>Header</name>
@@ -646,6 +642,20 @@
     </message>
 </context>
 <context>
+    <name>M-EDIT-14</name>
+    <message>
+        <source>Edit replacement</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-15</name>
+    <message>
+        <source>Save · apply later</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-16</name>
     <message>
         <source>Revert to live version</source>
@@ -654,6 +664,10 @@
 </context>
 <context>
     <name>M-EDIT-17</name>
+    <message>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>Duplicate</source>
         <translation type="unfinished"></translation>
@@ -682,6 +696,21 @@
     <name>M-EDIT-19</name>
     <message>
         <source>Delete</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-EDIT-20</name>
+    <message>
+        <source>Discard your changes to this replacement?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Discard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep editing</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

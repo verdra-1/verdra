@@ -42,6 +42,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -301,6 +302,7 @@ class RowsTable(QTableWidget):
 
     switch_pressed = Signal()
     delete_pressed = Signal()
+    open_pressed = Signal()
     dropped = Signal(object, str)  # a row number; no Qt int crosses (test_real_size_ids)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt API
@@ -309,6 +311,11 @@ class RowsTable(QTableWidget):
             self.switch_pressed.emit()
         elif event.key() == Qt.Key.Key_Delete and self.state() != self.State.EditingState:
             self.delete_pressed.emit()
+        elif (
+            event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter}
+            and self.state() != self.State.EditingState
+        ):
+            self.open_pressed.emit()
         else:
             super().keyPressEvent(event)
 
@@ -417,6 +424,7 @@ class ReplacementsScreen(QWidget):
         row.addLayout(self._build_table(host), 3)
         self.editor = Editor(host, self.service.lookup if self.service is not None else None)
         self.editor.saved.connect(self._save)
+        self.editor.revert_pressed.connect(self._revert_editing)
         self.editor.hide()
         row.addWidget(self.editor, 2)
 
@@ -524,6 +532,8 @@ class ReplacementsScreen(QWidget):
         table.itemChanged.connect(self._item_changed)
         table.switch_pressed.connect(self._toggle_selected)
         table.delete_pressed.connect(self._remove)
+        table.open_pressed.connect(self._open_selected)
+        table.cellClicked.connect(self._clicked)
         table.dropped.connect(self._dropped)
         return table
 
@@ -556,6 +566,10 @@ class ReplacementsScreen(QWidget):
     def _bulk_menu(self, parent: QWidget) -> QMenu:
         """Bulk actions on the selected rows (M-EDIT-18), also the row menu's (M-EDIT-17)."""
         menu = QMenu(parent)
+        if len(self.selected_rows()) == 1:
+            edit = QAction(QCoreApplication.translate("M-EDIT-17", "Edit"), menu)
+            edit.triggered.connect(self._open_selected)
+            menu.addAction(edit)
         for text, slot in (
             (QCoreApplication.translate("M-EDIT-18", "Switch on"), lambda: self._switch(True)),
             (QCoreApplication.translate("M-EDIT-18", "Switch off"), lambda: self._switch(False)),
@@ -675,6 +689,12 @@ class ReplacementsScreen(QWidget):
             )
         self._reselect([r.id in kept for r in shown])
         self.table.blockSignals(False)  # noqa: FBT003
+        editing = self.editor.editing
+        if editing is not None and editing in states:  # the drawer's pill follows the row
+            state = states[editing]
+            self.editor.show_status(
+                status_word(state), can_revert=state.status in {Status.EDITED, Status.DELETED}
+            )
 
     def _reselect(self, chosen: list[bool]) -> None:
         """Select the rows selected before a refresh again, so Space can switch them back."""
@@ -810,6 +830,8 @@ class ReplacementsScreen(QWidget):
         self._edit("set_enabled", str(item.data(Qt.ItemDataRole.UserRole)), enabled)
 
     def _open_editor(self) -> None:
+        if not self.editor.close_asking():
+            return
         if self.selected_id() is None and self.service is not None and self.service.profiles:
             self.profiles.setCurrentRow(0)
         profile_id = self.selected_id()
@@ -819,16 +841,79 @@ class ReplacementsScreen(QWidget):
         else:
             self.editor.start()
 
-    def _save(self, original: grafts.Original, target: grafts.Target, family: str) -> None:
-        profile_id = self.selected_id()
-        if profile_id is None:
+    def _open_selected(self) -> None:
+        """Enter, a click or the row menu's Edit: open the drawer on the row (S-26)."""
+        ids = self.selected_rows()
+        if len(ids) == 1:
+            self.open_row(ids[0])
+
+    def _clicked(self, _row: int, column: int) -> None:
+        """A plain click on a row opens it; not on the switch or the note, which edit in place,
+        and not while Shift or Ctrl add to the selection."""
+        if (
+            column in {ON, NOTE}
+            or QApplication.keyboardModifiers() != Qt.KeyboardModifier.NoModifier
+        ):
             return
+        self._open_selected()
+
+    def open_row(self, replacement_id: str) -> None:
+        """Open the editor drawer on a replacement, every field filled in (M-EDIT-14)."""
+        service, profile_id = self.service, self.selected_id()
+        if service is None or profile_id is None:
+            return
+        if self.editor.isVisible() and self.editor.editing == replacement_id:
+            return
+        if not self.editor.close_asking():
+            return
+        profile = service.store.get(profile_id)
+        row = next((r for r in profile.replacements if r.id == replacement_id), None)
+        if row is None:
+            return
+        state = service.states(profile)[row.id]
+        self.editor.edit(
+            row,
+            service.store.folder / profile.name,
+            status_word(state),
+            can_revert=state.status in {Status.EDITED, Status.DELETED},
+        )
+
+    def _save(self, original: grafts.Original, target: grafts.Target, family: str) -> None:
+        profile_id, service = self.selected_id(), self.service
+        if profile_id is None or service is None:
+            return
+        editing = self.editor.editing
         try:
-            self._edit("add_replacement", profile_id, original, target, family)
+            if editing is None:
+                self._edit("add_replacement", profile_id, original, target, family)
+            else:
+                rows = service.store.get(profile_id).replacements
+                row = copy.deepcopy(next(r for r in rows if r.id == editing))
+                if row.original.asset_id != original.asset_id:
+                    row.name = ""  # another asset: its own name, once Roblox says it
+                row.original = grafts.Original(asset_id=original.asset_id, slot=row.original.slot)
+                row.target = target
+                row.asset_type = family or row.asset_type
+                row.deleted = False  # saving a deleted row brings it back
+                self._edit("edit_replacement", profile_id, row)
         except grafts.ProfileError as error:  # a refusal the user can act on: say it in place
             self.editor.problem.setText(str(error))
             return
+        name = service.names.get(original.asset_id, "")
+        if name:
+            service.store.remember_name(original.asset_id, name)
+            self.refresh()
         self.editor.hide()
+
+    def _revert_editing(self) -> None:
+        """The drawer's Revert to live version (M-EDIT-16): saved back to applied, then the
+        drawer shows the live version."""
+        profile_id, editing = self.selected_id(), self.editor.editing
+        if profile_id is None or editing is None or self.service is None:
+            return
+        self._edit("revert", profile_id, [editing])
+        self.editor.hide()
+        self.open_row(editing)
 
     def _remove(self) -> None:
         """Delete the selected rows after M-EDIT-19 (S-26): applied ones stay live until the

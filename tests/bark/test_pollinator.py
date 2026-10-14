@@ -77,3 +77,20 @@ def test_the_real_client_follows_no_redirect_and_names_only_verdra() -> None:
         assert client.timeout == pollinator.TIMEOUT
     finally:
         client.close()
+
+
+@pytest.mark.parametrize(
+    ("answer", "name"),
+    [
+        ({"AssetTypeId": 1, "Name": "Wall picture"}, "Wall picture"),
+        ({"AssetTypeId": 1}, ""),  # owner, question N8: shown only if Roblox gives it
+        ({"AssetTypeId": 1, "Name": 5}, ""),
+        ({"AssetTypeId": 1, "Name": "two\nlines\x00 and\ttabs"}, "two lines and tabs"),
+        ({"AssetTypeId": 1, "Name": "x" * 500}, "x" * pollinator.NAME_LIMIT),
+    ],
+)
+def test_the_name_is_kept_for_display_only_and_made_safe(answer: object, name: str) -> None:
+    kind = pollinator.asset_kind(ABOVE_UINT32, client_answering(200, answer, []))
+    assert kind is not None
+    assert kind.name == name
+    assert kind == pollinator.AssetKind(1)  # the name never changes what the asset is
