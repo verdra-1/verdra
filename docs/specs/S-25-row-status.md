@@ -146,7 +146,7 @@ callback), `canopy/screens/grafts/screen.py` (table, banner, filters), `canopy/c
   so the pack rule applies to it too (the batch item names its pack either way); and a pack 1 or
   2 asked for minutes after pack 0 (the player walking closer) is a further pack, not a new load,
   so the rule uses "first item for that original since Roblox started" rather than a time
-  window.
+  window. Both refinements were accepted by the owner on 15 October 2026.
 - Not settled by evidence yet: whether Roblox asks for pack 0 again without a new load (for
   example after dropping it from memory). The 12 October capture shows the original's three
   packs downloaded twice (17:38 and 17:42), but not whether a second join came between. The final

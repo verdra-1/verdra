@@ -90,6 +90,7 @@ def badge(kind: str) -> str:
         "off": QCoreApplication.translate("M-REVIEW-03", "Turning off"),
         "on": QCoreApplication.translate("M-REVIEW-03", "Turning on"),
         "deleted": QCoreApplication.translate("M-REVIEW-03", "Deleted"),
+        "profile_deleted": QCoreApplication.translate("M-REVIEW-03", "Deleted"),
         "profile_on": QCoreApplication.translate("M-REVIEW-03", "Profile on"),
         "profile_off": QCoreApplication.translate("M-REVIEW-03", "Profile off"),
         "problem": QCoreApplication.translate("M-REVIEW-03", "Problem"),

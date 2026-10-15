@@ -256,6 +256,14 @@
 <context>
     <name>Grafts</name>
     <message numerus="yes">
+        <source>Profile {name} deleted: %n replacements go back to the originals.</source>
+        <comment>M-REVIEW-03</comment>
+        <translation>
+            <numerusform>Profile {name} deleted: %n replacement goes back to the original.</numerusform>
+            <numerusform>Profile {name} deleted: %n replacements go back to the originals.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Profile {name} turning on: %n replacements apply.</source>
         <comment>M-REVIEW-03</comment>
         <translation>
@@ -1312,6 +1320,13 @@
     <name>M-PROF-11</name>
     <message>
         <source>The profile file {file} was saved by a newer version of Verdra, so this version leaves it as it is and doesn&apos;t use it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-PROF-12</name>
+    <message>
+        <source>The profile {name} is deleted, but the game keeps it until you apply. Apply its deletion first, then use the name again.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

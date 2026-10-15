@@ -6,6 +6,16 @@ All notable changes to Verdra are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Profiles are saved in version 2 of the profile format, which keeps the version the game has
+  next to the one you edit. Verdra converts each profile once and keeps the old file next to it
+  as `<name>.json.v1`. After this update, don't open your profiles with an older Verdra: it
+  can't read version 2 and puts the file aside as unreadable (the `.json.v1` copy still works
+  there).
+- Changes reach the game only when you click Review & apply, which lists every change first and
+  offers Undo afterwards. Deleting a replacement or a whole profile also waits for it.
+
 ### Added
 
 - About › Third-party notices shows the license of every library the Windows build contains,

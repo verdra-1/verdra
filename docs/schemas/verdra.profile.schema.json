@@ -40,6 +40,11 @@
       "default": null,
       "description": "The switch as last applied; null if never applied (S-26)."
     },
+    "deleted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Deleted after it was applied; removed when the deletion is applied (S-27)."
+    },
     "created": {
       "type": "string",
       "format": "date-time"
