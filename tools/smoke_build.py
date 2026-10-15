@@ -10,9 +10,10 @@ line about it. This test runs Verdra as a user does and checks what Roblox relie
    to the Player's trust file. The Player is a fake install in a throwaway `%LOCALAPPDATA%`:
    a version folder with an empty `RobloxPlayerBeta.exe` and `ssl\\cacert.pem` (W-01, W-05).
 2. Pass-through: a CONNECT to a host Verdra doesn't intercept reaches it, both ways.
-3. Interception: a CONNECT to `assetdelivery.roblox.com` completes a TLS handshake for that name,
-   trusting only the certificates in the fake Player's `cacert.pem`, exactly as the Player
-   does. No request is sent, so nothing reaches Roblox.
+3. Interception: with one saved replacement (an Asset ID swap, so Verdra decrypts the asset
+   batch host), a CONNECT to `assetdelivery.roblox.com` completes a TLS handshake for that
+   name, trusting only the certificates in the fake Player's `cacert.pem`, exactly as the
+   Player does. No request is sent, so nothing reaches Roblox.
 
 Everything stays in throwaway folders (`VERDRA_HOME`), except what Verdra writes for any user:
 its CA key in the secret store and, while routing, its `roblox-player:` link handler. On a CI
@@ -89,6 +90,32 @@ def settings(home: Path, port: int) -> None:
         },
     }
     path.write_text(json.dumps(document), encoding="utf-8")
+
+
+def profile(home: Path) -> None:
+    """One saved replacement (an Asset ID swap), so Verdra intercepts the asset batch host: it
+    decrypts only the hosts the current replacements need (plan 10.1)."""
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from verdra.trunk.branches import grafts  # noqa: PLC0415 - the repository's own writer
+
+    now = datetime.now(UTC)
+    saved = grafts.Profile(
+        id="00000000-0000-4000-8000-000000000001",
+        name="Smoke",
+        created=now,
+        modified=now,
+        replacements=[
+            grafts.Replacement(
+                id="00000000-0000-4000-8000-000000000002",
+                original=grafts.Original(asset_id=1111111),
+                target=grafts.Target(kind="asset_id", value="2222222"),
+            )
+        ],
+    )
+    folder = home / "config" / "profiles"
+    folder.mkdir(parents=True, exist_ok=True)
+    grafts.write_profile(folder / "Smoke.json", saved)
 
 
 def echo_server() -> tuple[socket.socket, int]:
@@ -174,6 +201,7 @@ def run(command: list[str], *, timeout: float = ROUTING_TIMEOUT_S) -> tuple[Resu
         trust = fake_player(local)
         port = free_port()
         settings(home, port)
+        profile(home)
         environment = os.environ | {
             "VERDRA_HOME": str(home),
             "LOCALAPPDATA": str(local),
