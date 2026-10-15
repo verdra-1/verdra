@@ -821,6 +821,9 @@ class _Applied:
     order: list[str]
 
 
+#: The asset families a review line shows an icon for (S-27).
+FAMILY_ICONS: Final = frozenset({"Image", "Mesh", "Audio"})
+
 #: `pending_changes` keys: a profile switch, and the profile order.
 PROFILE_KEY: Final = "profile:"
 ORDER: Final = "order"
@@ -1574,6 +1577,56 @@ class Change:
     detail: str
     profile_id: str = ""
     replacement_id: str = ""
+    #: The row's asset family ("Image", "Mesh", "Audio"), for the line's icon; "" otherwise.
+    family: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewPicture:
+    """A picture line's thumbnail source (S-27): the prepared picture the proxy will serve."""
+
+    png: bytes
+    #: The picture's size, and the size of the texture Roblox gets (smaller when scaled).
+    size: tuple[int, int]
+    served: tuple[int, int]
+
+    @property
+    def scaled(self) -> bool:
+        """Whether the texture is smaller than the picture (M-REVIEW-10)."""
+        return self.served not in {self.size, (0, 0)}
+
+
+def _png_size(png: bytes) -> tuple[int, int]:
+    """Width and height from a PNG's IHDR chunk."""
+    if len(png) < 24:  # noqa: PLR2004 - signature, chunk header and the two sizes
+        return (0, 0)
+    return int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")
+
+
+def _ktx2_size(ktx2: bytes) -> tuple[int, int]:
+    """Width and height from a KTX2 header (pixelWidth and pixelHeight, little-endian)."""
+    if len(ktx2) < 28:  # noqa: PLR2004 - identifier, vkFormat, typeSize and the two sizes
+        return (0, 0)
+    return int.from_bytes(ktx2[20:24], "little"), int.from_bytes(ktx2[24:28], "little")
+
+
+def review_pictures(
+    snapshot: rules.GraftSnapshot, rows: Mapping[str, Replacement]
+) -> dict[str, ReviewPicture]:
+    """Replacement ID -> its picture, for the rows whose saved picture wins in `snapshot`
+    (the snapshot the next apply publishes): the same content the proxy serves, not converted
+    a second time (S-27)."""
+    winners = {graft.replacement: original for original, graft in snapshot.grafts.items()}
+    pictures: dict[str, ReviewPicture] = {}
+    for replacement_id, row in rows.items():
+        original = winners.get(replacement_id)
+        content = snapshot.content.get(row.original.asset_id) if original is not None else None
+        if content is None or not content.png or row.target.kind not in {"file", "url"}:
+            continue
+        pictures[replacement_id] = ReviewPicture(
+            content.png, _png_size(content.png), _ktx2_size(content.ktx2)
+        )
+    return pictures
 
 
 def _applied_winners(
@@ -2052,7 +2105,8 @@ class Grafts(QObject):
             )
             if state.detail:  # the file changed in place (M-ROW-15)
                 detail = f"{detail} {state.detail}"
-        return Change(replacement.id, kind_text, detail, profile.id, replacement.id)
+        family = replacement.asset_type if replacement.asset_type in FAMILY_ICONS else ""
+        return Change(replacement.id, kind_text, detail, profile.id, replacement.id, family)
 
     def _order_changes(self) -> list[Change]:
         """What the profile order changes in the game (S-27): an asset now coming from another
@@ -2107,6 +2161,28 @@ class Grafts(QObject):
         count = self._publish()
         self._log_left_out()
         return count
+
+    def pictures(self, done: Callable[[dict[str, ReviewPicture]], None]) -> None:
+        """The review's pictures (S-27), prepared on a worker from the saved profiles exactly
+        as the next apply will serve them; `done` gets them on the Qt thread."""
+        saved = [copy.deepcopy(p) for p in self.store.profiles if not p.deleted]
+        for profile in saved:
+            profile.replacements = [r for r in profile.replacements if not r.deleted]
+        rows = {r.id: r for p in saved for r in p.replacements}
+        folder = self.store.folder
+
+        def prepare(_handle: object = None) -> dict[str, ReviewPicture]:
+            compiled = compile_snapshot(saved, folder=folder, fetched=self._cached_link)
+            return review_pictures(compiled.snapshot, rows)
+
+        if self.pool is None:
+            done(prepare())
+            return
+        job = self.pool.submit(
+            QCoreApplication.translate("M-REVIEW-13", "Preparing pictures for the review"),
+            prepare,
+        )
+        job.succeeded.connect(done)
 
     def states_problems(self) -> dict[str, str]:
         """Replacement ID -> why its waiting change can't be applied (S-27 rule 4: skipped)."""

@@ -262,3 +262,42 @@ def test_reordering_the_shown_profiles_keeps_a_deleted_ones_place(tmp_path: Path
     made.edit("delete", b.id)
     made.edit("reorder", [a.id, c.id])
     assert [p.id for p in made.store.profiles] == [a.id, b.id, c.id]
+
+
+def picture(path: Path, width: int, height: int) -> Path:
+    from verdra.strata import ochre  # noqa: PLC0415 - only these tests write pictures
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        ochre.to_png(ochre.Pixels(width, height, b"\xff\x00\x00\xff" * width * height))
+    )
+    return path
+
+
+def test_the_review_pictures_are_what_the_next_apply_serves(tmp_path: Path) -> None:
+    """S-27 (pull request f4): the prepared picture, not a second conversion; scaled is said."""
+    made = service(tmp_path)
+    profile = made.edit("create", "A")
+    small = swap(made, profile.id, ABOVE_INT32, str(picture(tmp_path / "p" / "small.png", 64, 64)))
+    wide = swap(made, profile.id, ABOVE_UINT32, str(picture(tmp_path / "p" / "wide.png", 2048, 16)))
+    swap(made, profile.id, 3333333, 4444444)  # an ID swap: no picture to show
+    found: list[dict[str, grafts.ReviewPicture]] = []
+    made.pictures(found.append)
+    [pictures] = found
+    assert set(pictures) == {small, wide}
+    assert (pictures[small].size, pictures[small].scaled) == ((64, 64), False)
+    # Within 1024 a side, each side a multiple of 64 (strata/ochre): 2048 x 16 is served 1024 x 64.
+    assert (pictures[wide].size, pictures[wide].served) == ((2048, 16), (1024, 64))
+    assert pictures[wide].scaled
+    made.publish()
+    assert made.holder.current.content[ABOVE_INT32].png == pictures[small].png
+    families = {c.replacement_id: c.family for c in made.pending_changes()}
+    assert families == {}  # all applied now
+
+
+def test_a_line_names_its_family_for_the_icon(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    profile = made.edit("create", "A")
+    row = swap(made, profile.id, ABOVE_INT32, 1111111)  # added as "Image"
+    [change] = made.pending_changes()
+    assert (change.replacement_id, change.family) == (row, "Image")
