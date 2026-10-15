@@ -135,8 +135,9 @@ class Mycelium:
             self._tasks.add(task)
         try:
             await self._serve(reader, writer)
-        except OSError, asyncio.IncompleteReadError, TimeoutError:
-            pass
+        except (OSError, asyncio.IncompleteReadError, TimeoutError) as error:
+            # A connection ending is normal; why it ended is still worth a line when looking.
+            log.debug("A proxy connection ended: %s", type(error).__name__)
         finally:
             self.active -= 1
             if task is not None:

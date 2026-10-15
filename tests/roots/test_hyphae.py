@@ -635,3 +635,39 @@ def test_protected_endpoints_are_never_touched(tmp_path: Path) -> None:
         (target, b"data") for target in PROTECTED_SPELLINGS
     ]
     assert (changer.requests, changer.responses, answerer.requests) == ([], [], [])
+
+
+def test_a_handshake_roblox_refuses_is_logged_once_per_host_with_the_reason(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """15 October 2026: the release ZIP's handshakes all failed and its log said nothing."""
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+    stranger = resin.create_authority(NOW)  # a CA the client trusts instead of Verdra's
+
+    async def refused(proxy: Proxy) -> None:
+        reader, writer = await asyncio.open_connection("127.0.0.1", proxy.port)
+        host = proxy.server.host
+        writer.write(f"CONNECT {host}:443 HTTP/1.1\r\nHost: {host}:443\r\n\r\n".encode())
+        await writer.drain()
+        await reader.readuntil(b"\r\n\r\n")
+        context = ssl.create_default_context(
+            cadata=resin.certificate_pem(stranger.certificate).decode()
+        )
+        with pytest.raises(ssl.SSLError):
+            await writer.start_tls(context, server_hostname=host)
+        writer.close()
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            await refused(proxy)
+            await refused(proxy)
+            await asyncio.sleep(0.2)  # the proxy side finishes its handshake
+
+    run(body)
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert warnings[0].startswith(
+        f"Roblox couldn't open a secure connection to Verdra for {server.host} ("
+    )
+    assert any("failed again" in r.getMessage() for r in caplog.records)
