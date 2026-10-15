@@ -201,6 +201,35 @@ def test_launching_adds_only_the_proxy_variables(tmp_path: Path) -> None:
     assert spawn.calls[1][0] == [str(client.executable)]
 
 
+def test_the_player_starts_without_the_built_apps_dll_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """15 October 2026 (tools/smoke_build.py on Windows CI): a Player started by the built app
+    inherited its DLL directory, `_internal`. It is cleared while the Player starts and set
+    back for Verdra right after."""
+    bundle = tmp_path / "Verdra" / "_internal"
+    monkeypatch.setattr(humus, "bundle_folder", lambda: bundle)
+    client = humus.RobloxClient(
+        scope="user", executable=tmp_path / "v" / launcher.PLAYER_EXECUTABLE, found_by="handler"
+    )
+    events: list[object] = []
+
+    def spawn(arguments: list[str], **_options: Any) -> Any:
+        events.append("spawn")
+        return type("Process", (), {"pid": 1})()
+
+    launcher.launch(client, None, 49443, {}, spawn, dll_directory=events.append)
+    assert events == [None, "spawn", str(bundle)]
+
+    def failing(arguments: list[str], **_options: Any) -> Any:
+        raise OSError("no such file")
+
+    events.clear()
+    with pytest.raises(OSError, match="no such file"):
+        launcher.launch(client, None, 49443, {}, failing, dll_directory=events.append)
+    assert events == [None, str(bundle)]  # set back even when the start fails
+
+
 @pytest.mark.spec("S-12", 3)
 def test_the_handler_is_registered_and_restored_exactly() -> None:
     """S-12 test 3 on a fake registry: Roblox's own values stay, its command comes back."""

@@ -4,6 +4,7 @@
 
 import ast
 import importlib
+import os
 import pkgutil
 import re
 import sys
@@ -156,3 +157,32 @@ def test_macos_answers_every_s12_job_with_deferred(tmp_path: Path) -> None:
     assert orchard.PLATFORM.roblox_clients() == expected
     assert orchard.PLATFORM.link_handler() == expected
     assert orchard.PLATFORM.trust_files_in(tmp_path) == []
+
+
+def test_a_built_verdra_starts_programs_without_its_own_folders(tmp_path: Path) -> None:
+    """M2 final test, 15 October 2026: PyInstaller's runtime hooks put the built app's folder
+    first on PATH and point QT_PLUGIN_PATH at it; a Player started with that environment could
+    load Verdra's libraries instead of its own."""
+    bundle = tmp_path / "Verdra" / "_internal"
+    system = tmp_path / "Windows" / "System32"
+    environment = {
+        "PATH": os.pathsep.join([str(bundle), str(system), str(bundle / "PySide6")]),
+        "QT_PLUGIN_PATH": str(bundle / "PySide6" / "plugins"),
+        "QML2_IMPORT_PATH": str(bundle / "PySide6" / "qml"),
+        "OPENSSL_MODULES": str(bundle / "ossl-modules"),
+        "_PYI_APPLICATION_HOME_DIR": str(bundle),
+        "_MEIPASS2": str(bundle),
+        "USERPROFILE": str(tmp_path / "Users" / "someone"),
+        "VERDRA_NOTE": f"{bundle}x",  # starts like the folder, but isn't inside it
+    }
+    assert humus.launch_environment(environment, bundle) == {
+        "PATH": str(system),
+        "USERPROFILE": str(tmp_path / "Users" / "someone"),
+        "VERDRA_NOTE": f"{bundle}x",
+    }
+
+
+def test_from_source_the_environment_is_passed_on_as_it_is() -> None:
+    environment = {"PATH": "a", "QT_PLUGIN_PATH": "b"}
+    assert humus.launch_environment(environment, None) == environment
+    assert humus.bundle_folder() is None  # tests run from source

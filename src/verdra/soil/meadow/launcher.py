@@ -21,6 +21,7 @@ windows.md, 2026-10-04):
 
 from __future__ import annotations
 
+import ctypes
 import os
 import re
 import subprocess
@@ -227,25 +228,53 @@ def local_appdata(environment: Mapping[str, str]) -> Path | None:
     return Path(value) if value else None
 
 
+#: Sets the process's DLL directory (kernel32 SetDllDirectoryW); None clears it.
+DllDirectory = Callable[[str | None], object]
+
+
+def _dll_directory() -> DllDirectory | None:
+    """SetDllDirectoryW in a built Verdra on Windows; None elsewhere (nothing to undo)."""
+    if humus.bundle_folder() is None or not hasattr(ctypes, "WinDLL"):
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32.SetDllDirectoryW.argtypes = [ctypes.c_wchar_p]
+    return kernel32.SetDllDirectoryW
+
+
 def launch(
     client: humus.RobloxClient,
     link: str | None,
     proxy_port: int,
     environment: Mapping[str, str],
     spawn: humus.Spawn = subprocess.Popen,
+    *,
+    dll_directory: DllDirectory | None = None,
 ) -> int:
     """Start the Player directly with the proxy variables; return its process ID (S-12).
 
     The link, if any, is passed on as the one argument, unchanged (rule 1), as Roblox's own
     handler command does (`"<folder>\\RobloxPlayerBeta.exe" %1`, W-03).
+
+    A built Verdra's bootloader sets the process's DLL directory to the app's `_internal`
+    folder, and a process started from it inherits that: the Player would look for DLLs in
+    Verdra's folder before System32 (shown by tools/smoke_build.py on 15 October 2026). The
+    directory is cleared while the Player starts, then set back for Verdra itself.
     """
     arguments = [str(client.executable)] + ([link] if link else [])
-    process = spawn(
-        arguments,
-        env=humus.proxy_environment(environment, proxy_port),
-        cwd=str(client.executable.parent),
-        close_fds=True,
-    )
+    setter = dll_directory if dll_directory is not None else _dll_directory()
+    bundle = humus.bundle_folder()
+    if setter is not None:
+        setter(None)
+    try:
+        process = spawn(
+            arguments,
+            env=humus.proxy_environment(environment, proxy_port),
+            cwd=str(client.executable.parent),
+            close_fds=True,
+        )
+    finally:
+        if setter is not None:
+            setter(str(bundle) if bundle is not None else None)
     return int(process.pid)
 
 

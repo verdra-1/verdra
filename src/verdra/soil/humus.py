@@ -16,6 +16,7 @@ every job with `Unsupported`.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -107,6 +108,45 @@ class RunningClient:
     #: environment couldn't be read (W-09, L-06), with the reason in `error`.
     proxies: dict[str, str] | None
     error: str = ""
+
+
+def bundle_folder() -> Path | None:
+    """Return the built app's own folder (PyInstaller's `_internal`), or None from source."""
+    folder = getattr(sys, "_MEIPASS", None) if getattr(sys, "frozen", False) else None
+    return Path(folder) if folder else None
+
+
+def launch_environment(
+    environment: Mapping[str, str], bundle: Path | None = None
+) -> dict[str, str]:
+    """Return `environment` as the user's session has it, for a program Verdra starts.
+
+    A built Verdra's own environment isn't the user's: PyInstaller's runtime hooks put the
+    app's `_internal` folder first on PATH and point QT_PLUGIN_PATH, QML2_IMPORT_PATH and
+    OPENSSL_MODULES at it, for Verdra's own Qt and OpenSSL, and the bootloader adds `_PYI_*`
+    variables. A Player started with them could load Verdra's libraries instead of its own
+    (M2 final test, 15 October 2026). Every path inside `bundle` is taken out of every
+    variable, a variable left empty goes, and so do the bootloader's own variables.
+    """
+    if bundle is None:
+        return dict(environment)
+    inside = os.path.normcase(os.path.abspath(bundle))
+
+    def ours(entry: str) -> bool:
+        path = os.path.normcase(os.path.abspath(entry)) if entry else ""
+        return bool(path) and (path == inside or path.startswith(inside + os.sep))
+
+    cleaned: dict[str, str] = {}
+    for key, value in environment.items():
+        if key.upper().startswith(("_PYI_", "_MEIPASS")):
+            continue
+        if inside not in os.path.normcase(value):
+            cleaned[key] = value
+            continue
+        kept = [entry for entry in value.split(os.pathsep) if not ours(entry)]
+        if any(kept):
+            cleaned[key] = os.pathsep.join(kept)
+    return cleaned
 
 
 def proxy_environment(environment: Mapping[str, str], port: int) -> dict[str, str]:
