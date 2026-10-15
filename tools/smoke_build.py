@@ -15,6 +15,13 @@ line about it. This test runs Verdra as a user does and checks what Roblox relie
    name, trusting only the certificates in the fake Player's `cacert.pem`, exactly as the
    Player does. No request is sent, so nothing reaches Roblox.
 
+4. Launch: Verdra is started with a `roblox-player:` link, so it launches the fake Player, a
+   small program compiled on the runner that writes the environment it was given and the DLL
+   directory it inherited. The Player must get the proxy variables and nothing of Verdra's own
+   build: no variable pointing into the built app's folder (PyInstaller's runtime hooks put its
+   `_internal` folder first on PATH and set QT_PLUGIN_PATH for Verdra's own Qt), and no
+   inherited DLL directory. On Linux (paused) the Player is an empty file and isn't launched.
+
 Everything stays in throwaway folders (`VERDRA_HOME`), except what Verdra writes for any user:
 its CA key in the secret store and, while routing, its `roblox-player:` link handler. On a CI
 runner both go with the machine.
@@ -48,6 +55,29 @@ from verdra.soil import terrain  # noqa: E402 - found through the path added abo
 ROUTING_TIMEOUT_S = 90.0
 ROUTING = "Routing status changed from Idle to Routing"
 INTERCEPTED_HOST = "assetdelivery.roblox.com"
+#: A link Verdra accepts and passes to the Player unchanged (S-12).
+LINK = "roblox-player:1+launchmode:app"
+#: The fake Player: writes its environment and inherited DLL directory next to itself.
+FAKE_PLAYER = r"""
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class Player {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    static extern uint GetDllDirectoryW(uint length, StringBuilder buffer);
+    public static void Main(string[] args) {
+        var lines = new StringBuilder();
+        var dll = new StringBuilder(4096);
+        GetDllDirectoryW(4096, dll);
+        lines.AppendLine("DLL_DIRECTORY=" + dll.ToString());
+        foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
+            lines.AppendLine(e.Key + "=" + e.Value);
+        File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "env.txt"),
+            lines.ToString());
+    }
+}
+"""
 VERSION_FOLDER = "version-0000000000smoke"
 
 
@@ -69,7 +99,20 @@ def fake_player(local: Path) -> Path:
     """A fake per-user Player install; return its trust file."""
     folder = local / "Roblox" / "Versions" / VERSION_FOLDER
     (folder / "ssl").mkdir(parents=True)
-    (folder / "RobloxPlayerBeta.exe").write_bytes(b"")
+    player = folder / "RobloxPlayerBeta.exe"
+    if sys.platform == "win32":
+        source = folder.parent / "player.cs"
+        source.write_text(FAKE_PLAYER, encoding="utf-8")
+        script = (
+            f"Add-Type -Path '{source}' -OutputAssembly '{player}' -OutputType ConsoleApplication"
+        )
+        subprocess.run(  # noqa: S603
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],  # noqa: S607
+            check=True,
+        )
+        source.unlink()
+    else:
+        player.write_bytes(b"")
     trust = folder / "ssl" / "cacert.pem"
     trust.write_bytes(b"")
     return trust
@@ -192,7 +235,48 @@ def check_interception(proxy_port: int, trust: Path, result: Result) -> None:
         result.problems.append(f"interception: {type(error).__name__}: {error}")
 
 
-def run(command: list[str], *, timeout: float = ROUTING_TIMEOUT_S) -> tuple[Result, str]:
+def check_launch(trust: Path, port: int, build: Path | None, result: Result) -> None:
+    """The environment the fake Player was started with (Windows only)."""
+    written = trust.parent.parent / "env.txt"
+    deadline = time.monotonic() + 30
+    while not written.exists() and time.monotonic() < deadline:
+        time.sleep(0.25)
+    if not written.exists():
+        result.problems.append("launch: the fake Player wasn't started (no env.txt after 30 s)")
+        return
+    found: dict[str, str] = {}
+    for line in written.read_text(encoding="utf-8").splitlines():
+        name, _, value = line.partition("=")
+        found[name.upper()] = value
+    proxy = f"http://{terrain.PROXY_HOST}:{port}"
+    if found.get("HTTPS_PROXY") != proxy:
+        result.problems.append(f"launch: HTTPS_PROXY is {found.get('HTTPS_PROXY')!r}, not {proxy}")
+    else:
+        result.notes.append("launch: the Player got the proxy variables")
+    if found.get("DLL_DIRECTORY"):
+        result.problems.append(
+            f"launch: the Player inherited the DLL directory {found['DLL_DIRECTORY']}"
+        )
+    if build is not None:
+        inside = str(build.resolve()).lower()
+        leaked = sorted(
+            name
+            for name, value in found.items()
+            if inside in value.lower() and name != "DLL_DIRECTORY"
+        )
+        if leaked:
+            result.problems.append(
+                "launch: the Player got the built app's folder in " + ", ".join(leaked)
+            )
+        else:
+            result.notes.append(
+                "launch: nothing of the built app's folder in the Player's environment"
+            )
+
+
+def run(
+    command: list[str], *, build: Path | None = None, timeout: float = ROUTING_TIMEOUT_S
+) -> tuple[Result, str]:
     """Start Verdra with `command`, run the checks, stop it; return the result and its log."""
     result = Result()
     with tempfile.TemporaryDirectory() as scratch:
@@ -208,7 +292,8 @@ def run(command: list[str], *, timeout: float = ROUTING_TIMEOUT_S) -> tuple[Resu
             "QT_QPA_PLATFORM": "offscreen",
         }
         log = home / "logs" / terrain.LOG_FILE
-        process = subprocess.Popen(command, env=environment, cwd=ROOT)  # noqa: S603
+        launch = [*command, LINK] if sys.platform == "win32" else command
+        process = subprocess.Popen(launch, env=environment, cwd=ROOT)  # noqa: S603
         text = ""
         try:
             deadline = time.monotonic() + timeout
@@ -232,6 +317,8 @@ def run(command: list[str], *, timeout: float = ROUTING_TIMEOUT_S) -> tuple[Resu
                 result.notes.append("certificate: added to the Player's cacert.pem")
             check_pass_through(port, result)
             check_interception(port, trust, result)
+            if sys.platform == "win32":
+                check_launch(trust, port, build, result)
             time.sleep(1.0)  # let the app write what it saw
             text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
         finally:
@@ -255,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
         label = f"built app {executable}"
     else:
         parser.error("give the built app's folder or --source")
-    result, log = run(command)
+    result, log = run(command, build=None if args.source else args.folder)
     print(f"Smoke test of the {label}:")
     for note in result.notes:
         print(f"  ok      {note}")
