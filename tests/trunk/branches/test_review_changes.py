@@ -188,3 +188,77 @@ def test_a_profile_switch_waits_for_its_own_line(tmp_path: Path) -> None:
     assert made.holder.current.swaps() == {ABOVE_INT32: 1111111}
     made.apply([change.key])
     assert made.holder.current.swaps() == {}
+
+
+def test_deleting_an_applied_profile_waits_for_apply(tmp_path: Path) -> None:
+    """S-27 (pull request f3): the game keeps a deleted profile until its deletion is applied,
+    also across a restart of Verdra."""
+    made = service(tmp_path)
+    profile = made.edit("create", "Night")
+    swap(made, profile.id, ABOVE_INT32, 1111111)
+    made.publish()
+    made.edit("delete", profile.id)
+    assert made.profiles == []  # gone from the list and the header
+    assert made.holder.current.swaps() == {ABOVE_INT32: 1111111}
+    assert lines(made) == [
+        ("profile_deleted", "Profile Night deleted: 1 replacements go back to the originals.")
+    ]
+    restarted = service(tmp_path)
+    restarted.publish_applied()
+    assert restarted.holder.current.swaps() == {ABOVE_INT32: 1111111}
+    assert restarted.profiles == []
+    with pytest.raises(grafts.ProfileError, match="Apply its deletion first"):
+        restarted.edit("create", "night")
+    restarted.apply()
+    assert restarted.holder.current.swaps() == {}
+    assert not (tmp_path / "profiles" / "Night.json").exists()
+    restarted.edit("create", "Night")  # the name is free again
+
+
+def test_undo_takes_a_waiting_deletion_back(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    profile = made.edit("create", "Night")
+    swap(made, profile.id, ABOVE_INT32, 1111111)
+    made.publish()
+    kept = made.store.get(profile.id)
+    made.edit("delete", profile.id)
+    made.edit("restore_profile", kept, 0)  # the toast's Undo (M-PROF-09)
+    assert [p.id for p in made.profiles] == [profile.id]
+    assert made.pending_changes() == []
+
+
+def test_a_profile_never_applied_goes_at_once(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    profile = made.edit("create", "Night")
+    swap(made, profile.id, ABOVE_INT32, 1111111)
+    made.edit("delete", profile.id)
+    assert made.store.profiles == []
+    assert made.pending_changes() == []
+
+
+def test_undo_of_an_apply_brings_a_deleted_profile_back_as_deleted(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    low = made.edit("create", "Low")
+    night = made.edit("create", "Night")
+    swap(made, night.id, ABOVE_INT32, 1111111)
+    swap(made, low.id, ABOVE_UINT32, 2222222)
+    made.publish()
+    made.edit("delete", night.id)
+    made.apply()
+    assert made.holder.current.swaps() == {ABOVE_UINT32: 2222222}
+    assert made.undo_apply(made.store.applies)
+    assert made.holder.current.swaps() == {ABOVE_INT32: 1111111, ABOVE_UINT32: 2222222}
+    assert [p.id for p in made.profiles] == [low.id]  # still deleted: it waits again
+    assert [c.kind for c in made.pending_changes()] == ["profile_deleted"]
+
+
+def test_reordering_the_shown_profiles_keeps_a_deleted_ones_place(tmp_path: Path) -> None:
+    made = service(tmp_path)
+    a = made.edit("create", "A")
+    b = made.edit("create", "B")
+    c = made.edit("create", "C")  # order: C, B, A
+    swap(made, b.id, ABOVE_INT32, 1111111)
+    made.publish()
+    made.edit("delete", b.id)
+    made.edit("reorder", [a.id, c.id])
+    assert [p.id for p in made.store.profiles] == [a.id, b.id, c.id]

@@ -65,7 +65,8 @@ def test_every_field_round_trips_byte_for_byte(tmp_path: Path) -> None:
     assert grafts.encode(loaded) == written
     data = json.loads(written)
     assert list(data) == [
-        "format", "version", "id", "name", "enabled", "applied_enabled", "created", "modified",
+        "format", "version", "id", "name", "enabled", "applied_enabled", "deleted", "created",
+        "modified",
         "replacements",
     ]  # fmt: skip
     assert data["version"] == 2

@@ -99,7 +99,8 @@ Each replacement keeps today's fields, which are its saved version, and gains:
 - `view` (object, default {}): reserved for phases B and C (for example the shape chosen in Try
   it on, compare mode, camera); ignored by phase A, kept when saving, at most 4 KB per row.
 
-Each profile gains `applied_enabled` (bool or null: never applied). Unknown keys inside `view`
+Each profile gains `applied_enabled` (bool or null: never applied) and `deleted` (bool, default
+false: deleted after it was applied, S-27). Unknown keys inside `view`
 are kept as they are, so phases B and C add their per-row settings without a new version.
 
 Phase B and C needs that stay outside the profile, by design: previews and their cache

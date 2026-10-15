@@ -116,6 +116,8 @@ class Profile(Struct, kw_only=True):
     enabled: bool = True
     #: The switch as last applied, or None if the profile was never applied (S-26 rule 3).
     applied_enabled: bool | None = None
+    #: Deleted after it was applied: the game keeps it until the deletion is applied (S-27).
+    deleted: bool = False
     created: UtcTimestamp
     modified: UtcTimestamp
     replacements: list[Replacement] = field(default_factory=list)
@@ -925,7 +927,7 @@ class ProfileStore:
     def compile(self, fetched: Fetched | None = None) -> Compiled:
         """Compile the saved profiles into a snapshot (S-21), content prepared: what the next
         apply publishes (Preview changes, S-23)."""
-        saved = copy.deepcopy(self.profiles)
+        saved = [copy.deepcopy(p) for p in self.profiles if not p.deleted]
         for profile in saved:
             profile.replacements = [r for r in profile.replacements if not r.deleted]
         return compile_snapshot(saved, folder=self.folder, fetched=fetched)
@@ -1040,6 +1042,8 @@ class ProfileStore:
                 profile.applied_enabled is None and applied_any
             ):
                 profile.applied_enabled = profile.enabled
+        # A deleted profile goes when its deletion is applied (S-27).
+        promoted = [p for p in promoted if not (p.deleted and picked(f"{PROFILE_KEY}{p.id}"))]
         self._apply(self.profiles, promoted)
         self.skipped = skipped
         self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
@@ -1085,6 +1089,13 @@ class ProfileStore:
             profile.replacements = [
                 r for r in profile.replacements if not (r.deleted and r.applied is None)
             ]
+        # A profile whose deletion was applied comes back, still deleted: it waits again.
+        present = {p.id for p in restored}
+        for index, gone in enumerate(before.profiles):
+            if gone.id not in present and gone.applied_enabled is not None:
+                back = copy.deepcopy(gone)
+                back.deleted = True
+                restored.insert(min(index, len(restored)), back)
         self._apply(self.profiles, restored)
         self._undo = [_State(self._keep_applied(state.profiles)) for state in self._undo]
         self._redo = [_State(self._keep_applied(state.profiles)) for state in self._redo]
@@ -1139,8 +1150,17 @@ class ProfileStore:
         return copied
 
     def delete(self, profile_id: str) -> None:
-        """Delete a profile (after M-PROF-02 in the interface)."""
-        self._edit(lambda profiles: profiles.remove(_find(profiles, profile_id)))
+        """Delete a profile (after M-PROF-02 in the interface). One that was applied stays,
+        marked deleted and hidden, until its deletion is applied (S-27): the game keeps it."""
+
+        def change(profiles: list[Profile]) -> None:
+            profile = _find(profiles, profile_id)
+            if profile.applied_enabled is None:
+                profiles.remove(profile)
+            else:
+                profile.deleted = True
+
+        self._edit(change)
 
     def restore_profile(self, profile: Profile, index: int) -> None:
         """Put a deleted profile back where it was, as it was (its "Undo"; an edit itself).
@@ -1149,8 +1169,15 @@ class ProfileStore:
             ProfileError: a profile with its name was made since (M-PROF-01).
         """
         self._check_name(profile.name, ignore=profile.id)
-        if any(p.id == profile.id for p in self.profiles):
-            return  # already back (Undo was used first)
+        waiting = next((p for p in self.profiles if p.id == profile.id), None)
+        if waiting is not None:
+            if waiting.deleted:  # its deletion wasn't applied yet: just take it back
+
+                def back(profiles: list[Profile]) -> None:
+                    _find(profiles, profile.id).deleted = False
+
+                self._edit(back)
+            return  # else already back (Undo was used first)
 
         def change(profiles: list[Profile]) -> None:
             profiles.insert(min(max(index, 0), len(profiles)), copy.deepcopy(profile))
@@ -1166,14 +1193,17 @@ class ProfileStore:
         self._edit(change)
 
     def reorder(self, profile_ids: Sequence[str]) -> None:
-        """Put the profiles in this order, highest first."""
-        if sorted(profile_ids) != sorted(p.id for p in self.profiles):
+        """Put the profiles in this order, highest first. A profile whose deletion waits for
+        the next apply isn't shown, so it isn't named here and keeps its place."""
+        shown = [p.id for p in self.profiles if not p.deleted]
+        if sorted(profile_ids) != sorted(shown):
             msg = "the new order must name every profile once"
             raise ValueError(msg)
 
         def change(profiles: list[Profile]) -> None:
             by_id = {p.id: p for p in profiles}
-            profiles[:] = [by_id[profile_id] for profile_id in profile_ids]
+            given = iter(profile_ids)
+            profiles[:] = [p if p.deleted else by_id[next(given)] for p in profiles]
 
         self._edit(change)
 
@@ -1393,11 +1423,21 @@ class ProfileStore:
 
     def _check_name(self, name: str, ignore: str | None = None) -> None:
         problem = name_problem(name)
-        if problem is None and any(
-            p.name.casefold() == name.casefold() and p.id != ignore for p in self.profiles
-        ):
-            problem = QCoreApplication.translate(
-                "M-PROF-01", "A profile named {name} already exists."
+        same = next(
+            (p for p in self.profiles if p.name.casefold() == name.casefold() and p.id != ignore),
+            None,
+        )
+        if problem is None and same is not None:
+            problem = (
+                QCoreApplication.translate(
+                    "M-PROF-12",
+                    "The profile {name} is deleted, but the game keeps it until you apply. "
+                    "Apply its deletion first, then use the name again.",
+                )
+                if same.deleted
+                else QCoreApplication.translate(
+                    "M-PROF-01", "A profile named {name} already exists."
+                )
             ).format(name=name)
         if problem is not None:
             raise ProfileError(problem)
@@ -1784,8 +1824,9 @@ class Grafts(QObject):
 
     @property
     def profiles(self) -> list[Profile]:
-        """The profiles, highest first (read only: edit through the methods)."""
-        return self.store.profiles
+        """The profiles shown, highest first (read only: edit through the methods); one whose
+        deletion waits for the next apply isn't (S-27)."""
+        return [p for p in self.store.profiles if not p.deleted]
 
     @property
     def downloading(self) -> int:
@@ -1894,6 +1935,9 @@ class Grafts(QObject):
         order changes. A note or a name alone is never one (rule 2)."""
         changes: list[Change] = []
         for profile in self.store.profiles:
+            if profile.deleted:
+                changes.append(self._profile_deleted(profile))
+                continue
             switched = (
                 profile.applied_enabled is not None and profile.enabled != profile.applied_enabled
             )
@@ -1906,6 +1950,23 @@ class Grafts(QObject):
                     changes.append(change)
         changes.extend(self._order_changes())
         return changes
+
+    def _profile_deleted(self, profile: Profile) -> Change:
+        live = profile.applied_enabled
+        count = sum(
+            1 for r in profile.replacements if live and r.applied is not None and r.applied.enabled
+        )
+        text = self.tr(
+            "Profile {name} deleted: %n replacements go back to the originals.",
+            "M-REVIEW-03",
+            count,
+        )
+        return Change(
+            f"{PROFILE_KEY}{profile.id}",
+            "profile_deleted",
+            text.format(name=profile.name),
+            profile.id,
+        )
 
     def _profile_change(self, profile: Profile) -> Change:
         count = sum(1 for r in profile.replacements if r.applied is not None and r.applied.enabled)
