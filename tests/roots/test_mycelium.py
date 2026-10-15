@@ -258,3 +258,30 @@ def test_every_connect_target_is_reported_and_a_failing_observer_breaks_nothing(
 
     assert run(body).startswith(b"HTTP/1.1 200 ")
     assert [host for host, _port in seen] == ["127.0.0.1"]
+
+
+def test_a_tunnel_is_logged_at_debug_with_its_host_and_port(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """15 October 2026: the log must show what passed through, not only what was decrypted."""
+    caplog.set_level(logging.DEBUG, logger=mycelium.__name__)
+
+    async def body() -> int:
+        async def echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            writer.write(await reader.read(5))
+            await writer.drain()
+            writer.close()
+
+        upstream = await asyncio.start_server(echo, "127.0.0.1", 0)
+        port = upstream.sockets[0].getsockname()[1]
+        async with proxy() as server:
+            reader, writer = await connect_through(server, "127.0.0.1", port)
+            writer.write(b"hello")
+            assert await reader.read() == b"hello"
+            writer.close()
+        upstream.close()
+        return port
+
+    port = run(body)
+    lines = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+    assert f"Passing a connection to 127.0.0.1:{port} through unchanged" in lines

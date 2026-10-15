@@ -15,6 +15,7 @@ from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import Choice, DestructiveConfirmation, Information
 from verdra.canopy.leaves.notice import Notice
+from verdra.canopy.screens.rings import ActivityScreen
 from verdra.trunk.sapwood.startup import Services
 
 
@@ -122,11 +123,22 @@ def test_the_status_fixes_start_routing_or_relaunch(launching: Shell, stub: Stub
         "restart_roblox",
         "repair_certificate",
         "close_others",
+        "support_bundle",
     }
     assert popover.fix.isEnabled()  # Idle: "Start routing"
     for key in ("start", "retry", "restart_roblox", "repair_certificate"):
         popover.fix_requested.emit(key)
     assert stub.calls == [("start", None), ("retry", None), ("launch", None), ("repair", None)]
+
+
+def test_roblox_not_reaching_verdra_offers_the_support_bundle(
+    launching: Shell, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    exported: list[bool] = []
+    monkeypatch.setattr(ActivityScreen, "export_bundle", lambda _self: exported.append(True))
+    launching.window.header.popover.fix_requested.emit("support_bundle")
+    assert launching.window.current == "activity"
+    assert exported == [True]
 
 
 def test_quitting_while_roblox_runs_asks_first(

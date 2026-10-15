@@ -132,6 +132,8 @@ class Proxy:
         self.max_body = max_body
         self.authority = resin.create_authority(NOW)
         self.failures: list[tuple[str, str]] = []
+        #: What the status heard: ("refused", text) per failed handshake, ("request", host).
+        self.reports: list[tuple[str, str]] = []
 
     async def __aenter__(self) -> Proxy:
         server_port, server_authority = await self.server.start()
@@ -148,6 +150,8 @@ class Proxy:
             open_upstream,
             lambda: self.pipeline,
             on_verification_failure=lambda host, reason: self.failures.append((host, reason)),
+            on_handshake_failure=lambda _host, text: self.reports.append(("refused", text)),
+            on_request=lambda host: self.reports.append(("request", host)),
             idle_timeout=5,
             max_body=self.max_body,
         )
@@ -658,16 +662,38 @@ def test_a_handshake_roblox_refuses_is_logged_once_per_host_with_the_reason(
             await writer.start_tls(context, server_hostname=host)
         writer.close()
 
+    reports: list[tuple[str, str]] = []
+
     async def body() -> None:
         async with Proxy(server) as proxy:
             await refused(proxy)
             await refused(proxy)
             await asyncio.sleep(0.2)  # the proxy side finishes its handshake
+            reports.extend(proxy.reports)
 
     run(body)
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warnings) == 1
+    # The status hears of every one, with the same plain text, and of no request.
+    assert reports == [("refused", warnings[0])] * 2
     assert warnings[0].startswith(
         f"Roblox couldn't open a secure connection to Verdra for {server.host} ("
     )
     assert any("failed again" in r.getMessage() for r in caplog.records)
+
+
+def test_each_decrypted_request_is_reported_to_the_status(tmp_path: Path) -> None:
+    """15 October 2026: the status must know whether Roblox's requests reach Verdra at all."""
+    server = FakeServer(tmp_path, {b"/plain": PLAIN})
+    reports: list[tuple[str, str]] = []
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect()
+            assert proxy.reports == []  # a handshake alone isn't a request
+            await client.send(get(b"/plain"))
+            await client.send(get(b"/plain"))
+            reports.extend(proxy.reports)
+
+    run(body)
+    assert reports == [("request", server.host)] * 2

@@ -349,7 +349,14 @@ class Shell:
             services.sprout.handed_off.connect(self.show_handed_off)
             popover = self.window.header.popover
             popover.set_handled(
-                {"start", "retry", "restart_roblox", "repair_certificate", "close_others"}
+                {
+                    "start",
+                    "retry",
+                    "restart_roblox",
+                    "repair_certificate",
+                    "close_others",
+                    "support_bundle",
+                }
             )
             popover.fix_requested.connect(self.fix_routing)
             services.sprout.refresh_others()
@@ -502,12 +509,17 @@ class Shell:
             self.services.sprout.launch()
 
     def fix_routing(self, key: str) -> None:
-        """Run the routing popover's fix (spec S-14): start, try again, relaunch Roblox, or
-        repair the certificate."""
+        """Run the routing popover's fix (spec S-14): start, try again, relaunch Roblox,
+        repair the certificate, or save a support bundle from Activity."""
         sprout = self.services.sprout
         if sprout is None:
             return
-        if key == "restart_roblox":
+        if key == "support_bundle":
+            self.window.show_screen("activity")
+            activity = self.window.screens["activity"]
+            assert isinstance(activity, ActivityScreen)  # noqa: S101 - built in Window
+            activity.export_bundle()
+        elif key == "restart_roblox":
             sprout.launch()
         elif key == "close_others":
             self.close_other_roblox()

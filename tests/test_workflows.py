@@ -154,3 +154,15 @@ def test_the_publishing_guard_allows_downloads_and_issue_reports() -> None:
         "      contents: read\n"
     )
     assert PUBLISHING.search(allowed) is None
+
+
+def test_a_release_dry_run_fails_unless_the_zips_app_passes_the_smoke_test() -> None:
+    """M2 final test, 15 October 2026: a ZIP that routed nothing must never be handed out."""
+    path = next(path for path in WORKFLOWS if path.name == "release.yml")
+    build = jobs(path.read_text(encoding="utf-8"))["build"]
+    steps = re.split(r"\n      - ", build)
+    smoke = next(i for i, step in enumerate(steps) if "smoke_build.py unpacked/Verdra" in step)
+    upload = next(i for i, step in enumerate(steps) if "upload-artifact" in step)
+    assert smoke < upload
+    assert "continue-on-error" not in steps[smoke]
+    assert "if:" not in steps[smoke]

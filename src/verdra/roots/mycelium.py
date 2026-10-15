@@ -174,6 +174,7 @@ class Mycelium:
             return
         writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
         await writer.drain()
+        log.debug("Passing a connection to %s:%d through unchanged", host, port)
         try:
             await self._tunnel(reader, writer, upstream_reader, upstream_writer)
         finally:

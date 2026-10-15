@@ -243,3 +243,83 @@ def test_the_router_reports_an_unreadable_batch_from_any_thread(
     qtbot.waitUntil(lambda: source.current.trigger is Trigger.ASSETS_UNREADABLE, timeout=2000)
     assert source.current.reason == UNREADABLE
     router.deleteLater()
+
+
+def test_with_replacements_a_launch_without_a_decrypted_request_is_degraded_after_a_minute(
+    source: RoutingStatusSource, clock: FakeClock, caplog: pytest.LogCaptureFixture
+) -> None:
+    # M2 final test (g), 15 October 2026: Roblox connected, nothing was replaced, and the
+    # status said Routing the whole time.
+    source.started()
+    source.launched(intercepting=True)
+    clock.advance(5)
+    source.traffic_seen()  # CONNECTs alone don't count
+    with caplog.at_level(logging.WARNING, logger=gardener.__name__):
+        clock.advance(gardener.INTERCEPT_WINDOW_SECONDS - 5.1)
+        assert source.current.state is State.ROUTING
+        clock.advance(0.2)
+    assert source.current.state is State.DEGRADED
+    assert source.current.trigger is Trigger.NOT_REACHING
+    assert source.current.reason == gardener.not_reaching_text()
+    assert source.current.reason.startswith("Roblox isn't reaching Verdra: ")
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    assert gardener.not_reaching_text() in caplog.records[0].getMessage()
+    source.request_seen()
+    assert source.current.state is State.ROUTING
+
+
+def test_a_decrypted_request_in_time_or_no_replacements_means_no_warning(
+    source: RoutingStatusSource, clock: FakeClock
+) -> None:
+    source.started()
+    source.launched(intercepting=True)
+    clock.advance(30)
+    source.traffic_seen()
+    source.request_seen()
+    clock.advance(120)
+    assert source.current.state is State.ROUTING
+    source.launched()  # nothing to replace: nothing to decrypt
+    source.traffic_seen()
+    clock.advance(120)
+    assert source.current.state is State.ROUTING
+    assert clock.pending == []
+
+
+def test_a_refused_handshake_is_degraded_at_once_until_a_request_gets_through(
+    source: RoutingStatusSource, clock: FakeClock
+) -> None:
+    source.started()
+    source.launched(intercepting=True)
+    source.handshake_failed("Roblox couldn't open a secure connection to Verdra for x (y).")
+    assert source.current.trigger is Trigger.NOT_REACHING
+    assert source.current.reason.startswith("Roblox couldn't open a secure connection")
+    assert all(callback != source._intercept_window_over for _, callback in clock.pending)
+    source.request_seen()
+    assert source.current.state is State.ROUTING
+    source.handshake_failed("again")
+    source.stopped()
+    source.started()
+    assert source.current.state is State.ROUTING
+
+
+def test_the_router_reports_refused_handshakes_and_requests_from_any_thread(
+    source: RoutingStatusSource, qtbot: QtBot
+) -> None:
+    router = gardener.Router(source)
+    times = iter([100.0, 100.5, 101.6])
+    router.clock = lambda: next(times)
+    reached: list[str] = []
+    router.reached.connect(reached.append)
+    source.started()
+    thread = threading.Thread(target=router.report_handshake_failure, args=("h", "refused"))
+    thread.start()
+    thread.join()
+    qtbot.waitUntil(lambda: source.current.trigger is Trigger.NOT_REACHING, timeout=2000)
+    assert source.current.reason == "refused"
+    for host in ("a", "b", "c"):  # the second comes within a second of the first: not sent
+        thread = threading.Thread(target=router.report_request, args=(host,))
+        thread.start()
+        thread.join()
+    qtbot.waitUntil(lambda: source.current.state is State.ROUTING, timeout=2000)
+    qtbot.waitUntil(lambda: reached == ["a", "c"], timeout=2000)
+    router.deleteLater()
