@@ -239,6 +239,13 @@ jobs:
         run: uv run pyinstaller packaging/verdra.spec --noconfirm
       - name: Only allowed Qt modules in the build, and the build starts
         run: uv run python tools/check_build.py dist/Verdra --launch
+      - name: The built app routes (smoke test, 15 October 2026)
+        # A fake Player in a throwaway folder; pass-through and a TLS handshake for an
+        # intercepted host, trusting only the Player's cacert.pem. No request reaches Roblox.
+        run: uv run python tools/smoke_build.py dist/Verdra
+      - name: A source run routes (the same smoke test, for comparison)
+        if: ${{ always() }}
+        run: uv run python tools/smoke_build.py --source
 
   ci-ok:
     # Named from the event only, never from another job's output: "All gates green" (the check

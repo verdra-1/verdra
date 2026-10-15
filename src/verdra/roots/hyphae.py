@@ -206,6 +206,8 @@ class Interception:
         self.on_tls = on_tls
         self.idle_timeout = idle_timeout
         self.max_body = max_body
+        #: Hosts whose handshake already failed once (logged at Warning only the first time).
+        self.failed_hosts: set[str] = set()
 
     def wants(self, host: str, port: int) -> bool:  # noqa: ARG002 - the set holds hosts only
         """Return whether a CONNECT to host:port is intercepted (S-11 rule 5)."""
@@ -214,15 +216,39 @@ class Interception:
     async def serve(
         self, host: str, port: int, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
-        """Terminate the client's TLS with a leaf for `host` and serve its requests."""
-        await writer.start_tls(
-            self.leaves.context_for(host.lower()), ssl_handshake_timeout=self.idle_timeout
-        )
+        """Terminate the client's TLS with a leaf for `host` and serve its requests.
+
+        A handshake that fails is logged: once per host at Warning with the reason, after
+        that at Debug (15 October 2026: a build whose handshakes all failed logged nothing).
+        """
+        try:
+            await writer.start_tls(
+                self.leaves.context_for(host.lower()), ssl_handshake_timeout=self.idle_timeout
+            )
+        except (OSError, TimeoutError) as error:
+            self._handshake_failed(host, error)
+            raise
         self.observe(host, "client", writer)
         try:
             await Hyphae(self, host, port).serve(reader, writer)
         except h11.ProtocolError as error:
             log.debug("Closed a connection to %s: %s", host, error)
+
+    def _handshake_failed(self, host: str, error: BaseException) -> None:
+        reason = veil.redact_text(f"{type(error).__name__}: {error}")
+        key = host.lower()
+        if key in self.failed_hosts:
+            log.debug("The TLS handshake with Roblox for %s failed again: %s", host, reason)
+            return
+        self.failed_hosts.add(key)
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-PROXY-06",
+                "Roblox couldn't open a secure connection to Verdra for {host} ({reason}), so it "
+                "can't download pictures, meshes or sounds from there.",
+            ).format(host=host, reason=reason),
+        )
 
     def observe(
         self, host: str, side: Literal["client", "upstream"], writer: asyncio.StreamWriter

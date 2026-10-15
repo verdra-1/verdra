@@ -83,6 +83,9 @@ untouched.
   request (<error>)." The error text is redacted (rule 4).
 - M-PROXY-05 (Activity, new) "A request or response for <host> was over 64 MB, so Verdra passed
   it on without changing it."
+- M-PROXY-06 (Activity, added 15 October 2026) "Roblox couldn't open a secure connection to
+  Verdra for <host> (<reason>), so it can't download pictures, meshes or sounds from there."
+  Once per host; later failures for that host at Debug.
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
 - M-DIAG-02 (Activity, new) "Diagnostic interception, <host> (<where>): <version>, <cipher>,

@@ -1235,6 +1235,13 @@
     </message>
 </context>
 <context>
+    <name>M-PROXY-06</name>
+    <message>
+        <source>Roblox couldn&apos;t open a secure connection to Verdra for {host} ({reason}), so it can&apos;t download pictures, meshes or sounds from there.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RESET-03</name>
     <message>
         <source>Remove everything Verdra changed on this computer?</source>
