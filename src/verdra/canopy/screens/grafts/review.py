@@ -6,15 +6,17 @@ Spec S-27: one last look at every change before it reaches the game. One line pe
 `trunk.branches.grafts.Grafts.pending_changes`, each with a checkbox; the checked ones are applied,
 the others keep waiting. A Problem line is skipped and offers "Fix", which opens its row. The
 restart checkbox follows Roblox's state; the dialog is the restart question, so M-LAUNCH-03 isn't
-asked again.
+asked again. A picture line shows a 64 × 64 thumbnail of what the proxy will serve, made on a
+worker (`Grafts.pictures`), and says when the texture is scaled (M-REVIEW-10); other lines show
+their family's icon.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
 
-from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QCoreApplication, QObject, QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -29,10 +31,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from verdra.canopy.crown import theme
 from verdra.trunk.branches import grafts
 
-#: The columns: the checkbox with the badge, the change, and Fix for a Problem line.
-BADGE, DETAIL, FIX = range(3)
+#: The columns: the checkbox with the badge, the picture or family icon, the change, and Fix
+#: for a Problem line.
+BADGE, PICTURE, DETAIL, FIX = range(4)
+#: The thumbnail's longest side (S-27, phase A).
+THUMBNAIL = 64
+#: The family icon shown where there is no picture.
+FAMILY_ICON = {"Image": "image", "Mesh": "box", "Audio": "music"}
 
 
 class Roblox(StrEnum):
@@ -175,7 +183,8 @@ class ReviewDialog(QDialog):
         return keys
 
     def _make_table(self, only: list[str] | None) -> QTableWidget:
-        table = QTableWidget(len(self.changes), 3, self)
+        table = QTableWidget(len(self.changes), 4, self)
+        table.setIconSize(QSize(THUMBNAIL, THUMBNAIL))
         table.setAccessibleName(QCoreApplication.translate("M-REVIEW-01", "Changes"))
         table.horizontalHeader().hide()
         table.verticalHeader().hide()
@@ -185,6 +194,7 @@ class ReviewDialog(QDialog):
         table.setWordWrap(True)
         header = table.horizontalHeader()
         header.setSectionResizeMode(BADGE, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(PICTURE, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(DETAIL, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(FIX, QHeaderView.ResizeMode.ResizeToContents)
         for row, change in enumerate(self.changes):
@@ -198,6 +208,11 @@ class ReviewDialog(QDialog):
             mark.setCheckState(Qt.CheckState.Checked if picked else Qt.CheckState.Unchecked)
             mark.setData(Qt.ItemDataRole.AccessibleTextRole, f"{mark.text()}. {change.detail}")
             table.setItem(row, BADGE, mark)
+            picture = QTableWidgetItem()
+            picture.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            if change.family in FAMILY_ICON:
+                picture.setIcon(theme.icon(FAMILY_ICON[change.family], size=32))
+            table.setItem(row, PICTURE, picture)
             detail = QTableWidgetItem(change.detail)
             detail.setToolTip(change.detail)
             table.setItem(row, DETAIL, detail)
@@ -210,6 +225,33 @@ class ReviewDialog(QDialog):
                 table.setCellWidget(row, FIX, fix)
         table.resizeRowsToContents()
         return table
+
+    def show_pictures(self, pictures: dict[str, grafts.ReviewPicture]) -> None:
+        """Put each picture line's thumbnail in place of its icon, and say when the texture is
+        scaled (M-REVIEW-10); called when the worker is done (S-27)."""
+        for row, change in enumerate(self.changes):
+            found = pictures.get(change.replacement_id)
+            cell, detail = self.table.item(row, PICTURE), self.table.item(row, DETAIL)
+            if found is None or cell is None or detail is None:
+                continue
+            image = QImage.fromData(found.png)
+            if image.isNull():
+                continue
+            small = image.scaled(
+                THUMBNAIL,
+                THUMBNAIL,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            cell.setIcon(QIcon(QPixmap.fromImage(small)))
+            if found.scaled:
+                width, height = found.served
+                scaled = QCoreApplication.translate("M-REVIEW-10", "Scaled to {w} × {h}.").format(
+                    w=width, h=height
+                )
+                detail.setText(f"{change.detail} {scaled}")
+                detail.setToolTip(detail.text())
+        self.table.resizeRowsToContents()
 
     def _make_restart(self, roblox: Roblox) -> QCheckBox:
         box = QCheckBox(

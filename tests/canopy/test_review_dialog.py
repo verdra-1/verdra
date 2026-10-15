@@ -18,7 +18,7 @@ from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import APPLY_COOLDOWN_SECONDS, Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
-from verdra.canopy.screens.grafts.review import BADGE, DETAIL, ReviewDialog, Roblox
+from verdra.canopy.screens.grafts.review import BADGE, DETAIL, PICTURE, ReviewDialog, Roblox
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.trunk.branches import grafts
 from verdra.trunk.branches.grafts import Original, Target
@@ -304,3 +304,25 @@ def test_with_nothing_waiting_the_button_applies_again_without_a_review(
     shell.window.header.review.click()
     assert shown == []
     assert stub.calls == ["clear"]
+
+
+def test_picture_lines_get_thumbnails_and_say_when_scaled(qtbot: QtBot) -> None:
+    from verdra.strata import ochre  # noqa: PLC0415 - only this test makes a picture
+
+    changes = [
+        grafts.Change("a", "new", "New: file wide.png", replacement_id="a", family="Image"),
+        grafts.Change("b", "new", "New: asset 2222222", replacement_id="b", family="Mesh"),
+    ]
+    dialog = ReviewDialog(changes, Roblox.NONE)
+    qtbot.addWidget(dialog)
+    icons = [dialog.table.item(row, PICTURE) for row in range(2)]
+    assert all(item is not None and not item.icon().isNull() for item in icons)  # family icons
+    png = ochre.to_png(ochre.Pixels(2048, 16, b"\x00\xff\x00\xff" * 2048 * 16))
+    dialog.show_pictures({"a": grafts.ReviewPicture(png, (2048, 16), (1024, 64))})
+    detail = dialog.table.item(0, DETAIL)
+    assert detail is not None
+    assert detail.text() == "New: file wide.png Scaled to 1024 × 64."
+    thumb = dialog.table.item(0, PICTURE)
+    assert thumb is not None
+    sizes = thumb.icon().availableSizes()
+    assert sizes and max(sizes[0].width(), sizes[0].height()) == 64

@@ -104,6 +104,7 @@ wasn't in that look.
 - M-REVIEW-12 (Toast) "Can't undo now: the replacements changed since." (Undo after the applied
   set changed again)
 - M-APPLY-07 reworded: "Verdra is still restarting Roblox. Try again in a moment."
+- M-REVIEW-13 (Activity job, added with pull request f4) "Preparing pictures for the review"
 - M-REVIEW-03 (Line detail, added with pull request f3) "Profile <name> deleted: <n> replacements
   go back to the originals." (plural forms; badge "Deleted")
 - M-PROF-12 (Name refusal, added with pull request f3) "The profile <name> is deleted, but the
@@ -160,8 +161,18 @@ wasn't in that look.
   the end of the restart cooldown (rule 6), so an apply that restarted Roblox can be undone too.
   S-01's "Apply now" in the header and Ctrl+Enter now mean Review & apply; the tray's unbuilt
   "Apply now" item keeps its plan name until the tray is built.
+- **Owner-approved on 15 October 2026:** (1) "Review & apply" stays clickable when nothing waits,
+  and then applies again without a review (S-24's flow); (2) Undo is offered for 10 s counted
+  from the end of Roblox's 10 s restart pause, not during it. Both as described in the f2 entry
+  above.
 - Built (pull request f3 of phase A): deleting a profile that was applied marks it deleted
   (`deleted` in the profile file, schema version 2): it leaves the list and the header, the game
   keeps its applied replacements, and the review lists "Profile <name> deleted" until its deletion
   is applied; Undo (M-PROF-09) takes the mark back. A profile never applied goes at once. While
   the deletion waits its name stays taken, because the file is named after it (M-PROF-12).
+- Built (pull request f4 of phase A): each line shows a 64 × 64 thumbnail of the picture the
+  next apply serves, made on a worker from the same prepared content the proxy uses (no second
+  conversion; the dialog opens at once and the thumbnails follow), and "Scaled to <w> × <h>."
+  (M-REVIEW-10) when the texture is smaller than the picture. Lines without a picture show their
+  family's icon (Lucide `image`, `box`, `music`). A row whose picture another profile overrides
+  shows its icon only. Not built: the type mismatch warning of S-22 on the line.

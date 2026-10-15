@@ -14,6 +14,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+import shiboken6
 from PySide6.QtCore import QByteArray, QCoreApplication, QObject, QSize, Signal
 from PySide6.QtGui import QCloseEvent, QGuiApplication
 from PySide6.QtWidgets import (
@@ -44,6 +45,7 @@ from verdra.canopy.screens.rings import ActivityScreen
 from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
+from verdra.trunk.branches.grafts import ReviewPicture
 from verdra.trunk.branches.sprout import (
     Sprout,
     cache_moved_text,
@@ -303,6 +305,11 @@ class ApplyText(QObject):
             "M-APPLY-03",
             count,
         )
+
+
+def _show_pictures(dialog: ReviewDialog, found: dict[str, ReviewPicture]) -> None:
+    if shiboken6.isValid(dialog):
+        dialog.show_pictures(found)
 
 
 class Shell:
@@ -659,6 +666,8 @@ class Shell:
             busy=self.monotonic() < self.apply_busy_until,
         )
         dialog.fix.connect(self._fix_row)
+        # Thumbnails come from a worker (S-27); the answer may come after the dialog is gone.
+        grafts.pictures(lambda found: _show_pictures(dialog, found))
         if dialog.exec() != ReviewDialog.DialogCode.Accepted:
             return
         self.apply_now(chosen=dialog.chosen(), restart=dialog.restart, changes=dialog.count)

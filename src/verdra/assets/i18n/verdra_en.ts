@@ -1578,9 +1578,23 @@
     </message>
 </context>
 <context>
+    <name>M-REVIEW-10</name>
+    <message>
+        <source>Scaled to {w} × {h}.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-REVIEW-12</name>
     <message>
         <source>Can&apos;t undo now: the replacements changed since.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-REVIEW-13</name>
+    <message>
+        <source>Preparing pictures for the review</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
