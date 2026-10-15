@@ -312,7 +312,8 @@ class FakeUpstream:
 
     Every CONNECT is answered by this process: TLS with a test CA's certificate for the name
     asked for, then the asset batch (`assetdelivery.roblox.com`) or the original picture
-    (`fts.rbxcdn.com`). What it was asked is kept in `requests` ("host method path").
+    (`fts.rbxcdn.com`); a CONNECT to 127.0.0.1 (the pass-through check) is tunneled as is.
+    What it was asked is kept in `requests` ("host method path").
     """
 
     def __init__(self, folder: Path) -> None:
@@ -361,6 +362,9 @@ class FakeUpstream:
             client.settimeout(30)
             first, _headers = read_head(client)
             host = first.split(b" ")[1].decode("latin-1").rpartition(":")[0]
+            if host == "127.0.0.1":  # the pass-through check's echo server: a plain tunnel
+                self._tunnel(client, int(first.split(b" ")[1].rpartition(b":")[2]))
+                return
             if host not in self.contexts:
                 client.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
                 return
@@ -375,6 +379,22 @@ class FakeUpstream:
                     method, path = first.decode("latin-1").split(" ")[:2]
                     self.requests.append(f"{host} {method} {path}")
                     tls.sendall(self._answer(host, method, path, body))
+
+    @staticmethod
+    def _tunnel(client: socket.socket, port: int) -> None:
+        with socket.create_connection(("127.0.0.1", port), timeout=30) as target:
+            client.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            done = threading.Event()
+
+            def pump(source: socket.socket, sink: socket.socket) -> None:
+                with contextlib.suppress(OSError):
+                    while data := source.recv(65536):
+                        sink.sendall(data)
+                done.set()
+
+            threading.Thread(target=pump, args=(target, client), daemon=True).start()
+            pump(client, target)
+            done.wait(5)
 
     def _answer(self, host: str, method: str, path: str, body: bytes) -> bytes:
         if host == INTERCEPTED_HOST and method == "POST" and path == "/v1/assets/batch":
