@@ -12,11 +12,47 @@ evidence for each part and says plainly what is not verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: the final M2 test ([guide](../guides/m2-final-test.md)) | [Internal milestone notes](../releases/0.1.0.md) |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g), the release dry-run ZIP, failed and is to be repeated | Below, "Final M2 test, 15 October 2026" |
 
 M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
 one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
 PC.
+
+## Final M2 test, 15 October 2026
+
+On the owner's PC, run from source for (e) to (f) and with the release dry-run ZIP of run
+38469127840 for (g). Checked against the owner's results (format-check reports 29 to 37 and
+the report for asset 498788302, screenshots, `verdra.log`); none of those files is committed.
+
+| Step | Result | What the reports show |
+|---|---|---|
+| (e) a large picture (1600 × 900) | **Passed**: visible, corners where they belong, not mirrored | Packs 64 × 36, 512 × 288 and 1024 × 576; `RobloxOriginalWidth/Height` 1600 × 900, transcoded 1024 × 576 |
+| (e2) a tiny picture (32 × 32) | **Passed**: visible; the quarters look slightly soft up close | Packs 4 × 4, 32 × 32 and 64 × 64 (each side at least 64, decision record 0022); original 32 × 32, transcoded 64 × 64 |
+| (e3) a one-color picture (512 × 512) | **Passed**: the color shows near and far | Packs 32 × 32, 256 × 256 and 512 × 512; original and transcoded 512 × 512 |
+| (f) the mesh report | **Passed**: the report appears | FileMesh 7.00, 1106 bytes before compression; COREMESH v2 (Draco 2.2, 24 points, 12 faces), LODS v1 |
+| (g) the release dry-run ZIP | **Failed**: a grey wall, no picture, no mesh; `verdra.log` has no proxy line between 19:59:13 and 20:05:46 | See below |
+
+**(g), cause and fix.** Diagnosed with evidence, not yet confirmed on the owner's PC:
+
+- On a Windows runner the built app routes, adds its certificate to the Player's trust file,
+  passes connections through and completes the TLS handshake for an intercepted host (CI
+  smoke test, `tools/smoke_build.py`).
+- A Player started by the built app inherited the built app's own folder: PyInstaller's
+  bootloader sets the DLL search directory to `_internal`, and its runtime hooks put
+  `_internal` on PATH and set QT_PLUGIN_PATH, QML2_IMPORT_PATH and `_PYI_*` variables. A
+  source run passes on a clean environment. Fixed: Verdra starts Roblox with the user's own
+  environment and no inherited DLL directory, and the smoke test checks the Player's
+  environment.
+- In (g) the status didn't turn Degraded (a), so Roblox's connections did reach Verdra; but
+  no request was ever decrypted. That fits a Player that fails its TLS handshakes with Verdra,
+  and the old proxy dropped failed handshakes without a word. Now each is logged (M-PROXY-06)
+  and turns the status Degraded (f), as does a launch with replacements active and no
+  decrypted request within 60 s (M-STATUS-08, with "Save a support bundle…").
+- That the Player's inherited DLL directory is what broke its handshakes is an inference:
+  the repeat of step (g) with a fresh dry-run ZIP decides it.
+
+The release dry run now fails unless the ZIP's app passes the smoke test, which serves one
+picture replacement through a fake Roblox upstream and checks the log.
 
 ## Texture swap
 
@@ -87,10 +123,10 @@ are read back level by level.
 Said plainly, so nobody reads more into the result than was tested:
 
 - **Pictures smaller than 64 pixels a side.** Verdra makes each side at least 64 (its own
-  choice, decision record 0022); what Roblox does with a smaller picture of its own was never
-  captured, and a small picture was not tried in game.
+  choice, decision record 0022); a 32 × 32 picture shows in game (step (e2)), slightly soft up
+  close. What Roblox does with a smaller picture of its own was never captured.
 - **One-color pictures.** `constantColor` is written as "0" (the client reads the texture); a
-  one-color picture was not tried in game, and what Roblox writes for one is unknown.
+  one-color picture shows in game (step (e3)), but what Roblox writes for one is unknown.
 - **glTF meshes.** Not planned: Verdra takes Roblox mesh files and OBJ only.
 - **Draco compression in Verdra's output.** Verdra writes Draco's raw (uncompressed) codings, so
   its meshes are larger than Roblox's own; Roblox drew them, but compressed codings are not used.
@@ -98,10 +134,8 @@ Said plainly, so nobody reads more into the result than was tested:
   replaced mesh far away is drawn with its full detail; that was not looked at from a distance.
 - **(b) geometry.** The asset-ID mesh swap showed a different shape; that it is exactly the other
   asset's geometry was not checked independently.
-- **Large pictures in game.** Decision record 0024's fix is tested in CI and on the owner's file,
-  not yet in game (step (e)).
-- **The release dry-run ZIP.** Not yet started on a real machine (final test, step (g)); CI
-  checks it on a Windows runner (Qt modules, legal texts, no diagnostics, one start).
+- **The release dry-run ZIP.** Started on the owner's PC on 15 October and failed (step (g)
+  above); the fix is tested on a Windows runner only until step (g) is repeated.
 - **The Qt source addresses** in the third-party notices (download.qt.io) weren't reachable from
   the session that wrote them. Needed: someone opens them once and checks they list the bundled
   Qt and Qt for Python version, or the notices name another address that does. It blocks nothing
