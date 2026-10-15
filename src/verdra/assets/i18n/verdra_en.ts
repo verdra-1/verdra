@@ -1590,6 +1590,17 @@
     </message>
 </context>
 <context>
+    <name>M-STATUS-08</name>
+    <message>
+        <source>Save a support bundle…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Roblox isn&apos;t reaching Verdra: no picture, mesh or sound request came through in the minute after it started, so replacements can&apos;t apply. Save a support bundle and send it with your report.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Notice</name>
     <message>
         <source>Dismiss</source>

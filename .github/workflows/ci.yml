@@ -240,8 +240,9 @@ jobs:
       - name: Only allowed Qt modules in the build, and the build starts
         run: uv run python tools/check_build.py dist/Verdra --launch
       - name: The built app routes (smoke test, 15 October 2026)
-        # A fake Player in a throwaway folder; pass-through and a TLS handshake for an
-        # intercepted host, trusting only the Player's cacert.pem. No request reaches Roblox.
+        # A fake Player in a throwaway folder and a fake Roblox upstream on loopback:
+        # pass-through, one picture replacement served, the Player's environment, the log.
+        # No request reaches Roblox.
         run: uv run python tools/smoke_build.py dist/Verdra
       - name: A source run routes (the same smoke test, for comparison)
         if: ${{ always() }}

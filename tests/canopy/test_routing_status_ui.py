@@ -41,6 +41,10 @@ CASES: list[tuple[RoutingStatus, str | None]] = [
         None,
     ),
     (
+        RoutingStatus(State.DEGRADED, Trigger.NOT_REACHING, "Roblox isn't reaching Verdra."),
+        "Save a support bundle…",
+    ),
+    (
         RoutingStatus(State.DEGRADED, Trigger.CA_MISSING, "The certificate is missing.", ("a",)),
         "Repair certificate",
     ),

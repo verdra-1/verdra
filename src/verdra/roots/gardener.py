@@ -297,6 +297,10 @@ class Trigger(StrEnum):
     ASSETS_UNREADABLE = "assets_unreadable"
     #: Degraded (e): a Roblox Player Verdra didn't start is running (S-12, M-LAUNCH-08).
     OTHER_PLAYER = "other_player"
+    #: Degraded (f): replacements are active but no intercepted request reached Verdra within
+    #: a minute of a launch, or Roblox refused Verdra's certificate (M2 final test, 15 October
+    #: 2026: the pill said Routing while nothing was replaced).
+    NOT_REACHING = "not_reaching"
     #: Error: the proxy couldn't start (M-PROXY-01).
     PROXY_FAILED = "proxy_failed"
     #: Error: another routing tool was detected (S-15, M-COEX-01).
@@ -308,6 +312,8 @@ class Trigger(StrEnum):
 ERROR_TRIGGERS: Final = frozenset({Trigger.PROXY_FAILED, Trigger.OTHER_TOOL, Trigger.KEEPER})
 #: Degraded (a): how long after a launch Roblox traffic must arrive.
 LAUNCH_WINDOW_SECONDS: Final = 20.0
+#: Degraded (f): how long after a launch an intercepted request must arrive.
+INTERCEPT_WINDOW_SECONDS: Final = 60.0
 #: Degraded (b) clears after this long without another certificate failure.
 CERTIFICATE_WINDOW_SECONDS: Final = 120.0
 #: Degraded (d) clears after this long without another asset batch that couldn't be read.
@@ -375,6 +381,7 @@ class RoutingStatusSource(QObject):
         #: Active triggers and their reasons, in the order they were raised.
         self._active: dict[Trigger, str] = {}
         self._launch: Cancel | None = None
+        self._intercept: Cancel | None = None
         self._certificate: Cancel | None = None
         self._unreadable: Cancel | None = None
         self.current = RoutingStatus(State.IDLE)
@@ -391,25 +398,44 @@ class RoutingStatusSource(QObject):
         """Routing is off (paused from the tray, or stopped)."""
         self._running = False
         self._cancel_launch()
+        self._cancel_intercept()
         self._cancel_certificate()
         self._cancel_unreadable()
         self._clear(
             Trigger.NOT_ROUTED,
+            Trigger.NOT_REACHING,
             Trigger.UPSTREAM_CERTIFICATE,
             Trigger.ASSETS_UNREADABLE,
             publish=False,
         )
         self._publish()
 
-    def launched(self) -> None:
-        """Roblox was launched through Verdra: its traffic must arrive within the window."""
+    def launched(self, *, intercepting: bool = False) -> None:
+        """Roblox was launched through Verdra: its traffic must arrive within the window.
+
+        With `intercepting` (replacements are active), an intercepted request must also
+        arrive within `INTERCEPT_WINDOW_SECONDS`, or the status turns Degraded (f).
+        """
         self._cancel_launch()
         self._launch = self._schedule(LAUNCH_WINDOW_SECONDS, self._launch_window_over)
+        self._cancel_intercept()
+        if intercepting:
+            self._intercept = self._schedule(INTERCEPT_WINDOW_SECONDS, self._intercept_window_over)
 
     def traffic_seen(self) -> None:
         """A Roblox connection reached Verdra: Degraded (a) clears."""
         self._cancel_launch()
         self._clear(Trigger.NOT_ROUTED)
+
+    def request_seen(self) -> None:
+        """Roblox sent a request Verdra decrypted: Degraded (f) clears."""
+        self._cancel_intercept()
+        self._clear(Trigger.NOT_REACHING)
+
+    def handshake_failed(self, reason: str) -> None:
+        """Roblox refused Verdra's certificate for a host: Degraded (f) until a request arrives."""
+        self._cancel_intercept()
+        self._raise(Trigger.NOT_REACHING, reason)
 
     def certificate_failed(self, reason: str) -> None:
         """An upstream certificate couldn't be verified: Degraded (b) for two minutes."""
@@ -472,6 +498,16 @@ class RoutingStatusSource(QObject):
                 ),
             )
 
+    def _intercept_window_over(self) -> None:
+        self._intercept = None
+        if self._running:
+            self._raise(Trigger.NOT_REACHING, not_reaching_text())
+
+    def _cancel_intercept(self) -> None:
+        if self._intercept is not None:
+            self._intercept()
+            self._intercept = None
+
     def _cancel_launch(self) -> None:
         if self._launch is not None:
             self._launch()
@@ -522,6 +558,16 @@ class RoutingStatusSource(QObject):
         self.changed.emit(status)
 
 
+def not_reaching_text() -> str:
+    """M-STATUS-08: no intercepted request arrived in the minute after a launch."""
+    return QCoreApplication.translate(
+        "M-STATUS-08",
+        "Roblox isn't reaching Verdra: no picture, mesh or sound request came through in the "
+        "minute after it started, so replacements can't apply. Save a support bundle and "
+        "send it with your report.",
+    )
+
+
 def _log_change(old: RoutingStatus, new: RoutingStatus) -> None:
     """Write one Activity line for a change of state (S-14 "Logging", rule 2)."""
     level = {State.DEGRADED: logging.WARNING, State.ERROR: logging.ERROR}.get(
@@ -554,11 +600,20 @@ class Router(QObject):
             the status turns Degraded (b) on the Qt thread (S-11 test 3, plan 12.2).
         assets_unreadable(str): An asset batch couldn't be read while a replacement is active;
             the status turns Degraded (d) on the Qt thread (S-21).
+        handshake_refused(str): Roblox refused Verdra's certificate (the M-PROXY-06 text);
+            the status turns Degraded (f) on the Qt thread.
+        reached(str): Roblox sent a request Verdra decrypted, for this host; Degraded (f)
+            clears. Sent at most once per `REACHED_EVERY_SECONDS`.
     """
 
     connected = Signal(str)
     certificate_failed = Signal(str)
     assets_unreadable = Signal(str)
+    handshake_refused = Signal(str)
+    reached = Signal(str)
+
+    #: Requests come many per second; the status needs to hear of them only now and then.
+    REACHED_EVERY_SECONDS = 1.0
 
     #: How long `start` and `stop` wait for the proxy's thread.
     WAIT_SECONDS = 10.0
@@ -575,6 +630,10 @@ class Router(QObject):
         self.connected.connect(self._traffic)
         self.certificate_failed.connect(self._certificate)
         self.assets_unreadable.connect(self._unreadable)
+        self.handshake_refused.connect(self.status.handshake_failed)
+        self.reached.connect(self._reached)
+        self._last_reached = -self.REACHED_EVERY_SECONDS
+        self.clock: Callable[[], float] = time.monotonic
 
     @property
     def running(self) -> bool:
@@ -594,6 +653,21 @@ class Router(QObject):
         The reason is already in the log (M-GRAFT-04); the status shows M-GRAFT-03.
         """
         self.assets_unreadable.emit(reason)
+
+    def report_handshake_failure(self, _host: str, text: str) -> None:
+        """Report a handshake Roblox refused; safe to call on the proxy's thread."""
+        self.handshake_refused.emit(text)
+
+    def report_request(self, host: str) -> None:
+        """Report a decrypted request; safe to call on the proxy's thread (throttled)."""
+        now = self.clock()
+        if now - self._last_reached < self.REACHED_EVERY_SECONDS:
+            return
+        self._last_reached = now
+        self.reached.emit(host)
+
+    def _reached(self, _host: str) -> None:
+        self.status.request_seen()
 
     def _unreadable(self, _reason: str) -> None:
         self.status.assets_unreadable()

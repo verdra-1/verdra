@@ -195,6 +195,8 @@ class Interception:
         *,
         on_verification_failure: Callable[[str, str], None] | None = None,
         on_tls: TlsObserver | None = None,
+        on_handshake_failure: Callable[[str, str], None] | None = None,
+        on_request: Callable[[str], None] | None = None,
         idle_timeout: float = 30.0,
         max_body: int = MAX_BUFFERED_BODY,
     ) -> None:
@@ -204,6 +206,11 @@ class Interception:
         self.pipeline = pipeline
         self.on_verification_failure = on_verification_failure
         self.on_tls = on_tls
+        #: Told (host, reason) of every handshake Roblox refused; the status turns Degraded.
+        self.on_handshake_failure = on_handshake_failure
+        #: Told the host of every request read after a handshake; the status knows Roblox
+        #: reaches Verdra.
+        self.on_request = on_request
         self.idle_timeout = idle_timeout
         self.max_body = max_body
         #: Hosts whose handshake already failed once (logged at Warning only the first time).
@@ -236,19 +243,18 @@ class Interception:
 
     def _handshake_failed(self, host: str, error: BaseException) -> None:
         reason = veil.redact_text(f"{type(error).__name__}: {error}")
+        text = QCoreApplication.translate(
+            "M-PROXY-06",
+            "Roblox couldn't open a secure connection to Verdra for {host} ({reason}), so it "
+            "can't download pictures, meshes or sounds from there.",
+        ).format(host=host, reason=reason)
+        _tell(self.on_handshake_failure, host, text)
         key = host.lower()
         if key in self.failed_hosts:
             log.debug("The TLS handshake with Roblox for %s failed again: %s", host, reason)
             return
         self.failed_hosts.add(key)
-        log.warning(
-            "%s",
-            QCoreApplication.translate(
-                "M-PROXY-06",
-                "Roblox couldn't open a secure connection to Verdra for {host} ({reason}), so it "
-                "can't download pictures, meshes or sounds from there.",
-            ).format(host=host, reason=reason),
-        )
+        log.warning("%s", text)
 
     def observe(
         self, host: str, side: Literal["client", "upstream"], writer: asyncio.StreamWriter
@@ -261,6 +267,16 @@ class Interception:
             self.on_tls(host, side, tls)
         except Exception as error:  # noqa: BLE001 - observing must not break the connection
             log.debug("The TLS observer failed on %s: %s", host, type(error).__name__)
+
+
+def _tell(callback: Callable[..., None] | None, *args: str) -> None:
+    """Call a status callback; its error never fails a connection."""
+    if callback is None:
+        return
+    try:
+        callback(*args)
+    except Exception as error:  # noqa: BLE001 - reporting must not break the connection
+        log.debug("A status callback failed: %s", type(error).__name__)
 
 
 class ClientLeftError(ConnectionError):
@@ -395,6 +411,7 @@ class Hyphae:
             pipeline = Pipeline()
         request = Request(self.host, head.method, head.target, tuple(head.headers.raw_items()))
         log.debug("%s %s %s", request.method.decode("latin-1"), self.host, _target_for_log(request))
+        _tell(self.interception.on_request, self.host)
         body = Body(client)
         buffered: _Buffered | None = None
         unread = ""

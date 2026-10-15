@@ -58,15 +58,28 @@ def fix_for(view: StatusView) -> tuple[str, str] | None:
         return "start", QCoreApplication.translate("M-STATUS-03", "Start routing")
     if status is Status.ERROR:
         return "retry", QCoreApplication.translate("M-STATUS-05", "Try again")
-    if status is Status.DEGRADED and trigger == "not_routed":
-        return "restart_roblox", QCoreApplication.translate(
-            "M-STATUS-04", "Restart Roblox through Verdra"
-        )
-    if status is Status.DEGRADED and trigger == "other_player":
-        return "close_others", QCoreApplication.translate("M-LAUNCH-10", "Close Roblox…")
-    if status is Status.DEGRADED and trigger == "ca_missing":
-        return "repair_certificate", QCoreApplication.translate("M-STATUS-04", "Repair certificate")
-    return None
+    if status is not Status.DEGRADED:
+        return None
+    fixes = {
+        "not_routed": lambda: (
+            "restart_roblox",
+            QCoreApplication.translate("M-STATUS-04", "Restart Roblox through Verdra"),
+        ),
+        "other_player": lambda: (
+            "close_others",
+            QCoreApplication.translate("M-LAUNCH-10", "Close Roblox…"),
+        ),
+        "not_reaching": lambda: (
+            "support_bundle",
+            QCoreApplication.translate("M-STATUS-08", "Save a support bundle…"),
+        ),
+        "ca_missing": lambda: (
+            "repair_certificate",
+            QCoreApplication.translate("M-STATUS-04", "Repair certificate"),
+        ),
+    }
+    fix = fixes.get(trigger)
+    return fix() if fix is not None else None
 
 
 class StatusPopover(QFrame):
@@ -74,7 +87,7 @@ class StatusPopover(QFrame):
 
     Signals:
         fix_requested(key): The fix button was pressed ("start", "retry", "restart_roblox",
-            "repair_certificate").
+            "repair_certificate", "close_others", "support_bundle").
     """
 
     fix_requested = Signal(str)

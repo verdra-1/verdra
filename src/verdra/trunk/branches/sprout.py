@@ -775,7 +775,7 @@ class Sprout(QObject):
         )
         if link:
             self._last_join = (link, self.clock())
-        self.status.launched()
+        self.status.launched(intercepting=bool(self.snapshots.current.hosts()))
         if self._handoff is not None:
             self._handoff()
         self._handoff = self._schedule(self.HANDOFF_SECONDS, lambda: self._check_handoff(pid))
@@ -1132,6 +1132,8 @@ class Sprout(QObject):
             self._open_upstream,
             lambda: pipeline,
             on_verification_failure=self.router.report_certificate_failure,
+            on_handshake_failure=self.router.report_handshake_failure,
+            on_request=self.router.report_request,
         )
 
     def _diagnostics(self, grafter: Grafter) -> tuple[hyphae.Pipeline, frozenset[str]]:

@@ -22,7 +22,7 @@ Always show whether routing works, and why not.
   |---|---|---|
   | Idle | Routing is off (never started, paused from the tray, or stopped) | "Start routing" (M-STATUS-03) |
   | Routing | Proxy listening; Roblox traffic seen in the last 2 minutes, or no Roblox running | none |
-  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10); (d) an asset batch couldn't be read while a replacement is active (S-21, M-GRAFT-03), for two minutes after the last one; (e) a Roblox Player Verdra didn't start is running (S-12, M-LAUNCH-08) | (a) "Restart Roblox through Verdra"; (b) and (d) none, reason only; (c) "Repair certificate" (M-STATUS-04); (e) "Close Roblox…", after M-LAUNCH-10 |
+  | Degraded | (a) a Roblox client is running but no Roblox CONNECT reached Verdra within 20 s of a launch; (b) an upstream certificate failure (S-11); (c) the CA block is missing from an installed Roblox version (S-10); (d) an asset batch couldn't be read while a replacement is active (S-21, M-GRAFT-03), for two minutes after the last one; (e) a Roblox Player Verdra didn't start is running (S-12, M-LAUNCH-08); (f) added 15 October 2026: replacements are active and no request Verdra decrypted arrived within 60 s of a launch (M-STATUS-08), or Roblox refused Verdra's certificate for a host (M-PROXY-06), until a decrypted request arrives | (a) "Restart Roblox through Verdra"; (b) and (d) none, reason only; (c) "Repair certificate" (M-STATUS-04); (e) "Close Roblox…", after M-LAUNCH-10; (f) "Save a support bundle…" (M-STATUS-08), which opens Activity's bundle export |
   | Error | The proxy couldn't start (M-PROXY-01); another routing tool was detected (S-15, M-COEX-01); the keeper is unavailable (Hosts-file mode, M6) | One fix specific to the reason (M-STATUS-05) |
 
 - **Priority.** If several triggers hold, Error wins over Degraded, Degraded over Routing. Within
@@ -89,6 +89,11 @@ Always show whether routing works, and why not.
 
 ## Refinements from the plan
 
+- M-STATUS-08 (Popover and Activity, added 15 October 2026) "Roblox isn't reaching Verdra: no
+  picture, mesh or sound request came through in the minute after it started, so replacements
+  can't apply. Save a support bundle and send it with your report." Button "Save a support
+  bundle…". Logged at Warning through M-STATUS-07 when the status turns Degraded. M2 final
+  test (g): a built Verdra showed Routing while nothing was replaced.
 - The plan's table names triggers without saying how they clear or which wins; the priority and
   clearing rules above are added so test 1 has a definite expected state. Degraded (b) clearing
   after 2 minutes matches the 2 minute traffic window the plan already uses for Routing.
