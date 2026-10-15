@@ -410,7 +410,10 @@ class Launches:
     """
 
     platform: humus.Platform = field(default_factory=humus.current)
-    environment: Callable[[], Mapping[str, str]] = lambda: dict(os.environ)
+    #: The user's environment for the Player: a built Verdra's own additions taken out.
+    environment: Callable[[], Mapping[str, str]] = lambda: humus.launch_environment(
+        os.environ, humus.bundle_folder()
+    )
     spawn: humus.Spawn | None = None
     #: PID → the process's creation time, so a reused PID is never mistaken for Roblox.
     started: dict[int, float] = field(default_factory=dict)
