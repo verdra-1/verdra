@@ -559,8 +559,7 @@ def test_a_choice_is_answered_once_in_activity(
     dialog = Choice("Roblox is already running without Verdra", "Body.", "Close", "Continue")
     qtbot.addWidget(dialog)
     with caplog.at_level("DEBUG", logger="verdra"):
-        dialog.show()
-        dialog.confirm.click()
+        dialog.confirm.click()  # not shown: showing makes a focus ring that outlives the test
     answered = [r for r in caplog.records if r.getMessage().startswith("Dialog answered")]
     assert [r.getMessage() for r in answered] == [
         "Dialog answered with its action: Roblox is already running without Verdra"
