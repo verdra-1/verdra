@@ -18,6 +18,11 @@ line about it. This test runs Verdra as a user does and checks what Roblox relie
    HTTP proxy, set as Verdra's internet connection, that answers for `assetdelivery.roblox.com`
    and `fts.rbxcdn.com` with a test CA's certificates and an original picture. The download
    must come back as the replacement, and the log must say so. Nothing reaches Roblox.
+   The same gzip-compressed batch (as the Player sends it) also holds asset 3333333, which the
+   profile swaps for 4444444 (an Asset ID replacement): the fake Roblox must be asked for
+   4444444, the Player must get 3333333 back, and the log must show the intercepted connection
+   and "2 of 2 items replaced" (retest (g), 16 October 2026: prove the built app rewrites a
+   real batch, not only that it completes a handshake).
 
    Verdra verifies upstream certificates against the system's trust store, always. So the test
    CA is added to it for the run and removed afterwards, only where that is a throwaway machine:
@@ -45,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import gzip
 import json
 import os
 import socket
@@ -76,6 +82,8 @@ INTERCEPTED_HOST = "assetdelivery.roblox.com"
 CONTENT_HOST = "fts.rbxcdn.com"
 #: The asset the saved profile replaces, and the colors of its original and its replacement.
 ASSET = 1111111
+#: An Asset ID swap in the same batch: the request Verdra sends upstream must ask for TARGET.
+SWAPPED, TARGET = 3333333, 4444444
 ORIGINAL_RGBA = (255, 0, 0, 255)
 REPLACEMENT_RGBA = (0, 160, 0, 255)
 PICTURE_SIDE = 64
@@ -190,7 +198,12 @@ def profile(home: Path) -> None:
                 id="00000000-0000-4000-8000-000000000002",
                 original=grafts.Original(asset_id=ASSET),
                 target=grafts.Target(kind="file", value=str(replacement)),
-            )
+            ),
+            grafts.Replacement(
+                id="00000000-0000-4000-8000-000000000003",
+                original=grafts.Original(asset_id=SWAPPED),
+                target=grafts.Target(kind="asset_id", value=str(TARGET)),
+            ),
         ],
     )
     folder = home / "config" / "profiles"
@@ -325,6 +338,8 @@ class FakeUpstream:
             host: self._context(folder, host, now) for host in (INTERCEPTED_HOST, CONTENT_HOST)
         }
         self.requests: list[str] = []
+        #: The asset IDs the batches Verdra sent upstream asked for.
+        self.asked: list[int] = []
         self.server = socket.socket()
         self.server.bind(("127.0.0.1", 0))
         self.server.listen()
@@ -376,6 +391,8 @@ class FakeUpstream:
                     except ConnectionError:
                         return
                     body = read_body(tls, headers)
+                    if headers.get("content-encoding", "").lower() == "gzip":
+                        body = gzip.decompress(body)
                     method, path = first.decode("latin-1").split(" ")[:2]
                     self.requests.append(f"{host} {method} {path}")
                     tls.sendall(self._answer(host, method, path, body))
@@ -399,10 +416,12 @@ class FakeUpstream:
     def _answer(self, host: str, method: str, path: str, body: bytes) -> bytes:
         if host == INTERCEPTED_HOST and method == "POST" and path == "/v1/assets/batch":
             items = json.loads(body)
+            self.asked.extend(int(item["assetId"]) for item in items)
             answer = json.dumps(
                 [
                     {
                         "requestId": item["requestId"],
+                        "assetId": item["assetId"],
                         "location": f"https://{CONTENT_HOST}/smoke/{item['assetId']}",
                         "assetTypeId": 1,
                         "isArchived": False,
@@ -476,7 +495,15 @@ def fetch(proxy_port: int, trust: Path, host: str, request: bytes) -> tuple[str,
 
 def check_replacement(proxy_port: int, trust: Path, result: Result) -> None:
     """The stand-in Player asks for asset ASSET and downloads it; it must get the replacement."""
-    batch = json.dumps([{"requestId": "smoke-1", "assetId": ASSET}]).encode()
+    # Gzip-compressed, as the Player sends its batches (second swap test, 7 October 2026).
+    batch = gzip.compress(
+        json.dumps(
+            [
+                {"requestId": "smoke-1", "assetId": ASSET},
+                {"requestId": "smoke-2", "assetId": SWAPPED},
+            ]
+        ).encode()
+    )
     try:
         status, body, issuer = fetch(
             proxy_port,
@@ -484,7 +511,8 @@ def check_replacement(proxy_port: int, trust: Path, result: Result) -> None:
             INTERCEPTED_HOST,
             b"POST /v1/assets/batch HTTP/1.1\r\nHost: "
             + INTERCEPTED_HOST.encode()
-            + b"\r\nContent-Type: application/json\r\nContent-Length: "
+            + b"\r\nContent-Type: application/json\r\nContent-Encoding: gzip\r\n"
+            + b"Content-Length: "
             + str(len(batch)).encode()
             + b"\r\nConnection: close\r\n\r\n"
             + batch,
@@ -493,7 +521,15 @@ def check_replacement(proxy_port: int, trust: Path, result: Result) -> None:
         if " 200 " not in status + " ":
             result.problems.append(f"replacement: the asset batch answered {status!r}")
             return
-        location = json.loads(body)[0]["location"]
+        items = {item["requestId"]: item for item in json.loads(body)}
+        if items["smoke-2"].get("assetId") != SWAPPED:
+            result.problems.append(
+                f"swap: the batch answer names asset {items['smoke-2'].get('assetId')} where the "
+                f"Player asked for {SWAPPED}"
+            )
+        else:
+            result.notes.append(f"swap: the batch answer names {SWAPPED} again for the Player")
+        location = items["smoke-1"]["location"]
         path = location.split(CONTENT_HOST, 1)[1]
         status, body, _issuer = fetch(
             proxy_port,
@@ -563,12 +599,26 @@ def check_launch(trust: Path, port: int, build: Path | None, result: Result) -> 
             )
 
 
+def check_swap(asked: list[int], result: Result) -> None:
+    """Upstream must have been asked for TARGET, never for SWAPPED: the batch was rewritten."""
+    if TARGET in asked and SWAPPED not in asked:
+        result.notes.append(
+            f"swap: the batch sent upstream asked for {TARGET} instead of {SWAPPED}"
+        )
+    else:
+        result.problems.append(f"swap: the batch sent upstream asked for {asked}")
+
+
 def check_log(text: str, *, replaced: bool, result: Result) -> None:
     """The log must show what happened: the pass-through, and the replacement served."""
     if "through unchanged" not in text:
         result.problems.append("log: no line for the connection passed through")
     else:
         result.notes.append("log: shows the connection passed through")
+    if replaced and f"Intercepting a connection to {INTERCEPTED_HOST}:443" not in text:
+        result.problems.append("log: no line for the intercepted connection")
+    if replaced and "2 of 2 items replaced" not in text:
+        result.problems.append("log: no line for the rewritten asset batch")
     if replaced and SERVED not in text:
         result.problems.append(f"log: no line {SERVED!r}")
     elif replaced:
@@ -625,6 +675,7 @@ def run(
             check_pass_through(port, result)
             if untrusted is None:
                 check_replacement(port, trust, result)
+                check_swap(upstream.asked, result)
             else:
                 result.notes.append(f"replacement: skipped, {untrusted}")
             if sys.platform == "win32":
