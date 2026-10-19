@@ -285,3 +285,34 @@ def test_a_tunnel_is_logged_at_debug_with_its_host_and_port(
     port = run(body)
     lines = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
     assert f"Passing a connection to 127.0.0.1:{port} through unchanged" in lines
+
+
+def test_an_intercepted_connection_is_logged_and_its_end_names_the_host(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Retest (g), 16 October 2026: only passed-through connections had a line."""
+    caplog.set_level(logging.DEBUG, logger=mycelium.__name__)
+
+    class Breaks:
+        def wants(self, host: str, port: int) -> bool:
+            return host == "assetdelivery.roblox.com"
+
+        async def serve(self, *_args: object) -> None:
+            raise ConnectionResetError
+
+    async def body() -> None:
+        server = mycelium.Mycelium(0, direct, interceptor=Breaks())  # type: ignore[arg-type]
+        await server.start()
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            writer.write(b"CONNECT assetdelivery.roblox.com:443 HTTP/1.1\r\n\r\n")
+            await writer.drain()
+            await reader.read()
+            writer.close()
+        finally:
+            await server.stop()
+
+    run(body)
+    lines = [r.getMessage() for r in caplog.records]
+    assert "Intercepting a connection to assetdelivery.roblox.com:443" in lines
+    assert "A proxy connection to assetdelivery.roblox.com:443 ended: ConnectionResetError" in lines

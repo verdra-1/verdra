@@ -215,6 +215,8 @@ class Interception:
         self.max_body = max_body
         #: Hosts whose handshake already failed once (logged at Warning only the first time).
         self.failed_hosts: set[str] = set()
+        #: Hosts whose decrypted connection already broke before its first request once.
+        self.ended_hosts: set[str] = set()
 
     def wants(self, host: str, port: int) -> bool:  # noqa: ARG002 - the set holds hosts only
         """Return whether a CONNECT to host:port is intercepted (S-11 rule 5)."""
@@ -236,10 +238,18 @@ class Interception:
             self._handshake_failed(host, error)
             raise
         self.observe(host, "client", writer)
+        hyphae = Hyphae(self, host, port)
         try:
-            await Hyphae(self, host, port).serve(reader, writer)
+            await hyphae.serve(reader, writer)
         except h11.ProtocolError as error:
             log.debug("Closed a connection to %s: %s", host, error)
+        except (OSError, asyncio.IncompleteReadError, TimeoutError) as error:
+            if hyphae.requests:
+                raise  # after a request: an ordinary end, a Debug line in roots/mycelium
+            self._ended_early(host, error)
+            return
+        if not hyphae.requests:
+            log.debug("Roblox closed a secure connection to %s before its first request", host)
 
     def _handshake_failed(self, host: str, error: BaseException) -> None:
         reason = veil.redact_text(f"{type(error).__name__}: {error}")
@@ -255,6 +265,27 @@ class Interception:
             return
         self.failed_hosts.add(key)
         log.warning("%s", text)
+
+    def _ended_early(self, host: str, error: BaseException) -> None:
+        """A decrypted connection broke before its first request (16 October 2026: the log
+        couldn't tell this apart from Roblox asking for nothing). Warning once per host."""
+        key = host.lower()
+        if key in self.ended_hosts:
+            log.debug(
+                "A secure connection from Roblox to %s ended again before its first request: %s",
+                host,
+                type(error).__name__,
+            )
+            return
+        self.ended_hosts.add(key)
+        log.warning(
+            "%s",
+            QCoreApplication.translate(
+                "M-PROXY-07",
+                "A secure connection from Roblox to {host} ended before Roblox asked for "
+                "anything ({reason}).",
+            ).format(host=host, reason=type(error).__name__),
+        )
 
     def observe(
         self, host: str, side: Literal["client", "upstream"], writer: asyncio.StreamWriter
@@ -376,6 +407,8 @@ class Hyphae:
         self.port = port
         self.timeout = interception.idle_timeout
         self.upstream: _Side | None = None
+        #: Requests read on this connection so far.
+        self.requests = 0
 
     async def serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Serve requests until either side closes, a framing error, or the idle timeout."""
@@ -404,6 +437,7 @@ class Hyphae:
             await self._close_upstream()
 
     async def _exchange(self, client: _Side, head: h11.Request) -> None:
+        self.requests += 1
         pipeline = self.interception.pipeline()
         if rules.is_protected(self.host, head.target):
             # Plan 16.2: Roblox's integrity and safety traffic is never touched.
