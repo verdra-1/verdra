@@ -28,6 +28,7 @@ class StubSprout(QObject):
     others_changed = Signal(bool)
     held_back = Signal(str)
     handed_off = Signal(str)
+    assets_moved = Signal(object)
 
     def __init__(self) -> None:
         super().__init__()

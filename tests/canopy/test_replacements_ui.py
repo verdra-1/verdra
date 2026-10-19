@@ -18,7 +18,6 @@ from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from verdra.bark import rain
-from verdra.canopy.crown import window as window_module
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
@@ -42,10 +41,13 @@ class StubSprout(QObject):
     others_changed = Signal(bool)
     held_back = Signal(str)
     handed_off = Signal(str)
+    assets_moved = Signal(object)
 
     def __init__(self) -> None:
         super().__init__()
         self.calls: list[str] = []
+        #: Whether the next launch must move the saved assets aside first (S-24 rule 6).
+        self.stale_assets = False
         #: A Player this Verdra started is running.
         self.running = False
         #: Players Verdra didn't start, and Studios, that are running.
@@ -72,6 +74,10 @@ class StubSprout(QObject):
 
     def close_roblox(self) -> None:
         self.calls.append("close")
+
+    def close_others(self) -> None:
+        self.calls.append("close others")
+        self.others = ()
 
     def clear_cache(self) -> sprout.CacheMove | None:
         self.calls.append("clear")
@@ -384,92 +390,122 @@ def test_apply_now_without_roblox_running_publishes_and_says_next_time(
     assert stub.calls == ["clear", "start"]  # S-24 rule 2: routing starts too
 
 
+def toast_named(shell: Shell, start: str) -> Toast:
+    return next(t for t in shell.window.findChildren(Toast) if t.text.startswith(start))
+
+
 @pytest.mark.spec("S-24", 4)
-def test_canceling_the_restart_publishes_and_closes_nothing(
-    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+def test_with_verdras_roblox_running_apply_now_saves_moves_nothing_and_offers_a_restart(
+    made: tuple[Shell, StubSprout],
 ) -> None:
+    """Retest (g), 16 October 2026 (E): nothing moves under a running Roblox, one toast says
+    what to do, and "Restart Roblox" is the only action."""
     shell, stub = made
     stub.running = True
-    asked: list[str] = []
-
-    def answer(dialog: DestructiveConfirmation) -> int:
-        asked.append(dialog.findChildren(type(shell.window.header.apply_now))[-1].text())
-        return QDialog.DialogCode.Rejected
-
-    monkeypatch.setattr(DestructiveConfirmation, "exec", answer)
     shell.window.header.apply_now.click()
-    assert asked == ["Restart Roblox"]
-    assert stub.calls == []
-    assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
+    assert stub.calls == []  # nothing closed, nothing moved
+    assert stub.stale_assets  # the next launch through Verdra moves them
+    toast = toast_named(shell, "Saved.")
+    assert toast.text == "Saved. Close Roblox, then join again through Verdra to see the change."
+    assert toast.action_button is not None and toast.action_button.text() == "Restart Roblox"
+    assert not [d for d in shell.window.findChildren(DestructiveConfirmation) if d.isVisible()]
+    stub.running = False  # no "Quit while Roblox runs?" when the test closes the window
 
 
 @pytest.mark.spec("S-24", 2)
-def test_confirming_restarts_only_the_roblox_verdra_launched(
-    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+def test_restart_roblox_restarts_only_the_roblox_verdra_launched(
+    made: tuple[Shell, StubSprout],
 ) -> None:
     shell, stub = made
     stub.running = True
-    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
     shell.window.header.apply_now.click()
+    button = toast_named(shell, "Saved.").action_button
+    assert button is not None
+    button.click()
     # Sprout closes only its own launches (S-12 rule 4), then the cache moves, then Roblox starts.
     assert stub.calls == ["close", "clear", "launch"]
     assert toasts(shell)[-1] == (
         "No replacements are on, so Roblox is restarting with the original assets."
     )
+    stub.running = False
 
 
 @pytest.mark.spec("S-24", 7)
-@pytest.mark.parametrize(
-    ("others", "studio", "told"),
-    [
-        ((), (9,), "Roblox Studio is open, so Verdra didn't move Roblox's saved assets aside."),
-        ((9,), (), "A Roblox Player that Verdra didn't start is running, so Verdra didn't move"),
-    ],
-)
-def test_the_cache_stays_while_studio_or_another_player_runs(
+def test_the_cache_stays_while_studio_runs_and_one_toast_says_why(
     made: tuple[Shell, StubSprout],
-    monkeypatch: pytest.MonkeyPatch,
-    others: tuple[int, ...],
-    studio: tuple[int, ...],
-    told: str,
 ) -> None:
     shell, stub = made
-    stub.others, stub.studio = others, studio
-    shell.window.header.apply_now.click()  # none of Verdra's own Players runs
-    assert stub.calls == []  # nothing moved, nothing closed: Studio and others are never closed
-    assert toasts(shell)[-2].startswith(told)
-    assert toasts(shell)[-1] == "No replacements are on, so Roblox shows the original assets."
-    stub.running = True  # with Verdra's own Player too: it restarts, the cache still stays
-    monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
+    stub.studio = (9,)
     shell.window.header.apply_now.click()
-    assert stub.calls == ["close", "launch"]
-    assert toasts(shell)[-1].startswith("No replacements are on. Roblox is restarting, but assets")
+    assert stub.calls == []  # nothing moved, nothing closed: Studio is never closed
+    assert toasts(shell) == [
+        "Roblox Studio is open, so Verdra didn't move Roblox's saved assets aside. Close Studio, "
+        "then click Apply now again."
+    ]
+    assert stub.stale_assets
 
 
-def test_apply_now_ignores_clicks_while_it_restarts_roblox(
-    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
+def add_one(shell: Shell) -> None:
+    service = shell.services.grafts
+    assert service is not None
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="asset_id", value="2222222"),
+    )
+
+
+@pytest.mark.spec("S-24", 7)
+def test_with_another_roblox_one_toast_says_saved_and_its_button_closes_and_moves(
+    made: tuple[Shell, StubSprout],
 ) -> None:
+    """Retest (g), run 1 (F): "Applied 1 replacement" next to the warning, then three dialogs."""
+    shell, stub = made
+    add_one(shell)
+    stub.others = (9,)
+    shell.window.header.apply_now.click()
+    assert stub.calls == []  # never closed without the user asking
+    assert toasts(shell) == [
+        "Saved, but your replacements won't show until the Roblox running without Verdra is closed."
+    ]
+    assert not any(text.startswith("Applied") for text in toasts(shell))
+    button = toast_named(shell, "Saved, but").action_button
+    assert button is not None and button.text() == "Close that Roblox"
+    button.click()
+    assert stub.calls == ["close others", "clear"]  # the close, the move, nothing else
+    assert toasts(shell)[-1].startswith("Moved Roblox's saved assets")
+
+
+def test_restart_roblox_ignores_clicks_while_it_restarts(made: tuple[Shell, StubSprout]) -> None:
     """12 October 2026: four "Restart Roblox now?" dialogs in 17 seconds."""
     shell, stub = made
     stub.running = True
-    asked: list[object] = []
-
-    def accept(dialog: object) -> QDialog.DialogCode:
-        asked.append(dialog)
-        return QDialog.DialogCode.Accepted
-
-    monkeypatch.setattr(DestructiveConfirmation, "exec", accept)
     now = [1000.0]
     shell.monotonic = lambda: now[0]
     shell.window.header.apply_now.click()
-    assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
-    now[0] += 3  # clicked again while Roblox restarts: no second dialog, no second Player
+    first = toast_named(shell, "Saved.").action_button
+    assert first is not None
+    first.click()
+    assert stub.calls == ["close", "clear", "launch"]
+    now[0] += 3  # clicked again while Roblox restarts: no second Player
     shell.window.header.apply_now.click()
-    assert len(asked) == 1 and stub.calls == ["close", "clear", "launch"]
+    assert stub.calls == ["close", "clear", "launch"]
     assert toasts(shell)[-1] == "Apply now is still restarting Roblox. Try again in a moment."
-    now[0] += window_module.APPLY_COOLDOWN_SECONDS  # later, it works again
-    shell.window.header.apply_now.click()
-    assert len(asked) == 2  # noqa: PLR2004
+    stub.running = False
+
+
+def test_moved_shows_once_in_activity(
+    made: tuple[Shell, StubSprout], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Retest (g) (G): every "Moved…" line showed twice, from Sprout and from the toast."""
+    shell, _stub = made
+    with caplog.at_level("INFO", logger="verdra"):
+        shell.window.header.apply_now.click()
+    moved = [r for r in caplog.records if r.getMessage().startswith("Moved Roblox's saved")]
+    assert moved == []  # the stub Sprout writes nothing; the toast doesn't write it again
+    assert any(text.startswith("Moved Roblox's saved") for text in toasts(shell))
 
 
 def test_without_the_service_the_screen_and_apply_now_say_why(shell: Shell) -> None:

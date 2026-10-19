@@ -73,9 +73,10 @@ class _Dialog(QDialog):
             body = self.body.text() if self.body.isVisibleTo(self) else ""
             log.info("%s", f"{self.title.text()} {body}".strip())
 
-    def _finish(self, confirm: QPushButton, *, cancel_first: bool) -> None:
+    def _finish(self, confirm: QPushButton, *, cancel_first: bool, accepts: bool = True) -> None:
         self.confirm = confirm
-        confirm.clicked.connect(self.accept)
+        if accepts:  # Choice accepts through `_chosen`; twice gave two "Dialog answered" lines
+            confirm.clicked.connect(self.accept)
         self.buttons.addWidget(self.cancel)
         self.buttons.addWidget(confirm)
         self.layout_.addLayout(self.buttons)
@@ -160,7 +161,7 @@ class Choice(_Dialog):
         go = QPushButton(primary, self)
         go.setProperty("primary", True)
         go.clicked.connect(lambda: self._chosen("primary"))
-        self._finish(go, cancel_first=True)  # the primary action may close something
+        self._finish(go, cancel_first=True, accepts=False)  # the primary may close something
         self.secondary = QPushButton(secondary, self)
         self.secondary.clicked.connect(lambda: self._chosen("secondary"))
         self.buttons.insertWidget(self.buttons.indexOf(go), self.secondary)

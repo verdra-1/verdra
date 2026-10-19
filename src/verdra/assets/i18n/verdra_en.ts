@@ -320,6 +320,24 @@
     </message>
 </context>
 <context>
+    <name>M-APPLY-08</name>
+    <message>
+        <source>Saved. Close Roblox, then join again through Verdra to see the change.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-APPLY-09</name>
+    <message>
+        <source>Saved, but your replacements won&apos;t show until the Roblox running without Verdra is closed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close that Roblox</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-CA-01</name>
     <message>
         <source>Verdra couldn&apos;t add its certificate to Roblox at {path}: {reason}.</source>
@@ -846,10 +864,6 @@
 </context>
 <context>
     <name>M-LAUNCH-03</name>
-    <message>
-        <source>Restart Roblox now? Unsaved progress in your game may be lost.</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>Restart Roblox</source>
         <translation type="unfinished"></translation>
