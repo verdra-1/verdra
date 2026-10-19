@@ -47,6 +47,14 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
    a folder left by a crash while deleting goes with the next deletion (M-CACHE-07,
    M-CACHE-08). Settings › System changes shows the space the backups use and "Delete backups…",
    which asks first (M-CACHE-09 to M-CACHE-11).
+6. Before every launch through Verdra (added 19 October 2026, retest (g) of 16 October): if
+   Roblox's saved assets may hold originals and replacements are on, Verdra moves them aside
+   again first, by the rules above (only while no Player or Studio runs, by move, in the ledger
+   first). They may hold originals when a Player Verdra didn't start ran since the last move
+   (including one Verdra just closed for this launch), when Apply now couldn't move them, and
+   when Verdra has just started (it can't know what ran while it was closed). "Moved…"
+   (M-CACHE-01) is logged directly before "Started Roblox through Verdra" (M-LAUNCH-13); when a
+   Player or Studio still runs, M-CACHE-12 says so and the next launch tries again.
 
 ## Messages
 
@@ -85,6 +93,9 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   (<reason>). It tries again after the next Apply now."
 - M-CACHE-09 (Settings, new) "Backups of Roblox's saved assets use <size>."
 - M-CACHE-10 (Settings, new) "There are no backups of Roblox's saved assets."
+- M-CACHE-12 (Activity, added 19 October 2026) "Verdra couldn't move Roblox's saved assets aside
+  before starting Roblox, because <Roblox Studio | another Roblox> is still running, so the
+  game may show the originals."
 - M-CACHE-11 (Dialog, new) "Delete the backups of Roblox's saved assets?" Button "Delete
   backups". Body "Reset everything can't put them back after this. Roblox downloads what it
   needs again."

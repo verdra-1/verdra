@@ -419,6 +419,21 @@
     </message>
 </context>
 <context>
+    <name>M-CACHE-12</name>
+    <message>
+        <source>Roblox Studio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>another Roblox</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verdra couldn&apos;t move Roblox&apos;s saved assets aside before starting Roblox, because {what} is still running, so the game may show the originals.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-COEX-01</name>
     <message>
         <source>Try again</source>
