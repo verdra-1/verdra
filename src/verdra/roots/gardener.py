@@ -23,7 +23,7 @@ import threading
 import time
 from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Final, Protocol
@@ -301,6 +301,10 @@ class Trigger(StrEnum):
     #: a minute of a launch, or Roblox refused Verdra's certificate (M2 final test, 15 October
     #: 2026: the pill said Routing while nothing was replaced).
     NOT_REACHING = "not_reaching"
+    #: Degraded (g): replacements are active and Roblox's connections came through in the minute
+    #: after a launch, but no asset request did (retest (g), 16 October 2026: it most likely
+    #: used the copies it had saved).
+    NO_ASSET_REQUESTS = "no_asset_requests"
     #: Error: the proxy couldn't start (M-PROXY-01).
     PROXY_FAILED = "proxy_failed"
     #: Error: another routing tool was detected (S-15, M-COEX-01).
@@ -382,6 +386,10 @@ class RoutingStatusSource(QObject):
         self._active: dict[Trigger, str] = {}
         self._launch: Cancel | None = None
         self._intercept: Cancel | None = None
+        #: Whether any Roblox connection came through since the last launch.
+        self._connected = False
+        #: The last Degraded or Error status published, and when (support bundles, M-LOG-01).
+        self.last_problem: tuple[RoutingStatus, datetime] | None = None
         self._certificate: Cancel | None = None
         self._unreadable: Cancel | None = None
         self.current = RoutingStatus(State.IDLE)
@@ -404,6 +412,7 @@ class RoutingStatusSource(QObject):
         self._clear(
             Trigger.NOT_ROUTED,
             Trigger.NOT_REACHING,
+            Trigger.NO_ASSET_REQUESTS,
             Trigger.UPSTREAM_CERTIFICATE,
             Trigger.ASSETS_UNREADABLE,
             publish=False,
@@ -419,18 +428,20 @@ class RoutingStatusSource(QObject):
         self._cancel_launch()
         self._launch = self._schedule(LAUNCH_WINDOW_SECONDS, self._launch_window_over)
         self._cancel_intercept()
+        self._connected = False
         if intercepting:
             self._intercept = self._schedule(INTERCEPT_WINDOW_SECONDS, self._intercept_window_over)
 
     def traffic_seen(self) -> None:
         """A Roblox connection reached Verdra: Degraded (a) clears."""
+        self._connected = True
         self._cancel_launch()
         self._clear(Trigger.NOT_ROUTED)
 
     def request_seen(self) -> None:
-        """Roblox sent a request Verdra decrypted: Degraded (f) clears."""
+        """Roblox sent a request Verdra decrypted: Degraded (f) and (g) clear."""
         self._cancel_intercept()
-        self._clear(Trigger.NOT_REACHING)
+        self._clear(Trigger.NOT_REACHING, Trigger.NO_ASSET_REQUESTS)
 
     def handshake_failed(self, reason: str) -> None:
         """Roblox refused Verdra's certificate for a host: Degraded (f) until a request arrives."""
@@ -500,7 +511,11 @@ class RoutingStatusSource(QObject):
 
     def _intercept_window_over(self) -> None:
         self._intercept = None
-        if self._running:
+        if not self._running:
+            return
+        if self._connected:
+            self._raise(Trigger.NO_ASSET_REQUESTS, no_asset_requests_text())
+        else:
             self._raise(Trigger.NOT_REACHING, not_reaching_text())
 
     def _cancel_intercept(self) -> None:
@@ -553,18 +568,30 @@ class RoutingStatusSource(QObject):
         if status == self.current:
             return
         old, self.current = self.current, status
+        if status.state in {State.DEGRADED, State.ERROR}:
+            self.last_problem = (status, datetime.now(UTC))
         if status.state is not old.state:
             _log_change(old, status)
         self.changed.emit(status)
 
 
 def not_reaching_text() -> str:
-    """M-STATUS-08: no intercepted request arrived in the minute after a launch."""
+    """M-STATUS-08: nothing from Roblox came through in the minute after a launch."""
     return QCoreApplication.translate(
         "M-STATUS-08",
-        "Roblox isn't reaching Verdra: no picture, mesh or sound request came through in the "
-        "minute after it started, so replacements can't apply. Save a support bundle and "
-        "send it with your report.",
+        "Roblox isn't reaching Verdra: nothing from it came through in the minute after it "
+        "started, so replacements can't apply. Save a support bundle and send it with your "
+        "report.",
+    )
+
+
+def no_asset_requests_text() -> str:
+    """M-STATUS-09: Roblox's connections came through, but no asset request did."""
+    return QCoreApplication.translate(
+        "M-STATUS-09",
+        "Roblox is going through Verdra but hasn't asked for any pictures, meshes or sounds "
+        "since it started. It's probably using copies it saved earlier. Click Apply now to "
+        "restart it with your replacements.",
     )
 
 

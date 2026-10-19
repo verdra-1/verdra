@@ -356,6 +356,7 @@ class Shell:
                     "repair_certificate",
                     "close_others",
                     "support_bundle",
+                    "apply_now",
                 }
             )
             popover.fix_requested.connect(self.fix_routing)
@@ -510,11 +511,13 @@ class Shell:
 
     def fix_routing(self, key: str) -> None:
         """Run the routing popover's fix (spec S-14): start, try again, relaunch Roblox,
-        repair the certificate, or save a support bundle from Activity."""
+        repair the certificate, save a support bundle from Activity, or Apply now."""
         sprout = self.services.sprout
         if sprout is None:
             return
-        if key == "support_bundle":
+        if key == "apply_now":
+            self.apply_now()
+        elif key == "support_bundle":
             self.window.show_screen("activity")
             activity = self.window.screens["activity"]
             assert isinstance(activity, ActivityScreen)  # noqa: S101 - built in Window

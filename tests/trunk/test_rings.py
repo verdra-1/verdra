@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from tests.ids import ABOVE_INT32, ABOVE_UINT32
@@ -351,3 +352,33 @@ def test_stop_gives_the_logger_back_as_it_was(tmp_path: Path) -> None:
     logs.set_detailed(False)  # after stop: remembered, the logger untouched
     assert logger.level == before[0]
     assert not logs.detailed
+
+
+def test_the_bundle_records_the_status_as_it_is_and_the_last_problem(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Retest (g), 16 October 2026: about.json said "Idle" while the window showed Degraded,
+    and "hosts_file" for a session that routed per app."""
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    class Settings:
+        path = tmp_path / "settings.json"
+
+        @staticmethod
+        def value(key: str) -> str:
+            assert key == "routing.mode"
+            return "hosts_file"
+
+    status = gardener.RoutingStatusSource(lambda _s, _c: lambda: None)
+    status.started()
+    status.other_player("Roblox is already running without Verdra.")
+    sources = rings.bundle_sources(Settings(), status)
+    assert sources.routing_status == "Degraded"
+    assert sources.routing_reason == "Roblox is already running without Verdra."
+    assert sources.routing_mode == "per_app"
+    assert sources.routing_mode_setting == "hosts_file"
+    status.other_player_closed()
+    later = rings.bundle_sources(Settings(), status)
+    assert later.routing_status == "Routing"
+    assert later.last_problem.endswith("degraded: Roblox is already running without Verdra.")
+    status.deleteLater()

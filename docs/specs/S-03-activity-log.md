@@ -55,6 +55,10 @@ One logging system for the app, readable in the Activity screen and safe to shar
   system, the routing status, the last 2,000 log lines, your settings and the list of system
   changes. Secrets are removed. Nothing is uploaded; you decide where to send it." Checkbox
   "Include my replacement profiles"; buttons "Export…", "Cancel".
+- The bundle's `about.json` gives the routing status as it is when the bundle is saved, with its
+  reason, the last Degraded or Error status of the session with its time, the routing mode in
+  use (`per_app` until the keeper of M6) and what `routing.mode` says (retest (g), 16 October
+  2026: it said "Idle" while the window showed Degraded).
 - M-LOG-03 (new, help text) "Debug records appear only while detailed logging is on."
 - M-LOG-04 (new, kind Activity) "Detailed logging turned itself off after 24 hours."
 - M-ERR-01 (new, Toast, kind Error) "Something went wrong. Details are in Activity." Action

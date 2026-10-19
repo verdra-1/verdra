@@ -1613,6 +1613,10 @@
         <source>Roblox is going through Verdra but hasn&apos;t asked for any pictures, meshes or sounds since it started. It&apos;s probably using copies it saved earlier. Click Apply now to restart it with your replacements.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Apply now</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Notice</name>
