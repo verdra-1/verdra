@@ -73,6 +73,10 @@ def fix_for(view: StatusView) -> tuple[str, str] | None:
             "support_bundle",
             QCoreApplication.translate("M-STATUS-08", "Save a support bundle…"),
         ),
+        "no_asset_requests": lambda: (
+            "apply_now",
+            QCoreApplication.translate("M-STATUS-09", "Apply now"),
+        ),
         "ca_missing": lambda: (
             "repair_certificate",
             QCoreApplication.translate("M-STATUS-04", "Repair certificate"),
@@ -87,7 +91,7 @@ class StatusPopover(QFrame):
 
     Signals:
         fix_requested(key): The fix button was pressed ("start", "retry", "restart_roblox",
-            "repair_certificate", "close_others", "support_bundle").
+            "repair_certificate", "close_others", "support_bundle", "apply_now").
     """
 
     fix_requested = Signal(str)

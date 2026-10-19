@@ -124,6 +124,7 @@ def test_the_status_fixes_start_routing_or_relaunch(launching: Shell, stub: Stub
         "repair_certificate",
         "close_others",
         "support_bundle",
+        "apply_now",
     }
     assert popover.fix.isEnabled()  # Idle: "Start routing"
     for key in ("start", "retry", "restart_roblox", "repair_certificate"):
@@ -296,3 +297,12 @@ def test_the_choice_dialog_names_both_actions_and_cancel(qtbot: QtBot) -> None:
     assert sorted(texts) == sorted(["Cancel", "Do the other", "Do it"])
     dialog.secondary.click()
     assert dialog.choice == "secondary"
+
+
+def test_roblox_asking_for_no_assets_offers_apply_now(
+    launching: Shell, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    applied: list[bool] = []
+    monkeypatch.setattr(Shell, "apply_now", lambda _self, **_kw: applied.append(True))
+    launching.window.header.popover.fix_requested.emit("apply_now")
+    assert applied == [True]

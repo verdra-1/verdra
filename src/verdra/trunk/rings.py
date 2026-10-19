@@ -416,6 +416,12 @@ class BundleSources:
     settings_file: Path
     ledger_file: Path
     profiles_dir: Path
+    #: The reason shown with the status when the bundle was saved ("" when there is none).
+    routing_reason: str = ""
+    #: The last Degraded or Error status of this session, with its time and reason.
+    last_problem: str = ""
+    #: What `routing.mode` says; `routing_mode` is the mode routing actually uses.
+    routing_mode_setting: str = ""
 
 
 def export_support_bundle(
@@ -439,7 +445,10 @@ def export_support_bundle(
         "architecture": platform.machine(),
         "python": platform.python_version(),
         "routing_mode": sources.routing_mode,
+        "routing_mode_setting": sources.routing_mode_setting,
         "routing_status": sources.routing_status,
+        "routing_reason": sources.routing_reason,
+        "last_problem": sources.last_problem,
         "created": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     buffer = io.BytesIO()
@@ -555,11 +564,31 @@ def default_bundle_path() -> Path:
     return terrain.exports_dir() / bundle_file_name()
 
 
-def bundle_sources(settings: Any, routing_status: str = "Idle") -> BundleSources:
-    """Return what goes into a support bundle besides the logs, from the current settings."""
+#: The only routing mode built so far: Hosts-file mode comes with the keeper (M6), and until then
+#: routing is per app whatever `routing.mode` says (retest (g), 16 October 2026: the bundle said
+#: "hosts_file" for a session that routed per app).
+ROUTING_MODE_IN_USE = "per_app"
+
+
+def bundle_sources(settings: Any, status: Any = None) -> BundleSources:
+    """Return what goes into a support bundle besides the logs: the current settings and the
+    routing status as it is right now (`status`, roots/gardener's RoutingStatusSource).
+
+    Retest (g), 16 October 2026: the bundle said "Idle" while the window showed Degraded.
+    """
+    current = getattr(status, "current", None)
+    state = getattr(getattr(current, "state", None), "value", "idle")
+    problem = getattr(status, "last_problem", None)
+    last = ""
+    if problem is not None:
+        shown, when = problem
+        last = f"{when.isoformat(timespec='seconds')} {shown.state.value}: {shown.reason}"
     return BundleSources(
-        routing_mode=str(settings.value("routing.mode")),
-        routing_status=routing_status,
+        routing_mode=ROUTING_MODE_IN_USE,
+        routing_mode_setting=str(settings.value("routing.mode")),
+        routing_status=str(state).capitalize(),
+        routing_reason=str(getattr(current, "reason", "")),
+        last_problem=last,
         settings_file=settings.path,
         ledger_file=terrain.config_dir() / terrain.LEDGER_FILE,
         profiles_dir=terrain.config_dir() / "profiles",

@@ -232,7 +232,7 @@ class ActivityScreen(QWidget):
         """Write the support bundle to `target` as a background job and return the job."""
         assert self.services is not None  # noqa: S101 - only called with services
         services = self.services
-        sources = rings.bundle_sources(services.settings)
+        sources = rings.bundle_sources(services.settings, services.routing)
         job = services.tendrils.submit(
             QCoreApplication.translate("Activity", "Exporting the support bundle"),
             lambda _handle: rings.export_support_bundle(

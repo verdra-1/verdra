@@ -245,27 +245,64 @@ def test_the_router_reports_an_unreadable_batch_from_any_thread(
     router.deleteLater()
 
 
-def test_with_replacements_a_launch_without_a_decrypted_request_is_degraded_after_a_minute(
+def test_with_replacements_and_no_connection_at_all_roblox_isnt_reaching_verdra(
     source: RoutingStatusSource, clock: FakeClock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    # M2 final test (g), 15 October 2026: Roblox connected, nothing was replaced, and the
-    # status said Routing the whole time.
+    source.started()
+    source.launched(intercepting=True)
+    with caplog.at_level(logging.WARNING, logger=gardener.__name__):
+        clock.advance(gardener.INTERCEPT_WINDOW_SECONDS + 0.1)
+    assert source.current.state is State.DEGRADED
+    assert source.current.trigger is Trigger.NOT_REACHING
+    assert source.current.reason == gardener.not_reaching_text()
+    assert source.current.reason.startswith("Roblox isn't reaching Verdra: nothing from it")
+    # Already Degraded (a) since 20 s: one Activity line per state change (S-14 rule 2).
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    source.request_seen()
+    assert source.current.trigger is Trigger.NOT_ROUTED  # no connection yet: (a) stays
+
+
+def test_with_connections_but_no_asset_request_it_says_so_not_isnt_reaching(
+    source: RoutingStatusSource, clock: FakeClock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Retest (g), 16 October 2026: 46 connections came through, no asset request, and the
+    status said "Roblox isn't reaching Verdra"."""
     source.started()
     source.launched(intercepting=True)
     clock.advance(5)
-    source.traffic_seen()  # CONNECTs alone don't count
+    source.traffic_seen()
     with caplog.at_level(logging.WARNING, logger=gardener.__name__):
         clock.advance(gardener.INTERCEPT_WINDOW_SECONDS - 5.1)
         assert source.current.state is State.ROUTING
         clock.advance(0.2)
     assert source.current.state is State.DEGRADED
-    assert source.current.trigger is Trigger.NOT_REACHING
-    assert source.current.reason == gardener.not_reaching_text()
-    assert source.current.reason.startswith("Roblox isn't reaching Verdra: ")
+    assert source.current.trigger is Trigger.NO_ASSET_REQUESTS
+    assert source.current.reason == gardener.no_asset_requests_text()
+    assert "isn't reaching" not in source.current.reason
     assert [r.levelno for r in caplog.records] == [logging.WARNING]
-    assert gardener.not_reaching_text() in caplog.records[0].getMessage()
+    assert gardener.no_asset_requests_text() in caplog.records[0].getMessage()
     source.request_seen()
     assert source.current.state is State.ROUTING
+    # A new launch starts counting connections again.
+    source.launched(intercepting=True)
+    clock.advance(gardener.INTERCEPT_WINDOW_SECONDS + 0.1)
+    assert source.current.trigger is Trigger.NOT_REACHING
+
+
+def test_the_last_problem_is_kept_after_the_status_recovers(
+    source: RoutingStatusSource, clock: FakeClock
+) -> None:
+    """Retest (g): the support bundle said Idle while the window showed Degraded."""
+    assert source.last_problem is None
+    source.started()
+    source.launched(intercepting=True)
+    source.traffic_seen()
+    clock.advance(gardener.INTERCEPT_WINDOW_SECONDS + 0.1)
+    source.stopped()
+    assert source.current.state is State.IDLE
+    assert source.last_problem is not None
+    problem, _when = source.last_problem
+    assert problem.trigger is Trigger.NO_ASSET_REQUESTS
 
 
 def test_a_decrypted_request_in_time_or_no_replacements_means_no_warning(
