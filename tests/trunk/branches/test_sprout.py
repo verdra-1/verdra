@@ -19,6 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import psutil
 import pytest
 from PySide6.QtCore import QLocale
 from pytestqt.qtbot import QtBot
@@ -339,9 +340,14 @@ class RoutingPlatform(FakePlatform):
         self.checked_on: list[bool] = []
         #: This user's Players and Studios, as the system lists them.
         self.processes = humus.RobloxProcesses()
+        #: Roblox's saved assets (W-06) that exist now; none unless a test makes some.
+        self.cache_files: list[Path] = []
 
     def roblox_processes(self) -> humus.RobloxProcesses:
         return self.processes
+
+    def roblox_cache_files(self) -> list[Path]:
+        return [path for path in self.cache_files if path.exists()]
 
     def hosts_file(self) -> Path:
         return self.hosts
@@ -1506,3 +1512,151 @@ def test_the_control_experiment_runs_first_and_leaves_the_original_alone(
     assert set(interception.hosts()) == set(litmus.CAPTURE_HOSTS)
     made.deleteLater()
     status.deleteLater()
+
+
+class LivePlatform(RoutingPlatform):
+    """RoutingPlatform whose Players are real processes: one that ended isn't listed."""
+
+    def roblox_processes(self) -> humus.RobloxProcesses:
+        def alive(pid: int) -> bool:
+            try:
+                return psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+            except psutil.Error:
+                return False
+
+        players = tuple(pid for pid in self.processes.players if alive(pid))
+        return humus.RobloxProcesses(players=players, studio=self.processes.studio)
+
+
+def saved_assets(folder: Path) -> list[Path]:
+    """Roblox's saved assets in a fake `%LOCALAPPDATA%\\Roblox` (the W-06 cache names)."""
+    paths = [folder / "rbx-storage.db", folder / "rbx-storage.db-wal", folder / "rbx-storage"]
+    folder.mkdir(parents=True, exist_ok=True)
+    for path in paths[:2]:
+        path.write_bytes(b"originals")
+    paths[2].mkdir(exist_ok=True)
+    return paths
+
+
+def one_replacement() -> Any:
+    from types import MappingProxyType  # noqa: PLC0415
+
+    from verdra.roots import rules  # noqa: PLC0415
+
+    graft = rules.Graft(15553230204, None, "file", "picture.png", "P", "r")
+    return rules.GraftSnapshot(MappingProxyType({(15553230204, None): graft}))
+
+
+def test_after_closing_a_roblox_verdra_didnt_start_the_saved_assets_move_before_the_launch(
+    installed: tuple[humus.RobloxClient, Path, Path],
+    tmp_path: Path,
+    qapp: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Retest (g), 16 October 2026: a Roblox Verdra didn't start refilled the saved assets
+    after Apply now; Verdra closed it and started its own 146 ms later without moving them."""
+    from verdra.roots import gardener  # noqa: PLC0415
+
+    found, _old, _studio = installed
+    platform = LivePlatform([found])
+    platform.cache_files = saved_assets(tmp_path / "LocalAppData" / "Roblox")
+    ledger = scar.Ledger(tmp_path / "changes.json")
+    clock = FakeClock()
+    status = gardener.RoutingStatusSource(clock.schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=platform,  # type: ignore[arg-type]
+        ledger=lambda: ledger,
+        vault=lambda: husk.Husk(MemoryKeyring()),
+        clock=lambda: NOW,
+        schedule=clock.schedule,
+    )
+    monkeypatch.setattr(sprout, "cache_backup_root", lambda: tmp_path / "backups")
+    made.snapshots.publish(one_replacement())
+    made.start_routing()
+    assert made.clear_cache() is not None  # Apply now
+    assert not made.stale_assets
+    for path in platform.cache_files[:2]:
+        path.write_bytes(b"originals saved by the other Roblox")  # it refilled them
+    other = sleeper()
+    try:
+        platform.processes = humus.RobloxProcesses(players=(other.pid,))
+        link = "roblox-player:1+launchmode:play+gameinfo:x"
+        made.launch(link)
+        assert platform.launched == []  # held back: that Roblox runs
+        with caplog.at_level("INFO", logger="verdra"):
+            made.close_others()  # "Close Roblox and continue"
+            made.launch(link)
+    finally:
+        stop(other)
+        made.stop_watching()
+        made.stop_routing()
+    lines = [r.getMessage() for r in caplog.records]
+    closed = lines.index("Closed the Roblox that was running without Verdra.")
+    moved = next(i for i, line in enumerate(lines) if line.startswith("Moved Roblox's saved"))
+    started = next(i for i, line in enumerate(lines) if line.startswith("Started Roblox through"))
+    assert closed < moved < started
+    assert started == moved + 1  # "Moved…" directly before "Started Roblox through Verdra"
+    assert platform.launched == [(link, made.router.port or platform.launched[0][1])]
+    assert not any(path.exists() for path in platform.cache_files[:2])
+    made.deleteLater()
+    status.deleteLater()
+
+
+def test_a_launch_never_moves_the_saved_assets_under_a_running_roblox_and_says_so(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    made, platform, _ledger = routed
+    platform.cache_files = saved_assets(tmp_path / "LocalAppData" / "Roblox")
+    monkeypatch.setattr(sprout, "cache_backup_root", lambda: tmp_path / "backups")
+    made.snapshots.publish(one_replacement())
+    made.start_routing()
+    platform.processes = humus.RobloxProcesses(studio=(4343,))
+    with caplog.at_level("INFO", logger="verdra"):
+        made.launch("roblox-player:1")
+    assert all(path.exists() for path in platform.cache_files)
+    assert (
+        "Verdra couldn't move Roblox's saved assets aside before starting Roblox, because "
+        "Roblox Studio is still running, so the game may show the originals."
+    ) in caplog.text
+    assert made.stale_assets  # the next launch tries again
+    made.stop_watching()
+
+
+def test_without_replacements_a_launch_moves_nothing(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    made, platform, _ledger = routed
+    platform.cache_files = saved_assets(tmp_path / "LocalAppData" / "Roblox")
+    monkeypatch.setattr(sprout, "cache_backup_root", lambda: tmp_path / "backups")
+    made.launch("roblox-player:1")
+    assert all(path.exists() for path in platform.cache_files)
+    made.stop_watching()
+
+
+def test_while_routing_a_roblox_verdra_didnt_start_shows_as_soon_as_it_appears(
+    routed: tuple[sprout.Sprout, RoutingPlatform, scar.Ledger],
+    routing_clock: FakeClock,
+) -> None:
+    """Retest (g): one ran between Apply now and Play, and nothing said so until Play."""
+    made, platform, _ledger = routed
+    made.start_routing()
+    made.stale_assets = False  # as after Apply now
+    assert made.status.current.state.value == "routing"
+    platform.processes = humus.RobloxProcesses(players=(4242,))  # started from elsewhere
+    routing_clock.advance(made.OTHERS_WATCH_SECONDS)
+    assert made.status.current.state.value == "degraded"
+    assert made.status.current.reason.startswith("Roblox is already running without Verdra")
+    assert made.stale_assets  # what it saves may be the originals
+    platform.processes = humus.RobloxProcesses()
+    routing_clock.advance(made.OTHERS_WATCH_SECONDS)
+    assert made.status.current.state.value == "routing"
+    made.stop_routing()
+    assert not [e for e in routing_clock.pending if e[1] == made._watch_tick]  # noqa: SLF001

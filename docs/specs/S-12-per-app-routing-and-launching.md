@@ -163,7 +163,10 @@ Start Roblox through Verdra on every platform without administrator rights.
     ("AccessDenied", seen on the maintainer's PC for a Player Verdra didn't start), the record
     alone decides. Nothing else is ever tried to look inside a Roblox process.
   - Such a Player shows a banner on every screen (Replacements included) and the routing status
-    Degraded (e) (S-14) with M-LAUNCH-08, looked at again every 3 s until it closes.
+    Degraded (e) (S-14) with M-LAUNCH-08, looked at again every 3 s until it closes. While
+    routing runs, Verdra looks every 3 s whether one has appeared, so the status turns
+    Degraded as soon as it starts, not only at the next launch (added 19 October 2026, retest
+    (g)); its saved assets then count as possibly holding originals (S-24 rule 6).
   - A launch (a join from the browser included) waits and asks (M-LAUNCH-17). "Close Roblox and
     continue" closes it (rule 4's exception) and then launches; "Continue anyway" launches as
     before.

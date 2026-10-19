@@ -538,6 +538,8 @@ class Sprout(QObject):
     others_changed = Signal(bool)
     held_back = Signal(str)
     handed_off = Signal(str)
+    #: Roblox's saved assets were moved aside right before a launch (fix A of retest (g)).
+    assets_moved = Signal(object)
 
     #: How often Verdra looks again while a Player it didn't start runs, until it closes.
     OTHERS_WATCH_SECONDS = 3.0
@@ -601,6 +603,11 @@ class Sprout(QObject):
         self._last: tuple[str | None, bool] = (None, False)
         #: The last join Verdra started Roblox with, and when (to drop a repeat of it).
         self._last_join: tuple[str, datetime] | None = None
+        #: Whether Roblox's saved assets may hold originals that replacements should change:
+        #: a Player Verdra didn't start ran, Apply now couldn't move them, or Verdra just
+        #: started and can't know what ran while it was closed. The next launch through Verdra
+        #: moves them aside first (retest (g), 16 October 2026).
+        self.stale_assets = True
 
     @property
     def routing(self) -> bool:
@@ -755,6 +762,7 @@ class Sprout(QObject):
     def _launch_now(self, link: str | None) -> None:
         """Start the Player and say what happened (M-LAUNCH-12, M-LAUNCH-13)."""
         assert self.client is not None and self.router.port is not None  # noqa: S101 - running
+        moved = self._refresh_saved_assets()
         try:
             pid = self.launches.launch(self.client, link, self.router.port)
         except OSError as error:
@@ -773,6 +781,8 @@ class Sprout(QObject):
                 "M-LAUNCH-13", "Started Roblox through Verdra (process {pid})."
             ).format(pid=pid),
         )
+        if moved is not None:
+            self._prune(moved.backup)  # after "Started…", which follows "Moved…" directly
         if link:
             self._last_join = (link, self.clock())
         self.status.launched(intercepting=bool(self.snapshots.current.hosts()))
@@ -855,10 +865,13 @@ class Sprout(QObject):
     def refresh_others(self) -> frozenset[int]:
         """Look again for Players Verdra didn't start; update the status and `others_changed`.
 
-        While one runs, Verdra looks again every few seconds, so the status and the banner go
-        away by themselves once it is closed.
+        While routing, and while one runs, Verdra looks again every few seconds: one that
+        appears turns the status Degraded at once (retest (g), 16 October 2026), and the status
+        and the banner go away by themselves once it is closed.
         """
         others = self.other_players()
+        if others:
+            self.stale_assets = True  # it may have saved the originals Verdra moved aside
         if bool(others) != bool(self.others):
             if others:
                 self.status.other_player(other_player_text())
@@ -870,7 +883,8 @@ class Sprout(QObject):
         if self._watch is not None:
             self._watch()
             self._watch = None
-        if others:
+        if others or self.routing:
+            # While routing, one that appears shows at once, not only at the next launch.
             self._watch = self._schedule(self.OTHERS_WATCH_SECONDS, self._watch_tick)
         return others
 
@@ -941,6 +955,7 @@ class Sprout(QObject):
             self,
         )
         self.watch.missing.connect(self._certificate_missing)
+        self.refresh_others()  # and every few seconds while routing
         return None
 
     def repair_certificate(self) -> None:
@@ -970,6 +985,9 @@ class Sprout(QObject):
             self.watch.deleteLater()
             self.watch = None
         self.router.stop()
+        if self._watch is not None and not self.others:
+            self._watch()
+            self._watch = None
 
     def restart_roblox(self) -> None:
         """Close the Roblox Verdra launched and start it again through Verdra (S-24)."""
@@ -1015,9 +1033,54 @@ class Sprout(QObject):
                 ).format(reason=error.strerror or type(error).__name__),
             )
             return None
+        self.stale_assets = False
         if moved is not None:
             log.info("%s", cache_moved_text(moved))
             self._prune(moved.backup)
+        return moved
+
+    def _refresh_saved_assets(self) -> CacheMove | None:
+        """Before a launch: move Roblox's saved assets aside again if they may hold originals.
+
+        Retest (g), 16 October 2026: a Roblox Verdra didn't start ran after Apply now, Verdra
+        closed it and started its own 146 ms later, and that one loaded everything from what
+        the other had saved. The same rules as Apply now: only with replacements on, only while
+        no Player or Studio runs, by move, in the ledger first. "Moved…" is logged before
+        "Started Roblox through Verdra".
+        """
+        if not self.stale_assets or not self.snapshots.current.grafts:
+            return None
+        try:
+            moved = move_cache(self.platform, self.ledger(), self.clock())
+        except RobloxRunningError as error:
+            what = (
+                QCoreApplication.translate("M-CACHE-12", "Roblox Studio")
+                if error.processes.studio
+                else QCoreApplication.translate("M-CACHE-12", "another Roblox")
+            )
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-CACHE-12",
+                    "Verdra couldn't move Roblox's saved assets aside before starting Roblox, "
+                    "because {what} is still running, so the game may show the originals.",
+                ).format(what=what),
+            )
+            return None
+        except OSError as error:
+            log.warning(
+                "%s",
+                QCoreApplication.translate(
+                    "M-CACHE-04",
+                    "Verdra couldn't move Roblox's saved assets aside ({reason}). Nothing was "
+                    "changed.",
+                ).format(reason=error.strerror or type(error).__name__),
+            )
+            return None
+        self.stale_assets = False
+        if moved is not None:
+            log.info("%s", cache_moved_text(moved))
+            self.assets_moved.emit(moved)
         return moved
 
     def delete_backups(self) -> None:
