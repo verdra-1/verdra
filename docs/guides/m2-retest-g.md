@@ -30,10 +30,12 @@ record 0026).
    and remove the others (select, **Remove**), or untick profiles you don't need. On 16 October
    the first try used a file that had moved: check that `verdra-test-1600x900.png` is where the
    row says.
-3. **"Moved…" directly before "Started Roblox through Verdra":** in Activity, the line
-   "Moved Roblox's saved assets…" must come right before "Started Roblox through Verdra
-   (process …)". If anything else is between them, or "Moved…" is missing, stop and send what
-   you have.
+3. **"Moved…" before "Started Roblox through Verdra", with no other Roblox in between:** in
+   Activity, the last "Moved Roblox's saved assets…" line comes before "Started Roblox through
+   Verdra (process …)", and no line between them says "Roblox is already running without
+   Verdra". Between them you may see "Applied 1 replacement…". If Verdra had to close another
+   Roblox first, it moves the saved assets again: then "Moved…" comes directly before
+   "Started…". If "Moved…" is missing, stop and send what you have.
 
 ## Steps
 
@@ -52,8 +54,8 @@ record 0026).
 8. Start the game from the **Roblox website** (the green Play button), not from the Roblox app,
    so the join goes through Verdra. If Verdra asks "Roblox is already running without Verdra",
    click **Close Roblox and continue**.
-9. In Activity, check the checklist's point 3: "Moved…", then directly "Started Roblox through
-   Verdra". Take a screenshot of Activity.
+9. In Activity, check the checklist's point 3: "Moved…", then "Started Roblox through Verdra",
+   with no other Roblox in between. Take a screenshot of Activity.
 10. In the game, take a screenshot of the wall (Win+Alt+PrtScn). Expected: the 1600 × 900
     picture.
 11. Wait one minute in the game, then look at the status at the top right of Verdra's window.
