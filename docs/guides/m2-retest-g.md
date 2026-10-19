@@ -57,7 +57,7 @@ record 0026).
 10. In the game, take a screenshot of the wall (Win+Alt+PrtScn). Expected: the 1600 × 900
     picture.
 11. Wait one minute in the game, then look at the status at the top right of Verdra's window.
-    If it says **Degraded** or "Needs you", click it, take a screenshot of the message, click
+    If it says **Degraded**, click it, take a screenshot of the message, click
     its button if it is **Save a support bundle…**, and save the file.
 12. While you're still in the game, look in Task Manager: which Roblox entries are running?
     Write their names down (only the names).
