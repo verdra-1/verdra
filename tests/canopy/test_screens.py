@@ -566,3 +566,23 @@ def test_a_choice_is_answered_once_in_activity(
         "Dialog answered with its action: Roblox is already running without Verdra"
     ]
     assert dialog.choice == "primary"
+
+
+def test_hosts_file_mode_cant_be_picked_before_it_is_built(
+    services: Services, qtbot: QtBot
+) -> None:
+    """Retest (g), 16 October 2026: Settings said Hosts file while routing ran per app."""
+    from PySide6.QtGui import QStandardItemModel  # noqa: PLC0415
+    from PySide6.QtWidgets import QComboBox  # noqa: PLC0415
+
+    services.settings.set("routing.mode", "hosts_file")
+    screen = SettingsScreen(services.settings)
+    qtbot.addWidget(screen)
+    combo = screen.controls["routing.mode"]
+    assert isinstance(combo, QComboBox)
+    assert combo.currentData() == "per_app"  # what routing really uses
+    model = combo.model()
+    assert isinstance(model, QStandardItemModel)
+    hosts = model.item(combo.findData("hosts_file"))
+    assert not hosts.isEnabled()
+    assert hosts.toolTip() == soon()
