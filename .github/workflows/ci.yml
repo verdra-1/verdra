@@ -177,6 +177,19 @@ jobs:
           path: .coverage.${{ matrix.runner }}
           include-hidden-files: true
           if-no-files-found: error
+      - name: Design gallery and law 1 (report only until D3; decision record 0027)
+        # Every screen, dialog and status of today's app at text scale 100, 115, 150 and 200 %,
+        # light and dark, the smallest and the default window, and the pseudo-language;
+        # law1.md lists every text that doesn't fit. Report only: today's app fails it (D1).
+        if: ${{ always() }}
+        run: uv run python tools/gallery.py gallery
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: design-gallery-${{ matrix.runner }}
+          path: gallery
+          retention-days: 14
+          if-no-files-found: error
 
   coverage:
     name: Coverage (combined)

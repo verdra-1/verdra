@@ -5,6 +5,10 @@
 - [Decision record 0027](../decisions/0027-design-direction.md): the direction (Herbarium for
   light, Night garden for dark), the status words and status leaf, notifications, the wordmark
   and the approved extras (19 October 2026).
+- [D1 audit](d1-audit.md): today's app against the laws, from the screenshot gallery
+  (`tools/gallery.py`, CI artifact "design-gallery-windows-latest").
+- [Per-game profiles: the two technical checks](per-game-profiles-investigation.md) (decision
+  0027, decision 11; investigation only).
 - [Editor 2.0](editor-2.md): the owner's design of the replacement editor (phase A specs S-25 to
   S-27).
 
