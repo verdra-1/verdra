@@ -1242,6 +1242,13 @@
     </message>
 </context>
 <context>
+    <name>M-PROXY-07</name>
+    <message>
+        <source>A secure connection from Roblox to {host} ended before Roblox asked for anything ({reason}).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-RESET-03</name>
     <message>
         <source>Remove everything Verdra changed on this computer?</source>
@@ -1596,7 +1603,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Roblox isn&apos;t reaching Verdra: no picture, mesh or sound request came through in the minute after it started, so replacements can&apos;t apply. Save a support bundle and send it with your report.</source>
+        <source>Roblox isn&apos;t reaching Verdra: nothing from it came through in the minute after it started, so replacements can&apos;t apply. Save a support bundle and send it with your report.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-STATUS-09</name>
+    <message>
+        <source>Roblox is going through Verdra but hasn&apos;t asked for any pictures, meshes or sounds since it started. It&apos;s probably using copies it saved earlier. Click Apply now to restart it with your replacements.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

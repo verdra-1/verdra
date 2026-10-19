@@ -133,18 +133,26 @@ class Mycelium:
         task = asyncio.current_task()
         if task is not None:
             self._tasks.add(task)
+        #: The CONNECT target once read, so a line about the connection can name its host.
+        where: list[str] = []
         try:
-            await self._serve(reader, writer)
+            await self._serve(reader, writer, where)
         except (OSError, asyncio.IncompleteReadError, TimeoutError) as error:
             # A connection ending is normal; why it ended is still worth a line when looking.
-            log.debug("A proxy connection ended: %s", type(error).__name__)
+            log.debug(
+                "A proxy connection to %s ended: %s",
+                where[0] if where else "a host not read yet",
+                type(error).__name__,
+            )
         finally:
             self.active -= 1
             if task is not None:
                 self._tasks.discard(task)
             await _close(writer)
 
-    async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _serve(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, where: list[str]
+    ) -> None:
         head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=self.idle_timeout)
         if len(head) > MAX_HEAD_BYTES:
             return
@@ -154,12 +162,14 @@ class Mycelium:
             await writer.drain()
             return
         host, port = target
+        where.append(f"{host}:{port}")
         if self.on_connect is not None:
             try:
                 self.on_connect(host, port)
             except Exception as error:  # noqa: BLE001 - an observer never breaks a connection
                 log.debug("The connect observer failed: %s", type(error).__name__)
         if self.interceptor is not None and self.interceptor.wants(host, port):
+            log.debug("Intercepting a connection to %s:%d", host, port)
             writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
             await writer.drain()
             await self.interceptor.serve(host, port, reader, writer)

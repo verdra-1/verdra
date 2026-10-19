@@ -86,6 +86,12 @@ untouched.
 - M-PROXY-06 (Activity, added 15 October 2026) "Roblox couldn't open a secure connection to
   Verdra for <host> (<reason>), so it can't download pictures, meshes or sounds from there."
   Once per host; later failures for that host at Debug.
+- M-PROXY-07 (Activity, added 19 October 2026) "A secure connection from Roblox to <host> ended
+  before Roblox asked for anything (<reason>)." <reason> is the error's type name. Warning once
+  per host, Debug after that. A clean close before any request is a Debug line only. Every
+  intercepted CONNECT also gets a Debug line ("Intercepting a connection to <host>:<port>"),
+  and a connection that ends with an error names its host:port at Debug (retest (g),
+  16 October 2026: the log couldn't tell a broken asset connection from none).
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
 - M-DIAG-02 (Activity, new) "Diagnostic interception, <host> (<where>): <version>, <cipher>,

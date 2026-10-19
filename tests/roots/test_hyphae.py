@@ -8,7 +8,9 @@ import asyncio
 import gzip
 import json
 import logging
+import socket
 import ssl
+import struct
 import zlib
 from collections.abc import Awaitable, Callable
 from compression import zstd
@@ -697,3 +699,55 @@ def test_each_decrypted_request_is_reported_to_the_status(tmp_path: Path) -> Non
 
     run(body)
     assert reports == [("request", server.host)] * 2
+
+
+def test_a_connection_reset_before_its_first_request_is_a_warning_naming_the_host(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Retest (g), 16 October 2026: one "A proxy connection ended: ConnectionResetError" at
+    Debug, with no host, was all the log had; it couldn't say whether assets broke there."""
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+
+    async def reset(proxy: Proxy) -> None:
+        client = await proxy.connect()
+        raw = client.writer.get_extra_info("socket")
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        client.writer.transport.abort()  # a reset, not a clean close
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            await reset(proxy)
+            await asyncio.sleep(0.3)
+            await reset(proxy)
+            await asyncio.sleep(0.3)
+
+    run(body)
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == [
+        f"A secure connection from Roblox to {server.host} ended before Roblox asked for "
+        "anything (ConnectionResetError)."
+    ]
+    assert any("ended again before its first request" in r.getMessage() for r in caplog.records)
+
+
+def test_a_clean_close_before_any_request_is_only_a_debug_line(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect()
+            client.writer.close()
+            await asyncio.sleep(0.3)
+
+    run(body)
+    assert not [
+        r for r in caplog.records if r.levelno >= logging.WARNING and r.name.startswith("verdra")
+    ]
+    assert any(
+        f"closed a secure connection to {server.host} before its first request" in r.getMessage()
+        for r in caplog.records
+    )
