@@ -170,10 +170,15 @@ class Dew(QObject):
         action: tuple[str, Callable[[], None]] | None = None,
         *,
         progress: bool = False,
+        logged: bool = False,
     ) -> Toast:
-        """Show a toast and write it to Activity."""
-        level = {Kind.ERROR: logging.ERROR, Kind.WARNING: logging.WARNING}.get(kind, logging.INFO)
-        log.log(level, "%s", text)
+        """Show a toast and write it to Activity, unless `logged` says it is already there
+        (retest (g), 16 October 2026: every "Moved…" line showed twice)."""
+        if not logged:
+            level = {Kind.ERROR: logging.ERROR, Kind.WARNING: logging.WARNING}.get(
+                kind, logging.INFO
+            )
+            log.log(level, "%s", text)
         toast = Toast(text, kind, action, progress=progress, parent=self.host)
         toast.closed.connect(lambda: self._remove(toast))
         while len(self.toasts) >= MAX_TOASTS:

@@ -17,7 +17,10 @@ Make changes visible in game in one click.
 1. Save pending edits.
 2. Publish a new rule snapshot (S-21).
 3. If routing is off, start it.
-4. If Roblox is running, confirm (M-LAUNCH-03), ask it to close, and end it after 5 s.
+4. If Roblox is running, nothing is closed or moved: one toast says "Saved…" (M-APPLY-08) with
+   the button "Restart Roblox" (M-LAUNCH-03), which asks it to close, ends it after 5 s and
+   goes on with steps 5 and 6 (changed 19 October 2026, retest (g): no dialog, nothing moved
+   under a running Roblox).
 5. Clear Roblox's asset cache (S-12 cache clearing).
 6. Relaunch through Verdra into the same game if Verdra knows it (from the last join),
    otherwise to Roblox's start screen.
@@ -31,7 +34,11 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
    instances.
 2. If routing is off, Apply now starts it first; a refusal (S-12, S-15) stops Apply now with
    that refusal's message, and the snapshot stays published.
-3. Canceling M-LAUNCH-03 publishes the snapshot but doesn't restart Roblox, and says M-APPLY-02.
+3. Without "Restart Roblox", the snapshot is published and Roblox keeps running; the next launch
+   through Verdra moves the saved assets aside first (rule 6). While a Player Verdra didn't
+   start runs, Apply now shows one toast and nothing else (M-APPLY-09): its button "Close that
+   Roblox" closes that Player (M-LAUNCH-10's exception of S-12) and moves the saved assets
+   aside, and does nothing more. "Applied <n> replacements" never shows beside it.
 4. Cache clearing **moves**, never deletes, only the files recorded as cache in
    `docs/platforms/<os>.md` (W-06), into a new folder under Verdra's
    `Roblox cache backup` folder, records the move in the ledger first (kind
@@ -75,6 +82,11 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   stayed), or "No replacements are on, so Roblox shows the original assets." (no restart).
   Restarting still matters then: replacements applied before go away, and a format capture
   (source runs) sees fresh downloads.
+- M-APPLY-08 (Toast, added 19 October 2026, wording for the owner's review) "Saved. Close Roblox,
+  then join again through Verdra to see the change." Button "Restart Roblox" (M-LAUNCH-03).
+- M-APPLY-09 (Toast, added 19 October 2026, wording for the owner's review) "Saved, but your
+  replacements won't show until the Roblox running without Verdra is closed." Button "Close
+  that Roblox".
 - M-APPLY-07 (Toast and Activity, new 2026-10-12) "Apply now is still restarting Roblox. Try
   again in a moment." Apply now ignores clicks for 10 seconds after it restarted Roblox.
 - M-CACHE-01 (Toast and Activity, new) "Moved Roblox's saved assets (<names>) to <folder>. Reset
@@ -94,8 +106,8 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 - M-CACHE-09 (Settings, new) "Backups of Roblox's saved assets use <size>."
 - M-CACHE-10 (Settings, new) "There are no backups of Roblox's saved assets."
 - M-CACHE-12 (Activity, added 19 October 2026) "Verdra couldn't move Roblox's saved assets aside
-  before starting Roblox, because <Roblox Studio | another Roblox> is still running, so the
-  game may show the originals."
+  before starting Roblox, because <what> is still running, so the game may show the originals."
+  <what> is "Roblox Studio" or "another Roblox".
 - M-CACHE-11 (Dialog, new) "Delete the backups of Roblox's saved assets?" Button "Delete
   backups". Body "Reset everything can't put them back after this. Roblox downloads what it
   needs again."
@@ -106,7 +118,8 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 1. The full flow with a fake client completes within the 10 s budget.
 2. No process other than the Roblox client Verdra launched is ended.
 3. With Roblox not running, the snapshot is published and M-APPLY-02 shows; nothing is closed.
-4. Canceling M-LAUNCH-03 publishes the snapshot and closes nothing.
+4. With Verdra's own Player running, Apply now publishes, closes and moves nothing, and shows
+   M-APPLY-08; its "Restart Roblox" closes that Player, moves the cache and launches.
 5. The relaunch goes to the last joined game when Verdra knows it, and to the start screen
    otherwise.
 6. Restarting Roblox (closing the Player Verdra started and starting it again) deletes and

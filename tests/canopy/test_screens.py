@@ -548,3 +548,21 @@ def test_every_system_change_kind_has_a_plain_name(qapp: QApplication) -> None:
 
     assert set(kind_names()) == set(get_args(scar.Kind))
     assert all(name and "_" not in name for name in kind_names().values())
+
+
+def test_a_choice_is_answered_once_in_activity(
+    qtbot: QtBot, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Retest (g), 16 October 2026: "Dialog answered with its action" was written twice."""
+    from verdra.canopy.leaves.dialogs import Choice  # noqa: PLC0415
+
+    dialog = Choice("Roblox is already running without Verdra", "Body.", "Close", "Continue")
+    qtbot.addWidget(dialog)
+    with caplog.at_level("DEBUG", logger="verdra"):
+        dialog.show()
+        dialog.confirm.click()
+    answered = [r for r in caplog.records if r.getMessage().startswith("Dialog answered")]
+    assert [r.getMessage() for r in answered] == [
+        "Dialog answered with its action: Roblox is already running without Verdra"
+    ]
+    assert dialog.choice == "primary"

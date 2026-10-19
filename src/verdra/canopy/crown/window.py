@@ -347,6 +347,7 @@ class Shell:
             services.sprout.others_changed.connect(self.show_others)
             services.sprout.held_back.connect(self.ask_about_others)
             services.sprout.handed_off.connect(self.show_handed_off)
+            services.sprout.assets_moved.connect(self._show_moved)
             popover = self.window.header.popover
             popover.set_handled(
                 {
@@ -665,30 +666,43 @@ class Shell:
         running = sprout.roblox_processes()
         others = sprout.refresh_others()
         ours = sprout.players_started_here()
-        clear = self._cache_can_move(running, others)
-        if ours:
-            self._restart_roblox(sprout, count, clear=clear)
+        if not self._cache_can_move(running, others, count):
+            sprout.stale_assets = True  # the next launch through Verdra moves them (S-24 rule 6)
+        elif ours:
+            self._saved_while_playing(sprout, count)
             return
-        moved = sprout.clear_cache() if clear else None
-        self._show_moved(moved)
+        else:
+            self._show_moved(sprout.clear_cache())
+            self.window.dew.show(self._next_time(count))
         if not sprout.routing:
             sprout.start_routing()  # S-24 rule 2
-        self.window.dew.show(self._next_time(count))
 
-    def _restart_roblox(self, sprout: Sprout, count: int, *, clear: bool) -> None:
-        """M-LAUNCH-03: close Verdra's Player, move the cache, start it again (S-24 rule 3)."""
-        dialog = DestructiveConfirmation(
+    def _saved_while_playing(self, sprout: Sprout, count: int) -> None:
+        """M-APPLY-08: Verdra's own Roblox runs; nothing moves under it (retest (g)).
+
+        One toast with "Restart Roblox" (M-LAUNCH-03): the restart closes it, moves the saved
+        assets aside and starts it again. Without it, the next launch through Verdra moves them.
+        """
+        sprout.stale_assets = True
+        self.window.dew.show(
             QCoreApplication.translate(
-                "M-LAUNCH-03", "Restart Roblox now? Unsaved progress in your game may be lost."
+                "M-APPLY-08",
+                "Saved. Close Roblox, then join again through Verdra to see the change.",
             ),
-            QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
-            parent=self.window,
+            Kind.INFO,
+            (
+                QCoreApplication.translate("M-LAUNCH-03", "Restart Roblox"),
+                lambda: self._restart_roblox(sprout, count),
+            ),
         )
-        if dialog.exec() != DestructiveConfirmation.DialogCode.Accepted:
-            self.window.dew.show(self._next_time(count))  # S-24 rule 3
+
+    def _restart_roblox(self, sprout: Sprout, count: int) -> None:
+        """M-LAUNCH-03: close Verdra's Player, move the cache, start it again (S-24 rule 3)."""
+        if self.monotonic() < self.apply_busy_until:
+            self.window.dew.show(ApplyText().busy())
             return
         sprout.close_roblox()
-        moved = sprout.clear_cache() if clear else None
+        moved = sprout.clear_cache()
         self._show_moved(moved)
         sprout.launch()
         self.apply_busy_until = self.monotonic() + APPLY_COOLDOWN_SECONDS
@@ -733,9 +747,27 @@ class Shell:
             grafts.settled.disconnect(self._downloads_settled)
         toast.dismiss()
 
-    def _cache_can_move(self, running: RunningRoblox | None, others: frozenset[int]) -> bool:
-        """Whether nothing but Verdra's own Players runs; else say why the cache stays."""
+    def _cache_can_move(
+        self, running: RunningRoblox | None, others: frozenset[int], count: int
+    ) -> bool:
+        """Whether nothing but Verdra's own Players runs; else say why, in one toast (F of
+        retest (g): "Applied 1 replacement" beside the warning, and three dialogs to close)."""
         if running is None:
+            self.window.dew.show(self._next_time(count))
+            return False
+        if others and count:
+            self.window.dew.show(
+                QCoreApplication.translate(
+                    "M-APPLY-09",
+                    "Saved, but your replacements won't show until the Roblox running without "
+                    "Verdra is closed.",
+                ),
+                Kind.WARNING,
+                (
+                    QCoreApplication.translate("M-APPLY-09", "Close that Roblox"),
+                    self._close_others_and_move,
+                ),
+            )
             return False
         if running.studio:
             self.window.dew.show(
@@ -759,9 +791,21 @@ class Shell:
             return False
         return True
 
+    def _close_others_and_move(self) -> None:
+        """M-APPLY-09's button: close the Roblox running without Verdra, move the saved assets
+        aside, and nothing else (no launch, no other dialog)."""
+        sprout = self.services.sprout
+        if sprout is None:
+            return
+        sprout.close_others()
+        if sprout.others:
+            return  # M-LAUNCH-16 says why; the banner stays
+        self._show_moved(sprout.clear_cache())
+
     def _show_moved(self, moved: CacheMove | None) -> None:
+        """Show "Moved…" (Sprout already wrote it to Activity: one event, one line)."""
         if moved is not None:
-            self.window.dew.show(cache_moved_text(moved))
+            self.window.dew.show(cache_moved_text(moved), logged=True)
 
     def show_error(self) -> None:
         """M-ERR-01: an unhandled error was logged; say so, with a way to the details."""

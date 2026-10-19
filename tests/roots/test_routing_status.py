@@ -293,7 +293,8 @@ def test_the_last_problem_is_kept_after_the_status_recovers(
     source: RoutingStatusSource, clock: FakeClock
 ) -> None:
     """Retest (g): the support bundle said Idle while the window showed Degraded."""
-    assert source.last_problem is None
+    fresh = source.last_problem
+    assert fresh is None
     source.started()
     source.launched(intercepting=True)
     source.traffic_seen()
