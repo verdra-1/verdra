@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt
-from PySide6.QtGui import QShowEvent
+from PySide6.QtGui import QShowEvent, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -64,6 +64,8 @@ class Row:
     maximum: int = 0
     caption: str = ""
     unavailable: str = ""  # a reason the control is disabled for now
+    #: Choices shown but not built yet (disabled, with M-SOON-01 as their tooltip).
+    unavailable_choices: tuple[Any, ...] = ()
     visible_when: tuple[str, tuple[Any, ...]] | None = None
 
 
@@ -179,6 +181,9 @@ def groups() -> list[tuple[str, str, list[Row]]]:
                             ),
                         ),
                     ),
+                    # Hosts-file mode comes with the keeper (M6); until then routing is per app
+                    # whatever this says (retest (g), 16 October 2026: it said Hosts file).
+                    unavailable_choices=("hosts_file",),
                     caption=QCoreApplication.translate("M-SET-06", "Switching restarts routing."),
                 ),
                 Row(
@@ -625,6 +630,10 @@ class SettingsScreen(QWidget):
             combo = QComboBox(parent)
             for value, text in row.choices:
                 combo.addItem(text, value)
+                if value in row.unavailable_choices:
+                    item = cast("QStandardItemModel", combo.model()).item(combo.count() - 1)
+                    item.setEnabled(False)
+                    item.setToolTip(soon())
             combo.setMinimumWidth(220)
             combo.currentIndexChanged.connect(
                 lambda index, key=row.key, box=combo: self._store(key, box.itemData(index))
@@ -863,7 +872,12 @@ class SettingsScreen(QWidget):
                 control.setChecked(bool(value))
             elif isinstance(control, QComboBox):
                 index = control.findData(value)
-                control.setCurrentIndex(max(index, 0))
+                item = (
+                    cast("QStandardItemModel", control.model()).item(index) if index >= 0 else None
+                )
+                if item is None or not item.isEnabled():
+                    index = 0  # a choice that isn't built yet: show what is in use (retest (g))
+                control.setCurrentIndex(index)
             elif isinstance(control, QSpinBox):
                 control.setValue(int(value))
             elif isinstance(control, QLineEdit):
