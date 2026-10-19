@@ -171,7 +171,7 @@ jobs:
         run: uv run pytest --cov --cov-report=json:coverage.json
       - name: Coverage floors (${{ matrix.system }})
         run: uv run python tools/coverage_floors.py coverage.json --system ${{ matrix.system }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ matrix.runner }}
           path: .coverage.${{ matrix.runner }}
@@ -183,7 +183,7 @@ jobs:
         # law1.md lists every text that doesn't fit. Report only: today's app fails it (D1).
         if: ${{ always() }}
         run: uv run python tools/gallery.py gallery
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
           name: design-gallery-${{ matrix.runner }}
