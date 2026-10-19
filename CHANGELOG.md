@@ -211,6 +211,23 @@ All notable changes to Verdra are recorded here. The format follows
 
 ### Fixed
 
+- Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
+  may have saved the original pictures since the last Apply now, so the game asks for your
+  replacements instead of using old copies. Activity shows "Moved…" right before "Started
+  Roblox through Verdra".
+- A Roblox that Verdra didn't start shows in the routing status as soon as it starts, not only
+  when you click Play.
+- When Roblox connects through Verdra but asks for no pictures, meshes or sounds, the routing
+  status says so and offers Apply now, instead of saying Roblox isn't reaching Verdra.
+- Apply now never moves Roblox's saved assets while Roblox runs. With your own Roblox running it
+  says to close Roblox and join again, with a "Restart Roblox" button; with a Roblox Verdra
+  didn't start, one message says your replacements are saved but won't show until that Roblox
+  is closed, with a "Close that Roblox" button.
+- Activity shows each "Moved…" line and each dialog answer once, logs every connection Verdra
+  decrypts, and warns, naming the server, when one breaks before Roblox asks for anything.
+- A support bundle records the routing status as it is when you save it, and the last problem.
+- Settings no longer offers Hosts-file mode, which isn't built yet.
+
 - Switching between two copies of Verdra (for example from running it from source to the
   downloaded app) no longer makes Reset everything give Roblox links to the other copy instead
   of to Roblox.
