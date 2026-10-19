@@ -18,6 +18,8 @@ dist/
 coverage.xml
 coverage.json
 htmlcov/
+# The design gallery (tools/gallery.py), which CI uploads as an artifact
+/gallery/
 
 # Generated at build time (tools/icons.py, tools/notices.py). The compiled message catalogue
 # (assets/i18n/*.qm) is committed, and CI checks it is current (Reference R1).
