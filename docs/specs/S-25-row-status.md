@@ -35,6 +35,13 @@ Show at a glance, for every replacement, what the game gets now and what is wait
 - **Details** under the pill when they matter: "Another replacement for this asset wins
   (profile <name>)." (M-ROW-13) for a live row that loses a conflict (S-20 rule 1); "The file
   changed after it was applied." (M-ROW-15) on an Edited row whose saved file is the same path.
+- **A missing file** (added 19 October 2026, owner, retest (g) item I): a row whose local file is
+  missing is Problem (above) and also shows, in the row itself, the full path on its second
+  line in the `danger` colour (shortened in the middle only, keeping the file name whole, the
+  full path on hover and copyable, design law 2) and a "Choose file…" button (M-ROW-16) that
+  opens the file picker on that row and saves the new path as an edit (S-26). A one-line
+  banner above the table says how many files are missing (M-ROW-17), above the waiting banner.
+  Retest (g), run 1: the only sign of a missing file was a line in Activity at start-up.
 - **Waiting banner** above the table when something waits: M-ROW-09 ("%n changes are waiting.
   They reach the game when you click Review & apply."). A change is a row that is Not applied
   yet, Edited, Deleted, or switched off since it was applied, or a profile switch or order change
@@ -111,6 +118,10 @@ Show at a glance, for every replacement, what the game gets now and what is wait
 - M-ROW-14 (Problem reason) "The file for this replacement is missing: <name>. The game keeps the
   applied version until you apply." (the applied copy, S-26 rule 4)
 - M-ROW-15 (Detail) "The file changed after it was applied."
+- M-ROW-16 (Button, added 19 October 2026) "Choose file…"
+- M-ROW-17 (Banner, added 19 October 2026) "%n replacement files are missing. Their rows say which
+  and let you choose them again." (singular: "1 replacement file is missing. Its row says which
+  and lets you choose it again.")
 
 ## Acceptance tests
 
