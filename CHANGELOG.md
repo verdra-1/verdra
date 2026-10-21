@@ -220,13 +220,18 @@ All notable changes to Verdra are recorded here. The format follows
 - A Roblox that Verdra didn't start shows in the routing status as soon as it starts, not only
   when you click Play.
 - When Roblox connects through Verdra but asks for no pictures, meshes or sounds, the routing
-  status says so and offers Apply now, instead of saying Roblox isn't reaching Verdra.
+  status says so and offers Apply now, instead of saying Roblox isn't reaching Verdra
+  (confirmed on a real PC on 21 October 2026).
 - Apply now never moves Roblox's saved assets while Roblox runs. With your own Roblox running it
   says to close Roblox and join again, with a "Restart Roblox" button; with a Roblox Verdra
   didn't start, one message says your replacements are saved but won't show until that Roblox
-  is closed, with a "Close that Roblox" button.
+  is closed, with a "Close that Roblox" button (confirmed on a real PC on 21 October 2026).
 - Activity shows each "Moved…" line and each dialog answer once, logs every connection Verdra
   decrypts, and warns, naming the server, when one breaks before Roblox asks for anything.
+- With Detailed logging on, the log shows for each secure connection from Roblox what Roblox
+  offered (TLS versions, protocols such as HTTP/2, key exchanges), what Verdra chose, the
+  certificate Verdra presented, and how a connection without a request ended (an orderly close,
+  a plain close or a TLS alert), so a connection Roblox drops can be explained.
 - A support bundle records the routing status as it is when you save it, and the last problem.
 - Settings no longer offers Hosts-file mode, which isn't built yet.
 
