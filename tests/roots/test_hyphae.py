@@ -167,7 +167,7 @@ class Proxy:
         await self.mycelium.stop()
         self.server.server.close()
 
-    async def connect(self) -> Client:
+    async def connect(self, alpn: list[str] | None = None) -> Client:
         reader, writer = await asyncio.open_connection("127.0.0.1", self.port)
         host = self.server.host
         writer.write(f"CONNECT {host}:443 HTTP/1.1\r\nHost: {host}:443\r\n\r\n".encode())
@@ -176,6 +176,8 @@ class Proxy:
         context = ssl.create_default_context(
             cadata=resin.certificate_pem(self.authority.certificate).decode()
         )
+        if alpn is not None:
+            context.set_alpn_protocols(alpn)
         await writer.start_tls(context, server_hostname=host)
         return Client(reader, writer)
 
@@ -751,3 +753,153 @@ def test_a_clean_close_before_any_request_is_only_a_debug_line(
         f"closed a secure connection to {server.host} before its first request" in r.getMessage()
         for r in caplog.records
     )
+
+
+def debug_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "verdra.roots.hyphae"]
+
+
+def closes(lines: list[str]) -> list[str]:
+    return [line for line in lines if "before its first request" in line]
+
+
+@pytest.mark.spec("S-11", 13)
+@pytest.mark.parametrize(
+    ("offered", "chosen"),
+    [(["h2", "http/1.1"], "http/1.1"), (["h2"], "none"), (None, "none")],
+)
+def test_detailed_logging_shows_the_alpn_roblox_offered_and_what_verdra_chose(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    offered: list[str] | None,
+    chosen: str,
+) -> None:
+    """Retest (g), 21 October 2026: Roblox closed every assetdelivery connection after the
+    handshake, and the log couldn't say which protocol it wanted or how it closed."""
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect(offered)
+            client.writer.close()  # asyncio sends a TLS close_notify first
+            await asyncio.sleep(0.3)
+
+    run(body)
+    lines = debug_lines(caplog)
+    handshake = next(line for line in lines if line.startswith("TLS with Roblox for "))
+    alpn = ", ".join(offered) if offered is not None else "no ALPN"
+    assert handshake.startswith(f"TLS with Roblox for {server.host}: TLSv1.3, TLS_")
+    assert f"ALPN chosen: {chosen}. Roblox offered TLS 1.3, TLS 1.2; ALPN {alpn}; groups " in (
+        handshake
+    )
+    assert closes(lines) == [
+        f"Roblox closed a secure connection to {server.host} before its first request "
+        "(Roblox sent a TLS close_notify (an orderly close))"
+    ]
+    library = next(line for line in lines if line.startswith("Verdra's TLS server for Roblox: "))
+    assert ssl.OPENSSL_VERSION in library
+    assert "source run" in library
+    leaf = next(line for line in lines if line.startswith("Verdra's certificate for "))
+    assert leaf.startswith(
+        f"Verdra's certificate for {server.host}: key ECDSA secp256r1, names {server.host}, valid "
+    )
+    assert leaf.endswith("chain sent: this certificate alone")
+
+
+@pytest.mark.spec("S-11", 13)
+def test_a_plain_tcp_close_after_the_handshake_is_told_apart(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect(["http/1.1"])
+            await asyncio.sleep(0.1)  # read Verdra's session tickets, or the close is a reset
+            client.writer.transport.abort()  # no close_notify: the socket just closes
+            await asyncio.sleep(0.3)
+
+    run(body)
+    assert closes(debug_lines(caplog)) == [
+        f"Roblox closed a secure connection to {server.host} before its first request "
+        "(the connection ended without a TLS close_notify (a plain TCP close))"
+    ]
+
+
+@pytest.mark.spec("S-11", 13)
+def test_an_alert_that_ends_a_handshake_is_named_with_what_roblox_offered(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+    stranger = resin.create_authority(NOW)
+
+    def refuse(port: int) -> None:
+        # A blocking client: unlike asyncio's, it sends its alert before it closes.
+        host = server.host
+        with socket.create_connection(("127.0.0.1", port)) as raw:
+            raw.sendall(f"CONNECT {host}:443 HTTP/1.1\r\nHost: {host}:443\r\n\r\n".encode())
+            assert raw.recv(4096).startswith(b"HTTP/1.1 200")
+            context = ssl.create_default_context(
+                cadata=resin.certificate_pem(stranger.certificate).decode()
+            )
+            context.set_alpn_protocols(["h2"])
+            with pytest.raises(ssl.SSLError):
+                context.wrap_socket(raw, server_hostname=host)
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            await asyncio.to_thread(refuse, proxy.port)
+            await asyncio.sleep(0.3)
+
+    run(body)
+    alerts = [line for line in debug_lines(caplog) if line.startswith("TLS alert for ")]
+    assert len(alerts) == 1
+    assert alerts[0].startswith(f"TLS alert for {server.host}: Roblox sent unknown_ca. ")
+    assert "ALPN h2;" in alerts[0]
+
+
+@pytest.mark.spec("S-11", 13)
+def test_without_detailed_logging_nothing_is_traced(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="verdra.roots")
+    server = FakeServer(tmp_path, {})
+    contexts: list[ssl.SSLContext] = []
+
+    async def body() -> None:
+        async with Proxy(server) as proxy:
+            client = await proxy.connect(["h2", "http/1.1"])
+            client.writer.close()
+            await asyncio.sleep(0.3)
+            interception = proxy.mycelium.interceptor
+            assert isinstance(interception, hyphae.Interception)
+            contexts.append(interception.leaves.context_for(server.host))
+            assert not interception.leaves.tracer.traces
+
+    run(body)
+    assert getattr(contexts[0], "_msg_callback", None) is None
+    assert debug_lines(caplog) == []
+
+
+def test_the_close_reason_names_each_alert_roblox_sent() -> None:
+    trace = hyphae.TlsTrace()
+    assert "plain TCP close" in trace.close_reason()
+    trace.alerts.append(("write", "close_notify"))  # Verdra's own close doesn't count
+    assert "plain TCP close" in trace.close_reason()
+    trace.alerts.append(("read", "bad_certificate"))
+    assert trace.close_reason() == "Roblox sent the TLS alert bad_certificate"
+    assert hyphae.alert_name(0) == "close_notify"
+    assert hyphae.alert_name(48) == "unknown_ca"
+    assert hyphae.alert_name(250) == "alert 250"
+
+
+def test_a_broken_hello_never_breaks_the_hook() -> None:
+    tracer = hyphae.TlsTracer()
+    connection = hyphae.TlsTrace()  # any object that takes a weak reference
+    tracer(connection, "read", None, 22, 1, b"\x01\x00")  # cut short
+    tracer(connection, "read", None, 21, 0, b"\x02\x28")
+    assert tracer.trace(connection) is None
+    assert tracer.trace(42) is None  # no weak reference to an int

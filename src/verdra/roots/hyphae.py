@@ -29,7 +29,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import ssl
+import sys
+import weakref
 import zlib
 from collections.abc import Awaitable, Callable, Collection, Sequence
 from compression import zstd
@@ -38,7 +41,9 @@ from datetime import UTC, datetime
 from typing import Final, Literal, Protocol
 
 import h11
-from cryptography.hazmat.primitives import serialization
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from PySide6.QtCore import QCoreApplication
 
 from verdra.bark import resin, veil
@@ -152,6 +157,228 @@ class Pipeline:
     response: Sequence[Symbiont] = ()
 
 
+# --- TLS details at Debug (retest (g), 21 October 2026) ------------------------------------
+# Roblox completed its handshake with Verdra, then closed every assetdelivery connection before
+# its first request, and the log couldn't say what TLS Roblox asked for or how it closed. With
+# detailed logging on, each server context gets CPython's TLS message hook, which hands over
+# every handshake message and alert (RFC 8446 sections 4.1.2, 4.1.3 and 6; ALPN RFC 7301; SNI
+# RFC 6066; GREASE values RFC 8701 are left out).
+
+#: Environment variables that change how OpenSSL or Python finds certificates and settings.
+TLS_ENVIRONMENT: Final = (
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "OPENSSL_CONF",
+    "OPENSSL_MODULES",
+    "OPENSSL_ENGINES",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+)
+_VERSIONS: Final = {0x0304: "TLS 1.3", 0x0303: "TLS 1.2", 0x0302: "TLS 1.1", 0x0301: "TLS 1.0"}
+_GROUPS: Final = {
+    0x0017: "secp256r1",
+    0x0018: "secp384r1",
+    0x0019: "secp521r1",
+    0x001D: "x25519",
+    0x001E: "x448",
+    0x0100: "ffdhe2048",
+    0x11EB: "SecP256r1MLKEM768",
+    0x11EC: "X25519MLKEM768",
+    0x6399: "X25519Kyber768Draft00",
+}
+_HANDSHAKE: Final = 22
+_ALERT: Final = 21
+_CLIENT_HELLO: Final = 1
+_SERVER_HELLO: Final = 2
+
+
+@dataclass(slots=True)
+class Hello:
+    """What a ClientHello offered; `group` is the key exchange Verdra's ServerHello chose."""
+
+    server_name: str = ""
+    versions: tuple[str, ...] = ()
+    alpn: tuple[str, ...] | None = None  # None: no ALPN extension at all
+    groups: tuple[str, ...] = ()
+    group: str = ""
+
+
+@dataclass(slots=True)
+class TlsTrace:
+    """The TLS messages of one client connection, as the message hook saw them."""
+
+    hello: Hello | None = None
+    #: Alerts as (direction "read" or "write", name), in order.
+    alerts: list[tuple[str, str]] = field(default_factory=list[tuple[str, str]])
+
+    def close_reason(self) -> str:
+        """Say how the client ended a connection that had no request."""
+        received = [name for direction, name in self.alerts if direction == "read"]
+        if not received:
+            return "the connection ended without a TLS close_notify (a plain TCP close)"
+        if received == ["close_notify"]:
+            return "Roblox sent a TLS close_notify (an orderly close)"
+        return "Roblox sent the TLS alert " + ", ".join(received)
+
+
+class TlsTracer:
+    """The message hook for traced server contexts; keeps one trace per connection."""
+
+    def __init__(self) -> None:
+        self.traces: weakref.WeakKeyDictionary[object, TlsTrace] = weakref.WeakKeyDictionary()
+
+    def trace(self, connection: object) -> TlsTrace | None:
+        """Return what the hook saw on `connection` (an SSLObject), if anything."""
+        try:
+            return self.traces.get(connection)
+        except TypeError:
+            return None
+
+    def __call__(
+        self,
+        connection: object,
+        direction: str,
+        _version: object,
+        content_type: int,
+        message_type: int,
+        data: bytes,
+    ) -> None:
+        # An exception here would surface in the handshake itself, so nothing escapes.
+        try:
+            if content_type == _HANDSHAKE and message_type == _CLIENT_HELLO and direction == "read":
+                self.traces.setdefault(connection, TlsTrace()).hello = client_hello(data)
+                return
+            trace = self.traces.get(connection)
+            if trace is None:
+                return
+            if content_type == _HANDSHAKE and message_type == _SERVER_HELLO and trace.hello:
+                trace.hello.group = server_group(data)
+            elif content_type == _ALERT and len(data) >= 2:
+                name = alert_name(data[1])
+                trace.alerts.append((direction, name))
+                if data[0] == 2:  # fatal: the handshake or the connection fails right here
+                    who = "Roblox sent" if direction == "read" else "Verdra sent"
+                    log.debug(
+                        "TLS alert for %s: %s %s. %s.",
+                        trace.hello.server_name if trace.hello else "?",
+                        who,
+                        name,
+                        _offer(trace.hello),
+                    )
+        except Exception as error:  # noqa: BLE001 - tracing must never break a handshake
+            log.debug("The TLS trace failed: %s", type(error).__name__)
+
+
+def _grease(value: int) -> bool:
+    return value & 0x0F0F == 0x0A0A and value >> 8 == value & 0xFF
+
+
+def _name(table: dict[int, str], value: int) -> str:
+    return table.get(value, f"0x{value:04x}")
+
+
+def _extensions(data: bytes, at: int) -> dict[int, bytes]:
+    found: dict[int, bytes] = {}
+    if at + 2 > len(data):
+        return found
+    end = min(len(data), at + 2 + int.from_bytes(data[at : at + 2]))
+    at += 2
+    while at + 4 <= end:
+        kind = int.from_bytes(data[at : at + 2])
+        size = int.from_bytes(data[at + 2 : at + 4])
+        found[kind] = data[at + 4 : at + 4 + size]
+        at += 4 + size
+    return found
+
+
+def _pairs(data: bytes) -> list[int]:
+    return [int.from_bytes(data[i : i + 2]) for i in range(0, len(data) - 1, 2)]
+
+
+def client_hello(data: bytes) -> Hello:
+    """Read the server name, versions, ALPN list and key-exchange groups from a ClientHello
+    (the handshake message with its 4-byte header)."""
+    at = 4 + 2 + 32  # header, legacy_version, random
+    at += 1 + data[at]  # legacy_session_id
+    at += 2 + int.from_bytes(data[at : at + 2])  # cipher_suites
+    at += 1 + data[at]  # legacy_compression_methods
+    extensions = _extensions(data, at)
+    hello = Hello()
+    if (sni := extensions.get(0)) and len(sni) > 5:
+        hello.server_name = sni[5 : 5 + int.from_bytes(sni[3:5])].decode("ascii", "replace")
+    if (versions := extensions.get(43)) is not None:
+        hello.versions = tuple(
+            _name(_VERSIONS, v) for v in _pairs(versions[1 : 1 + versions[:1][0]]) if not _grease(v)
+        )
+    else:
+        hello.versions = (_name(_VERSIONS, int.from_bytes(data[4:6])),)
+    if (alpn := extensions.get(16)) is not None:
+        names: list[str] = []
+        i = 2
+        while i < len(alpn):
+            size = alpn[i]
+            names.append(alpn[i + 1 : i + 1 + size].decode("ascii", "replace"))
+            i += 1 + size
+        hello.alpn = tuple(n for n in names if not n.startswith("ignore"))
+    if (groups := extensions.get(10)) is not None:
+        hello.groups = tuple(_name(_GROUPS, g) for g in _pairs(groups[2:]) if not _grease(g))
+    return hello
+
+
+def server_group(data: bytes) -> str:
+    """Return the key-exchange group a ServerHello chose ("" for TLS 1.2, which has none)."""
+    at = 4 + 2 + 32
+    at += 1 + data[at]  # legacy_session_id_echo
+    at += 2 + 1  # cipher_suite, legacy_compression_method
+    share = _extensions(data, at).get(51)
+    return _name(_GROUPS, int.from_bytes(share[:2])) if share and len(share) >= 2 else ""
+
+
+def alert_name(code: int) -> str:
+    """Return a TLS alert's name as RFC 8446 writes it ("close_notify", "unknown_ca")."""
+    try:
+        return ssl.AlertDescription(code).name.removeprefix("ALERT_DESCRIPTION_").lower()
+    except ValueError:
+        return f"alert {code}"
+
+
+def describe_tls_library(context: ssl.SSLContext) -> str:
+    """One line on the TLS stack serving Roblox, to compare a source run with the built app."""
+    settings = [name for name in TLS_ENVIRONMENT if os.environ.get(name)]
+    return (
+        f"{ssl.OPENSSL_VERSION}, Python {sys.version.split()[0]}, "
+        f"{'built app' if humus.bundle_folder() is not None else 'source run'}, "
+        f"options 0x{int(context.options):x}, {len(context.get_ciphers())} cipher suites, "
+        f"set in the environment: {', '.join(settings) or 'none'}"
+    )
+
+
+def describe_leaf(leaf: resin.Leaf, authority: x509.Certificate) -> str:
+    """One line on the certificate Verdra presents: key, names, validity, issuer, chain."""
+    certificate = leaf.certificate
+    key = leaf.key
+    kind = f"ECDSA {key.curve.name}" if isinstance(key, ec.EllipticCurvePrivateKey) else "other"
+    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+    issuer = authority.subject.rfc4514_string()
+    fingerprint = authority.fingerprint(hashes.SHA256()).hex()[:16]
+    return (
+        f"key {kind}, names {', '.join(names.value.get_values_for_type(x509.DNSName))}, "
+        f"valid {certificate.not_valid_before_utc:%Y-%m-%d %H:%M} to "
+        f"{certificate.not_valid_after_utc:%Y-%m-%d %H:%M} UTC, issued by {issuer} "
+        f"(SHA-256 {fingerprint}…), chain sent: this certificate alone"
+    )
+
+
+def _offer(hello: Hello | None) -> str:
+    if hello is None:
+        return "Roblox's hello wasn't seen"
+    alpn = ", ".join(hello.alpn) if hello.alpn is not None else "no ALPN"
+    return (
+        f"Roblox offered {', '.join(hello.versions) or '?'}; ALPN {alpn or 'empty'}; "
+        f"groups {', '.join(hello.groups) or '?'}"
+    )
+
+
 class LeafContexts:
     """Server TLS contexts with an in-memory S-10 leaf per host, issued on first use."""
 
@@ -160,18 +387,37 @@ class LeafContexts:
     ) -> None:
         self.authority = authority
         self.clock = clock or (lambda: datetime.now(UTC))
-        self._contexts: dict[str, tuple[datetime, ssl.SSLContext]] = {}
+        self._contexts: dict[tuple[str, bool], tuple[datetime, ssl.SSLContext]] = {}
+        #: Traces the contexts made while detailed logging is on.
+        self.tracer = TlsTracer()
+        self._described = False
 
     def context_for(self, host: str) -> ssl.SSLContext:
-        """Return the server context for `host`, issuing a new leaf near expiry."""
+        """Return the server context for `host`, issuing a new leaf near expiry.
+
+        With detailed logging on, the context is traced (TLS details at Debug) and the leaf
+        and the TLS library are described once.
+        """
         now = self.clock()
-        cached = self._contexts.get(host)
+        traced = log.isEnabledFor(logging.DEBUG)
+        cached = self._contexts.get((host, traced))
         if cached is not None and now < cached[0]:
             return cached[1]
         leaf = resin.issue_leaf(self.authority, host, now)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.set_alpn_protocols(["http/1.1"])
+        if traced:
+            # CPython's TLS message hook; private, so set by name (no typeshed entry).
+            setattr(context, "_msg_callback", self.tracer)  # noqa: B010
+            if not self._described:
+                self._described = True
+                log.debug("Verdra's TLS server for Roblox: %s", describe_tls_library(context))
+            log.debug(
+                "Verdra's certificate for %s: %s",
+                host,
+                describe_leaf(leaf, self.authority.certificate),
+            )
         key = leaf.key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
@@ -179,7 +425,7 @@ class LeafContexts:
         )
         humus.current().load_cert_chain(context, resin.certificate_pem(leaf.certificate), key)
         renew = leaf.certificate.not_valid_after_utc - LEAF_RENEW_BEFORE
-        self._contexts[host] = (renew, context)
+        self._contexts[(host, traced)] = (renew, context)
         return context
 
 
@@ -238,6 +484,10 @@ class Interception:
             self._handshake_failed(host, error)
             raise
         self.observe(host, "client", writer)
+        tls = writer.get_extra_info("ssl_object")
+        trace = self.leaves.tracer.trace(tls) if isinstance(tls, ssl.SSLObject) else None
+        if trace is not None:
+            self._log_handshake(host, tls, trace)
         hyphae = Hyphae(self, host, port)
         try:
             await hyphae.serve(reader, writer)
@@ -246,10 +496,29 @@ class Interception:
         except (OSError, asyncio.IncompleteReadError, TimeoutError) as error:
             if hyphae.requests:
                 raise  # after a request: an ordinary end, a Debug line in roots/mycelium
+            if trace is not None and trace.alerts:
+                log.debug("Before that error on %s: %s", host, trace.close_reason())
             self._ended_early(host, error)
             return
         if not hyphae.requests:
-            log.debug("Roblox closed a secure connection to %s before its first request", host)
+            reason = f" ({trace.close_reason()})" if trace is not None else ""
+            log.debug(
+                "Roblox closed a secure connection to %s before its first request%s", host, reason
+            )
+
+    @staticmethod
+    def _log_handshake(host: str, tls: ssl.SSLObject, trace: TlsTrace) -> None:
+        cipher = tls.cipher()
+        group = trace.hello.group if trace.hello is not None else ""
+        log.debug(
+            "TLS with Roblox for %s: %s, %s%s, ALPN chosen: %s. %s.",
+            host,
+            tls.version() or "?",
+            cipher[0] if cipher else "?",
+            f", {group}" if group else "",
+            tls.selected_alpn_protocol() or "none",
+            _offer(trace.hello),
+        )
 
     def _handshake_failed(self, host: str, error: BaseException) -> None:
         reason = veil.redact_text(f"{type(error).__name__}: {error}")

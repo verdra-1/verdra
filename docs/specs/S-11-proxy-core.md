@@ -92,6 +92,17 @@ untouched.
   intercepted CONNECT also gets a Debug line ("Intercepting a connection to <host>:<port>"),
   and a connection that ends with an error names its host:port at Debug (retest (g),
   16 October 2026: the log couldn't tell a broken asset connection from none).
+- TLS details at Debug (retest (g), 21 October 2026: Roblox closed every asset connection after
+  its handshake and the log couldn't say why). With detailed logging on, Verdra's server
+  contexts carry Python's TLS message hook, and the log has, per intercepted connection: the
+  TLS version, cipher, key-exchange group and ALPN protocol chosen, with what Roblox's hello
+  offered (versions, ALPN list, groups); a fatal alert in either direction, named; and on a
+  connection with no request, how it ended (a TLS close_notify, a plain TCP close, or the
+  alert Roblox sent). Once per run it names the OpenSSL and Python serving Roblox, source run
+  or built app, and which TLS environment variables are set; once per leaf, the certificate
+  Verdra presents (key, names, validity, issuer and the CA's fingerprint, chain). These are log
+  lines, not Activity messages; without detailed logging nothing is traced. The CI smoke test
+  of the built app requires them and prints the TLS line.
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
 - M-DIAG-02 (Activity, new) "Diagnostic interception, <host> (<where>): <version>, <cipher>,
@@ -130,6 +141,10 @@ untouched.
     client receives the server's, under every spelling of the path; neither symbiont is called.
 12. A rule for any protected path, under any spelling, is refused with `ProtectedEndpointError`;
     a rule for a neighboring path (`/validate-machines`, `/v1/validate-machine`) is allowed.
+13. With detailed logging on, a client offering ALPN "h2, http/1.1", "h2" alone or none gets a
+    Debug line naming the version, cipher, ALPN chosen (http/1.1, or none) and what it offered;
+    a close_notify, a plain TCP close and a refused handshake's alert (unknown_ca) are each
+    named; without detailed logging no context is traced and none of these lines appear.
 
 ## Lives in
 
