@@ -90,6 +90,8 @@ PICTURE_SIDE = 64
 #: The log lines that show the replacement was served (Detailed logging is on).
 SERVED = f"Served the replacement for asset {ASSET}"
 NOT_REACHING = "Roblox isn't reaching Verdra"
+#: The Debug line naming the OpenSSL, Python and kind of app serving Roblox (hyphae).
+TLS_LIBRARY = "Verdra's TLS server for Roblox: "
 #: A link Verdra accepts and passes to the Player unchanged (S-12).
 LINK = "roblox-player:1+launchmode:app"
 #: The fake Player: writes its environment and inherited DLL directory next to itself.
@@ -623,6 +625,14 @@ def check_log(text: str, *, replaced: bool, result: Result) -> None:
         result.problems.append(f"log: no line {SERVED!r}")
     elif replaced:
         result.notes.append("log: shows the replacement served")
+    # 21 October 2026: the built app's TLS details, to compare with a source run's.
+    library = next((line for line in text.splitlines() if TLS_LIBRARY in line), "")
+    if replaced and not library:
+        result.problems.append("log: no line for Verdra's TLS server")
+    elif library:
+        result.notes.append("log: " + library[library.index(TLS_LIBRARY) :])
+    if replaced and f"TLS with Roblox for {INTERCEPTED_HOST}: " not in text:
+        result.problems.append("log: no TLS details for the intercepted connection")
     if NOT_REACHING in text or "couldn't open a secure connection" in text:
         result.problems.append("log: Verdra reported that Roblox isn't reaching it")
 
