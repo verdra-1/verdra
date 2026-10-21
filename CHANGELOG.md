@@ -205,6 +205,8 @@ All notable changes to Verdra are recorded here. The format follows
   always passed through unchanged; no feature can ever change it.
 - The US-spelling check also reads this changelog, which becomes the release notes.
 - PyYAML is a declared development dependency instead of arriving through pre-commit.
+- Pillow 13.0.0 and certifi 2026.10.19 (in the app) and virtualenv 21.14.12 (development only)
+  replace versions with published security advisories.
 - The Qt lifetime guard checks every test once Qt is running, not only tests that ask for the Qt
   fixtures, and reads Shiboken's wrapper list instead of every Python object, which makes it
   faster.
