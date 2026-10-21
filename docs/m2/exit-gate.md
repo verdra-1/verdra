@@ -12,7 +12,7 @@ evidence for each part and says plainly what is not verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g), the release dry-run ZIP, failed and is to be repeated | Below, "Final M2 test, 15 October 2026" |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g), the release dry-run ZIP, failed on 15, 16 and 21 October; a source run on the owner's PC decides where the fault is | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
 
 M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
 one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
@@ -53,6 +53,53 @@ the report for asset 498788302, screenshots, `verdra.log`); none of those files 
 
 The release dry run now fails unless the ZIP's app passes the smoke test, which serves one
 picture replacement through a fake Roblox upstream and checks the log.
+
+## Step (g) repeated, 16 and 21 October 2026
+
+Both with the release dry-run ZIP on the owner's PC; checked against `verdra.log`, the
+screenshots and (21 October) two frames of a video. None of those files is committed.
+
+- **16 October** (fresh ZIP with the environment fix): a grey wall again. The log showed 46
+  connections passed through, none to assetdelivery, and no proxy line at all for the
+  intercepted host: that build logged nothing for a connection that ended without a request.
+  The retest-(g) fixes added those lines.
+- **21 October** (main d45e08f, release dry run 39320481846): a blank wall and floor panel.
+  - Between 18:14:52 and 18:15:16, ten "Intercepting a connection to
+    assetdelivery.roblox.com:443" lines, each followed 2 to 9 ms later by "Roblox closed a
+    secure connection to assetdelivery.roblox.com before its first request".
+  - So: ten handshakes completed, no TLS failure and no warning, and not one request
+    (`POST /v1/assets/batch`).
+  - Roblox updated itself at 18:15:25, after those ten. The second start, at 18:17:43 (after
+    Apply now), is the last line of the log, so nothing was recorded for the updated Player.
+
+**Verified on 21 October:**
+
+- The honest status: at 18:15:46 it turned Degraded with "Roblox is going through Verdra but
+  hasn't asked for any pictures, meshes or sounds since it started" (M-STATUS-09), not "isn't
+  reaching Verdra".
+- Apply while Roblox runs: at 18:17:34, "Saved. Close Roblox, then join again through Verdra to
+  see the change." (M-APPLY-08).
+- Each "Moved…" line appears once.
+
+**What the whole log shows, 7 to 21 October:**
+
+- Every source run with a game joined had asset requests: 65 to 196 a day, and "Served the
+  replacement" 31 times in all on 8, 11, 12 and 15 October. The last request was at 19:51:55 on
+  15 October, after a Roblox update at 14:53:59 that day.
+- No run of the built app ever had one: 15 October from 20:04, 16 and 21 October. On
+  15 October the ZIP started Roblox 12 minutes after that last source request, and Verdra
+  noticed no Roblox update in between. Verdra only notices an update while it runs, so one
+  between 19:54 and 19:59, while it was closed, can't be ruled out.
+
+**What the log can't say:** which protocols Roblox asked for, or how it closed. Detailed
+logging now records both (S-11, "TLS details at Debug"). The next step is a source run on
+today's Roblox ([guide](../guides/m2-source-tls-check.md)):
+
+- If it also closes before its first request, Roblox changed: Verdra would have to speak what
+  Roblox now wants (most likely HTTP/2) on the connections it decrypts. That is new work in
+  M2's core, not a build fix.
+- If it works, the built app's TLS differs from a source run's: make them the same, and add a
+  smoke test whose client offers HTTP/2 first.
 
 ## Texture swap
 
@@ -134,8 +181,9 @@ Said plainly, so nobody reads more into the result than was tested:
   replaced mesh far away is drawn with its full detail; that was not looked at from a distance.
 - **(b) geometry.** The asset-ID mesh swap showed a different shape; that it is exactly the other
   asset's geometry was not checked independently.
-- **The release dry-run ZIP.** Started on the owner's PC on 15 October and failed (step (g)
-  above); the fix is tested on a Windows runner only until step (g) is repeated.
+- **The release dry-run ZIP.** Started on the owner's PC on 15, 16 and 21 October and failed
+  each time (step (g) above). Whether the cause is the built app or a Roblox update is open
+  until the source run of the TLS check.
 - **The Qt source addresses** in the third-party notices (download.qt.io) weren't reachable from
   the session that wrote them. Needed: someone opens them once and checks they list the bundled
   Qt and Qt for Python version, or the notices name another address that does. It blocks nothing
