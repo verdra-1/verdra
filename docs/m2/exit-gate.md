@@ -12,7 +12,7 @@ evidence for each part and says plainly what is not verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g) failed on 15, 16 and 21 October with the ZIP and on 21 October from source: Roblox drops Verdra's decrypted asset connections; the pass-through control decides the next step | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g) failed from 15 October on: since then Roblox refuses Verdra's certificate on both asset servers (pass-through control, 22 October); M2 needs a new way to apply replacements (decision record 0028, option A, pending the owner's approval) | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
 
 M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
 one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
@@ -129,6 +129,25 @@ Verdra's own authority can't pass. It isn't proven. The pass-through control
 untouched, the real server's certificate logged for comparison, and, separately, Verdra's
 authority sent along with its certificate.
 
+### The pass-through control, 22 October 2026
+
+Three source runs (main 8012450; logs checked, not committed). Details and times are in
+decision record 0028.
+
+- **Run 1, assetdelivery passed through:** Roblox dropped all 77 connections Verdra decrypted
+  on fts.rbxcdn.com, the picture server, in the same way (19:56:03 to 19:56:24).
+- **Run 2, nothing decrypted:** the real certificates are from public authorities (Sectigo,
+  Amazon), RSA 2048, with 3 Certificate Transparency timestamps each. Roblox needed one
+  connection to the picture server, with no retries.
+- **Run 3, Verdra's authority sent along:** assetdelivery dropped all 30 connections, 29 plain
+  closes and one reset.
+
+So both asset servers refuse Verdra's certificate after the handshake, whatever chain it sends.
+Decrypting them, the way M2 replaced assets until 15 October, no longer works. The direction is
+decision record 0028's option A: put replacements into Roblox's saved assets. It starts with a
+read-only look at a copy of the store (guide `docs/guides/m2-store-inspection.md`), and it
+writes nothing into Roblox's files until the owner approves.
+
 ## Texture swap
 
 All on the owner's PC (Windows 11, Roblox Player 0.742), run from source, with the format check
@@ -211,7 +230,9 @@ Said plainly, so nobody reads more into the result than was tested:
   asset's geometry was not checked independently.
 - **The release dry-run ZIP.** Started on the owner's PC on 15, 16 and 21 October and failed
   each time (step (g) above), and so did a source run on 21 October: the cause is on Roblox's
-  side, not the build. Its exact nature is open until the pass-through control.
+  side, not the build. The pass-through control (22 October) showed both asset servers refuse
+  Verdra's certificate after the handshake. Pinning fits best; what exactly Roblox checks isn't
+  observed.
 - **The Qt source addresses** in the third-party notices (download.qt.io) weren't reachable from
   the session that wrote them. Needed: someone opens them once and checks they list the bundled
   Qt and Qt for Python version, or the notices name another address that does. It blocks nothing
