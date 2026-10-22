@@ -21,7 +21,7 @@ import os
 import stat
 import threading
 import time
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Coroutine, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -749,6 +749,15 @@ class Router(QObject):
         self.status.error_cleared(Trigger.PROXY_FAILED)
         self.status.started()
         return self.port
+
+    def run_soon(self, coroutine: Coroutine[object, object, None]) -> bool:
+        """Run `coroutine` on the proxy's loop; False (and closed) when routing is off."""
+        loop = self._loop
+        if loop is None:
+            coroutine.close()
+            return False
+        asyncio.run_coroutine_threadsafe(coroutine, loop)
+        return True
 
     def stop(self) -> None:
         """Stop the proxy and its thread; routing is Idle afterwards."""

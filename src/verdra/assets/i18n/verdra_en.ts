@@ -595,6 +595,20 @@
     </message>
 </context>
 <context>
+    <name>M-DIAG-14</name>
+    <message>
+        <source>Pass-through control is on: Verdra doesn&apos;t decrypt {hosts}, so replacements that need them don&apos;t apply. Restart Verdra without --no-intercept to turn it off.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>M-DIAG-15</name>
+    <message>
+        <source>Verdra sends its own certificate authority with every certificate it presents to Roblox. Restart Verdra without --send-ca to turn it off.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-EDIT-01</name>
     <message>
         <source>No asset with ID {id} was found.</source>

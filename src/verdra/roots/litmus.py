@@ -8,6 +8,10 @@ Format capture (`--format-capture <asset IDs>`, plan 16.2 of 8 October 2026, spe
 leaves alone meanwhile (see the class). Its control experiment (`--control-swap ORIGINAL=DONOR`,
 test 19), `ControlSwap`, answers the original's download with the donor's real CDN bytes.
 
+Pass-through control (`--no-intercept <hosts>`, spec S-11 test 14, 22 October 2026): the hosts
+are tunneled instead of decrypted (trunk/branches/sprout), and `probe_certificates` logs, at
+Debug, the certificate chain each one's real server presents, to compare with Verdra's leaf.
+
 Diagnostic interception:
 
 Spec S-11 (tests 9 and 10), plan 16.2. It exists so the M1 gate can check verified TLS and ECDSA
@@ -36,6 +40,10 @@ from typing import Any, Final, Literal
 from urllib.parse import urlsplit
 
 import zstandard
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.x509.oid import ExtensionOID
 from PySide6.QtCore import QCoreApplication
 
 import verdra
@@ -750,3 +758,82 @@ def _address(item: dict[str, Any] | None) -> tuple[str, str] | None:
         return None
     parts = urlsplit(location)
     return parts.hostname or "", (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+
+
+# --- Pass-through control: the real server's certificate (22 October 2026) -------------------
+
+
+async def probe_certificates(hosts: Collection[str], open_upstream: hyphae.Opener) -> None:
+    """Log, at Debug, the chain each host's real server presents: a TLS handshake only, no
+    request (Verdra's verified upstream TLS, roots/taproot). A failure is logged, not raised."""
+    for host in hosts:
+        try:
+            _reader, writer = await open_upstream(host, 443)
+        except Exception as error:  # noqa: BLE001 - a diagnostic never breaks routing
+            log.debug("The real certificate of %s couldn't be read: %s", host, error)
+            continue
+        try:
+            tls = writer.get_extra_info("ssl_object")
+            if isinstance(tls, ssl.SSLObject):
+                for line in describe_server(host, tls):
+                    log.debug("%s", line)
+        finally:
+            writer.close()
+
+
+def describe_server(host: str, tls: ssl.SSLObject) -> list[str]:
+    """The connection, then one line per certificate the server sent, leaf first."""
+    cipher = tls.cipher()
+    chain = [_der(item) for item in tls.get_unverified_chain() or ()]
+    lines = [
+        f"The real server for {host}: {tls.version() or '?'}, {cipher[0] if cipher else '?'}, "
+        f"ALPN chosen: {tls.selected_alpn_protocol() or 'none'}, {len(chain)} certificates sent"
+    ]
+    for number, der in enumerate(chain, 1):
+        lines.append(
+            f"The real server for {host}, certificate {number}: "
+            + describe_certificate(x509.load_der_x509_certificate(der))
+        )
+    return lines
+
+
+def describe_certificate(certificate: x509.Certificate) -> str:
+    """Subject, issuer, key, validity, names, signed certificate timestamps and key pin."""
+    key = certificate.public_key()
+    if isinstance(key, ec.EllipticCurvePublicKey):
+        kind = f"ECDSA {key.curve.name}"
+    elif isinstance(key, rsa.RSAPublicKey):
+        kind = f"RSA {key.key_size}"
+    else:
+        kind = type(key).__name__
+    spki = key.public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    digest = hashes.Hash(hashes.SHA256())
+    digest.update(spki)
+    extensions = {extension.oid: extension.value for extension in certificate.extensions}
+    names = extensions.get(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+    timestamps = extensions.get(ExtensionOID.PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS)
+    constraints = extensions.get(ExtensionOID.BASIC_CONSTRAINTS)
+    count = len(names.get_values_for_type(x509.DNSName)) if names is not None else 0
+    return (
+        f"subject {certificate.subject.rfc4514_string()}, "
+        f"issuer {certificate.issuer.rfc4514_string()}, key {kind}, "
+        f"valid {certificate.not_valid_before_utc:%Y-%m-%d} to "
+        f"{certificate.not_valid_after_utc:%Y-%m-%d}, {count} DNS names, "
+        f"signed certificate timestamps: {len(list(timestamps)) if timestamps else 'none'}, "
+        f"basic constraints: {_constraints(constraints)}, "
+        f"key pin (SHA-256 of the public key) {digest.finalize().hex()[:16]}…"
+    )
+
+
+def _constraints(value: object) -> str:
+    if not isinstance(value, x509.BasicConstraints):
+        return "none"
+    return "CA" if value.ca else "not a CA"
+
+
+def _der(item: object) -> bytes:
+    if isinstance(item, bytes):
+        return item
+    return item.public_bytes(ssl.ENCODING_DER)  # type: ignore[attr-defined]  # _ssl.Certificate

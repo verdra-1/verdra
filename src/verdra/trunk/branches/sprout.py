@@ -371,6 +371,24 @@ def check_text(ids: tuple[int, ...]) -> str:
     ).format(ids=", ".join(str(i) for i in ids), folder=terrain.diagnostics_dir())
 
 
+def no_intercept_text(hosts: tuple[str, ...]) -> str:
+    """M-DIAG-14: the pass-through control is on (source runs only)."""
+    return QCoreApplication.translate(
+        "M-DIAG-14",
+        "Pass-through control is on: Verdra doesn't decrypt {hosts}, so replacements that need "
+        "them don't apply. Restart Verdra without --no-intercept to turn it off.",
+    ).format(hosts=", ".join(hosts))
+
+
+def send_ca_text() -> str:
+    """M-DIAG-15: Verdra presents its CA with each certificate (source runs only)."""
+    return QCoreApplication.translate(
+        "M-DIAG-15",
+        "Verdra sends its own certificate authority with every certificate it presents to "
+        "Roblox. Restart Verdra without --send-ca to turn it off.",
+    )
+
+
 def control_text(original: int, donor: int) -> str:
     """M-DIAG-08: the control experiment is on (source runs only, roots/litmus)."""
     return QCoreApplication.translate(
@@ -563,6 +581,8 @@ class Sprout(QObject):
         save_bodies: bool = False,
         control: tuple[int, int] | None = None,
         check: tuple[int, ...] = (),
+        no_intercept: tuple[str, ...] = (),
+        send_ca: bool = False,
         snapshots: rules.SnapshotHolder | None = None,
         schedule: gardener.Schedule | None = None,
         parent: QObject | None = None,
@@ -595,6 +615,10 @@ class Sprout(QObject):
         self.control = control
         #: A format check (roots/litmus, source runs only): what Verdra serves for these assets.
         self.check = check
+        #: The pass-through control (source runs only): hosts tunneled, never decrypted.
+        self.no_intercept = frozenset(no_intercept)
+        #: Present Verdra's CA after each leaf (source runs only).
+        self.send_ca = send_ca
         self.router = gardener.Router(status, self)
         self.pool = pool
         self.client: humus.RobloxClient | None = None
@@ -945,6 +969,8 @@ class Sprout(QObject):
             )
         except mycelium.ProxyStartError:
             return Refused("M-PROXY-01", self.status.current.reason)
+        if self.no_intercept:
+            self._probe_certificates()
         self.client = choice
         self._links(ledger)
         self.watch = gardener.VersionWatch(
@@ -1189,9 +1215,10 @@ class Sprout(QObject):
         extra: frozenset[str] = frozenset()
         if left or self.check:
             pipeline, extra = self._diagnostics(grafter)
+        passed = self.no_intercept
         return hyphae.Interception(
-            hyphae.LeafContexts(authority),
-            lambda: self.snapshots.current.hosts() | extra,
+            hyphae.LeafContexts(authority, send_authority=self.send_ca),
+            lambda: (self.snapshots.current.hosts() | extra) - passed,
             self._open_upstream,
             lambda: pipeline,
             on_verification_failure=self.router.report_certificate_failure,
@@ -1231,6 +1258,14 @@ class Sprout(QObject):
             response=(*before, *observed, *after, grafter, *checked),
         )
         return pipeline, litmus.CAPTURE_HOSTS
+
+    def _probe_certificates(self) -> None:
+        """Log the real servers' certificates of the passed-through hosts (source runs only)."""
+        from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision 0015)
+
+        self.router.run_soon(
+            litmus.probe_certificates(sorted(self.no_intercept), self._open_upstream)
+        )
 
     def _diagnostic(self, authority: resin.Authority) -> mycelium.Interceptor:
         from verdra.roots import litmus  # noqa: PLC0415 - source runs only (decision record 0015)
