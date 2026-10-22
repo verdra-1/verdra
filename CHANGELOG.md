@@ -205,6 +205,9 @@ All notable changes to Verdra are recorded here. The format follows
   always passed through unchanged; no feature can ever change it.
 - The US-spelling check also reads this changelog, which becomes the release notes.
 - PyYAML is a declared development dependency instead of arriving through pre-commit.
+- Since 15 October 2026 Roblox refuses Verdra's certificate on its asset servers, so
+  replacements don't show in game for now. Verdra's status says so ("going through Verdra but
+  hasn't asked for any pictures"). A new way to apply them is being worked on.
 - Pillow 13.0.0 and certifi 2026.10.19 (in the app) and virtualenv 21.14.12 (development only)
   replace versions with published security advisories.
 - The Qt lifetime guard checks every test once Qt is running, not only tests that ask for the Qt
