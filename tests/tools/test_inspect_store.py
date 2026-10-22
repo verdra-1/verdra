@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.ids import ABOVE_INT32, ABOVE_UINT32
 from tools import inspect_store
 
 ASSET = 15553230204
@@ -17,7 +18,7 @@ KTX2 = b"\xabKTX 20\xbb\r\n\x1a\n" + b"secret picture bytes"
 SECRET_URL = "https://example.invalid/private?token=do-not-print"
 
 
-def synthetic_store(root: Path) -> Path:
+def synthetic_store(root: Path, asset: int = ASSET) -> Path:
     """A made-up store: a table naming content-addressed files, one row for ASSET."""
     copy = root / "copy"
     folder = copy / inspect_store.FOLDER
@@ -32,7 +33,7 @@ def synthetic_store(root: Path) -> Path:
     connection.execute("CREATE TABLE assets (asset_id INTEGER, hash TEXT)")
     for name in names:
         connection.execute("INSERT INTO content VALUES (?, ?, ?)", (name, 10, SECRET_URL))
-    connection.execute("INSERT INTO assets VALUES (?, ?)", (ASSET, names[0]))
+    connection.execute("INSERT INTO assets VALUES (?, ?)", (asset, names[0]))
     connection.commit()
     connection.close()
     return copy
@@ -103,3 +104,11 @@ def test_a_missing_store_is_described_not_failed(tmp_path: Path) -> None:
 )
 def test_shapes(value: object, expected: str) -> None:
     assert inspect_store.shape(value) == expected
+
+
+@pytest.mark.parametrize("asset", [ABOVE_INT32, ABOVE_UINT32])
+def test_real_size_asset_ids_are_found(tmp_path: Path, asset: int) -> None:
+    copy = synthetic_store(tmp_path, asset)
+    report = inspect_store.inspect(copy, asset)
+    assert report.asset == [f"- {asset} appears in assets.asset_id"]
+    assert inspect_store.inspect(copy, asset + 1).asset == [f"- {asset + 1} appears in no table"]
