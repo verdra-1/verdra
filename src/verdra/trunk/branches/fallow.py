@@ -84,6 +84,9 @@ def kind_names() -> dict[str, str]:
         "roblox_cache_moved": QCoreApplication.translate(
             "Settings", "Roblox's saved assets, moved aside"
         ),
+        "roblox_store_swapped": QCoreApplication.translate(
+            "Settings", "Roblox's saved assets, two pictures swapped for a test"
+        ),
     }
 
 
@@ -127,6 +130,7 @@ def undo_actions() -> dict[str, Undo]:
         "ca_roblox_bundle": gardener.remove_ca,
         "uri_handler": sprout.restore_handler,
         "roblox_cache_moved": sprout.restore_cache,
+        "roblox_store_swapped": sprout.restore_store_entries,
     }
 
 

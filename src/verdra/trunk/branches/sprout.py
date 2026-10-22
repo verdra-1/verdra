@@ -22,10 +22,12 @@ Spec S-12. This part:
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import os
 import shutil
+import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -282,6 +284,61 @@ def restore_cache(entry: scar.Entry, ledger: scar.Ledger) -> None:
         shutil.move(saved, original)
     _remove_if_empty(backup)
     ledger.mark(entry.id, "removed")
+
+
+def restore_store_entries(
+    entry: scar.Entry, ledger: scar.Ledger, platform: humus.Platform | None = None
+) -> None:
+    """Undo a `roblox_store_swapped` entry: put back the saved assets a test swapped (S-24).
+
+    The store-swap test (decision record 0028, tools/store_swap.py, source runs only) rewrote
+    two pictures' entries with each other's bytes, after saving the original bytes in a backup
+    folder. Each entry that still holds what the test wrote gets its own bytes back. An entry
+    Roblox has rewritten since is Roblox's again and is left alone, as is a store that's gone.
+
+    Raises:
+        RobloxRunningError: a Player or Studio is running; nothing was changed.
+    """
+    running = (platform or humus.current()).roblox_processes()
+    if not isinstance(running, humus.Unsupported) and running.any:
+        raise RobloxRunningError(running)
+    backup = Path(entry.details["backup"])
+    database = Path(entry.details["database"])
+    if database.is_file():
+        connection = sqlite3.connect(database)
+        try:
+            with connection:
+                for item in entry.details["entries"]:
+                    _put_back(connection, item, backup)
+        finally:
+            connection.close()
+    shutil.rmtree(backup, ignore_errors=True)
+    ledger.mark(entry.id, "removed")
+
+
+def _put_back(connection: sqlite3.Connection, item: dict[str, Any], backup: Path) -> None:
+    key = bytes.fromhex(item["key"])
+    original = (backup / item["key"]).read_bytes()
+    row = connection.execute("SELECT content FROM files WHERE id = ?", (key,)).fetchone()
+    if row is None:
+        return
+    path = Path(item["path"]) if item["path"] else None
+    if path is None:
+        current = row[0]
+    elif path.is_file():
+        current = path.read_bytes()
+    else:
+        return
+    if current is None or hashlib.sha256(current).hexdigest() != item["written"]:
+        return  # Roblox rewrote it: its own bytes now
+    if path is None:
+        connection.execute(
+            "UPDATE files SET content = ?, size = ? WHERE id = ?",
+            (original, len(original), key),
+        )
+    else:
+        atomic.write_atomic(path, original)
+        connection.execute("UPDATE files SET size = ? WHERE id = ?", (len(original), key))
 
 
 def prune_backups(ledger: scar.Ledger, keep: Path | None, root: Path | None = None) -> list[Path]:
