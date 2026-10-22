@@ -141,6 +141,13 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
 11. Apply now with a link still downloading waits, showing M-APPLY-04, and goes on by itself when
     the download is done; a download that fails meanwhile isn't tried again in a loop; "Cancel"
     stops the wait, and the link still applies when it arrives (S-21).
+12. (test of decision record 0028, source runs only) The store-swap test exchanges every mip
+    pack of two pictures in Roblox's saved assets only with no Player or Studio running, and
+    only in a store laid out as observed (else nothing is written). Each touched entry's bytes
+    are saved first and a `roblox_store_swapped` ledger entry is made; every write is read back.
+    Undoing it (Reset everything, or the tool's `undo`) puts back each entry that still holds
+    what the test wrote and leaves alone one Roblox has rewritten since; it waits while Roblox
+    runs.
 
 ## Lives in
 
@@ -156,6 +163,11 @@ Progress shows in a toast, which ends with M-APPLY-01, or M-APPLY-02 when Roblox
   and probably cache, not proven (W-06 in `docs/platforms/windows.md`); the re-test guide's
   read-only check comes first. The new ledger kind `roblox_cache_moved` is added to plan 9.4's
   list. Tests 7 to 9 are added for rule 4.
+- **Store-swap test (2026-10-22).** Approved by the owner as the first step of decision record
+  0028's option A. `tools/store_swap.py` (not in the built app) swaps two pictures' entries in
+  the store Apply now has just emptied, using only Roblox's own bytes. The ledger kind
+  `roblox_store_swapped` and its undo (`sprout.restore_store_entries`) are in the app, so Reset
+  everything can undo it. Test 12 is added. Nothing writes Verdra's own bytes into the store.
 - Before 2026-10-05, rule 4 said the cache wasn't cleared until W-06 was recorded; the first
   swap test (`docs/m2/notes.md`) is why it now moves.
 - A restart in which the cache moved ends with M-APPLY-01; one in which it stayed (Studio or

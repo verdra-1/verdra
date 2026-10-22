@@ -2071,6 +2071,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Roblox&apos;s saved assets, two pictures swapped for a test</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Change</source>
         <translation type="unfinished"></translation>
     </message>

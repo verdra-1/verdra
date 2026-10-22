@@ -115,7 +115,33 @@ It answers three questions:
    did not on 11 October (Verdra's own bytes, served under Roblox's content address, were
    drawn), but reading from disk is a different code path.
 
-### A, step 2: the verification test (designed, not run; needs the owner's approval)
+### A, step 1: the result (22 October 2026, 21:55 to 21:58)
+
+The owner joined once with nothing decrypted (Apply now moved the store at 21:56:33, Roblox
+started at 21:57:09; 167 s in all), then inspected a copy. The report:
+
+- **The database:** one table, `files`, 212 rows, keyed by a 16-byte `id`.
+  - `content` is inline on 141 rows (blobs of 312, 786 or 787 bytes) and NULL on 71.
+  - The other columns are `size`, `hits`, `atime`, `category`, `score` and `ttl`.
+- **The folder:** 71 files, one level deep in 2-hex folders, each named by its 16-byte id in
+  hex (71 of the 212 ids name a file). That is 8.3 MB, from 9,786 to 859,481 bytes.
+- **The bytes:** no file starts with a known format ("unknown" for all 71), so Roblox puts
+  something of its own in front of what it stores.
+- **No file's name is the MD5, SHA-1 or SHA-256 of its bytes.**
+- **Asset 15553230204 appears in no table,** so the key doesn't hold the asset ID.
+
+How to read it:
+
+- **Safe to say:** the key isn't a hash of the stored file as a whole, and the asset ID isn't
+  stored. The key is probably derived from the request or from the content's address.
+- **Not shown:** "no content check". The files carry a header of Roblox's own, and the
+  inspector hashed the whole file. A key that is a hash of the content *behind* that header
+  (for example the content hash in the CDN's address) would not have matched either. Only the
+  store-swap test answers the question.
+- Degraded at 21:58:09 is expected in this run: with nothing decrypted, Verdra sees no asset
+  request.
+
+### A, step 2: the store-swap test (approved by the owner 22 October 2026; built)
 
 The question that decides A: does the Player check what it reads from its store against the
 key? The test uses only Roblox's own bytes:
@@ -130,7 +156,44 @@ key? The test uses only Roblox's own bytes:
    - **The wall shows X and the log shows a new download from fts:** it checks, and A is
      blocked.
 
-This writes into Roblox's folder (only the disposable store), so it waits for the owner's yes.
+The owner approved it on 22 October. It is built as `tools/store_swap.py` (guide
+`docs/guides/m2-store-swap-test.md`):
+
+- **Finding the wall picture without its asset ID:** the tool reads the KTX2 keys Roblox stores
+  inside each picture, behind its header and through zstd. 15553230204 is the only picture with
+  an original size of 500 x 500 (8 October capture). One picture's three mip packs share
+  every key but `packIndex`.
+- **The partner** is the largest other picture with the same packs, and pack *n* is swapped
+  with pack *n*, so each picture's mip chain stays whole.
+- **Safety:**
+  - It refuses while a Player or Studio runs, and refuses a store that isn't laid out as
+    observed (`plan` shows the choice first, read-only).
+  - It saves each touched entry and records a `roblox_store_swapped` ledger entry before
+    writing, and reads every write back.
+  - Undoing (Reset everything or `undo`) puts back what the test wrote and leaves alone what
+    Roblox rewrote since.
+- **Reading the result:** `check` says, after the second join, whether the entries still hold
+  the swapped bytes. `verdra.log` shows whether Roblox downloaded the picture again.
+- **If the wall shows the original:** Roblox either checked the bytes or had marked the entries
+  expired (the `ttl` column). The log and `check` show which of the two it was, and the next
+  test would swap only the content behind each header.
+
+### A, step 3, scoped only: what building A needs (after the test passes and the owner says yes)
+
+- **The key formula.** The asset ID isn't in the store, so Verdra must compute the 16-byte key
+  of the entry Roblox looks up.
+  - The likely candidate is a digest of the content's CDN address, which Roblox's batch
+    answer gives.
+  - A read-only `--check-key` mode on a copy would test candidate strings against the ids
+    present. Its inputs would be addresses the owner's own source run records with
+    `--format-capture`, or a request of Verdra's own to the public asset-delivery API.
+  - Verdra never sends a login or a cookie. If the public API answers only with one, this path
+    is closed and the record says so.
+- **The on-disk format.** The header Roblox puts in front of what it stores is unknown.
+  - It would be learned by comparing, read-only, one stored entry with the same asset's raw
+    CDN download (a `--format-capture` body, which stays on the owner's PC).
+  - Verdra's encoder already writes the KTX2 behind it (decision record 0022).
+- **The writer** (below), only after the owner's separate yes.
 
 ## Proposed plan and spec changes if A is approved (drafts, not applied)
 
@@ -160,7 +223,7 @@ This writes into Roblox's folder (only the disposable store), so it waits for th
 Open. Recommended:
 
 - Approve A's read-only investigation now (no approval needed: nothing is written).
-- After the report, decide on the verification test, which writes only into a disposable store.
+- The verification test was approved by the owner on 22 October and is built; run it next.
 - Then decide on building A.
 
 D and B are rejected by test. C stays the owner's call, with its own record if ever wanted.

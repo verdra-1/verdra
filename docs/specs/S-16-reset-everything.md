@@ -122,7 +122,8 @@ Undo every change Verdra made to the system, in one action, even after a crash.
   "Start with the system", `launcher_entry` "Launcher entry", `uri_handler` "Roblox link
   handler", `file_tweak` "File tweak", `client_settings_file` "Client settings file",
   `frame_rate_setting` "Frame-rate cap", `roblox_cache_moved` "Roblox's saved assets, moved aside"
-  (S-24, added 2026-10-05). Columns: Change, Where, Made (date and time in the
+  (S-24, added 2026-10-05), `roblox_store_swapped` "Roblox's saved assets, two pictures
+  swapped for a test" (S-24 test 12, added 2026-10-22). Columns: Change, Where, Made (date and time in the
   user's locale), State (Pending, Done, or "Failed: <reason>"). It is read again each time the
   screen is shown. M-RESET-05 is added for a ledger that can't be read, which the plan doesn't
   cover.

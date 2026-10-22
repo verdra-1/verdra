@@ -205,6 +205,8 @@ All notable changes to Verdra are recorded here. The format follows
   always passed through unchanged; no feature can ever change it.
 - The US-spelling check also reads this changelog, which becomes the release notes.
 - PyYAML is a declared development dependency instead of arriving through pre-commit.
+- Settings › System changes can list "Roblox's saved assets, two pictures swapped for a
+  test", left by a test tool run from source; Reset everything puts those pictures back.
 - Since 15 October 2026 Roblox refuses Verdra's certificate on its asset servers, so
   replacements don't show in game for now. Verdra's status says so ("going through Verdra but
   hasn't asked for any pictures"). A new way to apply them is being worked on.
