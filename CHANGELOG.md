@@ -221,7 +221,7 @@ All notable changes to Verdra are recorded here. The format follows
   when you click Play.
 - When Roblox connects through Verdra but asks for no pictures, meshes or sounds, the routing
   status says so and offers Apply now, instead of saying Roblox isn't reaching Verdra
-  (confirmed on a real PC on 21 October 2026).
+  (confirmed on a real PC on 21 October 2026, from the downloaded app and from source).
 - Apply now never moves Roblox's saved assets while Roblox runs. With your own Roblox running it
   says to close Roblox and join again, with a "Restart Roblox" button; with a Roblox Verdra
   didn't start, one message says your replacements are saved but won't show until that Roblox

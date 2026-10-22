@@ -49,7 +49,9 @@ from verdra.trunk.branches.sprout import (
     capture_text,
     check_text,
     control_text,
+    no_intercept_text,
     other_player_text,
+    send_ca_text,
 )
 
 if TYPE_CHECKING:
@@ -415,7 +417,7 @@ class Shell:
         self.window.restore_state()
 
     def _show_diagnostics(self) -> None:
-        """M-DIAG-01, -03, -08 and -10, for as long as a source-only diagnostic is on."""
+        """M-DIAG-01, -03, -08, -10, -14 and -15, while a source-only diagnostic is on."""
         arguments = self.services.arguments
         if arguments.diagnose_interception:
             self.show_diagnostic_notice()
@@ -426,6 +428,10 @@ class Shell:
             texts.append(control_text(*arguments.control_swap))
         if arguments.format_check:
             texts.append(check_text(arguments.format_check))
+        if arguments.no_intercept:
+            texts.append(no_intercept_text(arguments.no_intercept))
+        if arguments.send_ca:
+            texts.append(send_ca_text())
         for text in texts:
             self.window.notices.addWidget(Notice(text, Tone.WARNING, self.window))
 

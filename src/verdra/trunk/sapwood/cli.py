@@ -7,7 +7,8 @@ ignored rather than refused, so a launcher passing extra arguments can't stop Ve
 
 The exceptions are the diagnostics `--diagnose-interception` (spec S-11, plan 16.2) and
 `--format-capture <asset IDs>` with `--save-bodies`, and `--control-swap ORIGINAL=DONOR` (spec
-S-21, plan 16.2 of 8 October 2026):
+S-21, plan 16.2 of 8 October 2026), and the pass-through control `--no-intercept <hosts>` and
+`--send-ca` (spec S-11, 22 October 2026):
 they are offered only while Verdra runs from source, where their module (roots/litmus.py) is
 present. A frozen build doesn't have that module, so there argparse rejects the flag as unknown
 and Verdra exits with code 2 before anything starts (decision record 0015).
@@ -16,11 +17,13 @@ and Verdra exits with code 2 before anything starts (decision record 0015).
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from verdra import roots
+from verdra.roots import rules
 from verdra.soil import terrain
 
 
@@ -41,6 +44,10 @@ class Arguments:
     control_swap: tuple[int, int] | None = None
     #: Asset IDs whose downloads a format check reports as Verdra answers them; () when off.
     format_check: tuple[int, ...] = ()
+    #: Hosts Verdra passes through instead of decrypting (the pass-through control); () when off.
+    no_intercept: tuple[str, ...] = ()
+    #: Present Verdra's CA after each leaf it presents to Roblox (a diagnostic).
+    send_ca: bool = False
 
 
 DIAGNOSE_FLAG = "--diagnose-interception"
@@ -48,10 +55,24 @@ CAPTURE_FLAG = "--format-capture"
 BODIES_FLAG = "--save-bodies"
 CONTROL_FLAG = "--control-swap"
 CHECK_FLAG = "--format-check"
+NO_INTERCEPT_FLAG = "--no-intercept"
+SEND_CA_FLAG = "--send-ca"
 #: Every flag that needs the source-only diagnostic module.
-DIAGNOSTIC_FLAGS = (DIAGNOSE_FLAG, CAPTURE_FLAG, BODIES_FLAG, CONTROL_FLAG, CHECK_FLAG)
+DIAGNOSTIC_FLAGS = (
+    DIAGNOSE_FLAG,
+    CAPTURE_FLAG,
+    BODIES_FLAG,
+    CONTROL_FLAG,
+    CHECK_FLAG,
+    NO_INTERCEPT_FLAG,
+    SEND_CA_FLAG,
+)
 #: The source-only module the flag needs (roots/litmus.py); frozen builds leave it out.
 DIAGNOSTIC_SOURCE = "litmus.py"
+
+
+#: A host name: dot-separated labels of letters, digits and hyphens.
+_HOST = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}")
 
 
 def diagnosis_available() -> bool:
@@ -81,6 +102,8 @@ def parse(argv: list[str]) -> Arguments:
         parser.add_argument(BODIES_FLAG, action="store_true")
         parser.add_argument(CONTROL_FLAG, type=_asset_pair, default=None)
         parser.add_argument(CHECK_FLAG, type=_asset_ids, default=())
+        parser.add_argument(NO_INTERCEPT_FLAG, type=_host_names, default=())
+        parser.add_argument(SEND_CA_FLAG, action="store_true")
     known, rest = parser.parse_known_args([item for item in argv if item != DIAGNOSE_FLAG])
     scheme = terrain.URL_SCHEME + ":"
     link = next((item for item in rest if item.lower().startswith(scheme)), None)
@@ -94,6 +117,8 @@ def parse(argv: list[str]) -> Arguments:
         save_bodies=getattr(known, "save_bodies", False),
         control_swap=getattr(known, "control_swap", None),
         format_check=getattr(known, "format_check", ()),
+        no_intercept=getattr(known, "no_intercept", ()),
+        send_ca=getattr(known, "send_ca", False),
     )
 
 
@@ -108,6 +133,15 @@ def _asset_ids(text: str) -> tuple[int, ...]:
         msg = "give one or more asset IDs, separated by commas"
         raise ValueError(msg)
     return ids
+
+
+def _host_names(text: str) -> tuple[str, ...]:
+    """`assetdelivery.roblox.com,fts.rbxcdn.com` as lower-case host names (else exit code 2)."""
+    hosts = tuple(rules.host_name(part) for part in text.replace(" ", "").split(",") if part)
+    if not hosts or not all(_HOST.fullmatch(host) for host in hosts):
+        msg = "give one or more host names, separated by commas"
+        raise ValueError(msg)
+    return hosts
 
 
 def _asset_pair(text: str) -> tuple[int, int]:

@@ -1660,3 +1660,29 @@ def test_while_routing_a_roblox_verdra_didnt_start_shows_as_soon_as_it_appears(
     assert made.status.current.state.value == "routing"
     made.stop_routing()
     assert not [e for e in routing_clock.pending if e[1] == made._watch_tick]  # noqa: SLF001
+
+
+@pytest.mark.spec("S-11", 14)
+def test_the_pass_through_control_never_decrypts_its_hosts(tmp_path: Path, qapp: Any) -> None:
+    from verdra.bark import resin  # noqa: PLC0415
+    from verdra.roots import gardener, hyphae, litmus  # noqa: PLC0415
+
+    status = gardener.RoutingStatusSource(FakeClock().schedule)
+    made = sprout.Sprout(
+        FakeSettings(),
+        status,
+        platform=RoutingPlatform([]),  # type: ignore[arg-type]
+        check=(15553230204,),  # adds the asset hosts, so the control has something to take away
+        no_intercept=("assetdelivery.roblox.com",),
+        send_ca=True,
+    )
+    interception = made._features(resin.create_authority(NOW))  # noqa: SLF001
+    assert isinstance(interception, hyphae.Interception)
+    hosts = set(interception.hosts())
+    assert "assetdelivery.roblox.com" not in hosts
+    assert hosts == set(litmus.CAPTURE_HOSTS) - {"assetdelivery.roblox.com"}
+    assert interception.leaves.send_authority
+    assert "--no-intercept" in sprout.no_intercept_text(("assetdelivery.roblox.com",))
+    assert "--send-ca" in sprout.send_ca_text()
+    made.deleteLater()
+    status.deleteLater()

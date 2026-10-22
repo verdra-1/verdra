@@ -353,7 +353,9 @@ def describe_tls_library(context: ssl.SSLContext) -> str:
     )
 
 
-def describe_leaf(leaf: resin.Leaf, authority: x509.Certificate) -> str:
+def describe_leaf(
+    leaf: resin.Leaf, authority: x509.Certificate, *, with_authority: bool = False
+) -> str:
     """One line on the certificate Verdra presents: key, names, validity, issuer, chain."""
     certificate = leaf.certificate
     key = leaf.key
@@ -365,7 +367,8 @@ def describe_leaf(leaf: resin.Leaf, authority: x509.Certificate) -> str:
         f"key {kind}, names {', '.join(names.value.get_values_for_type(x509.DNSName))}, "
         f"valid {certificate.not_valid_before_utc:%Y-%m-%d %H:%M} to "
         f"{certificate.not_valid_after_utc:%Y-%m-%d %H:%M} UTC, issued by {issuer} "
-        f"(SHA-256 {fingerprint}…), chain sent: this certificate alone"
+        f"(SHA-256 {fingerprint}…), chain sent: "
+        + ("this certificate, then Verdra's CA" if with_authority else "this certificate alone")
     )
 
 
@@ -383,10 +386,16 @@ class LeafContexts:
     """Server TLS contexts with an in-memory S-10 leaf per host, issued on first use."""
 
     def __init__(
-        self, authority: resin.Authority, clock: Callable[[], datetime] | None = None
+        self,
+        authority: resin.Authority,
+        clock: Callable[[], datetime] | None = None,
+        *,
+        send_authority: bool = False,
     ) -> None:
         self.authority = authority
         self.clock = clock or (lambda: datetime.now(UTC))
+        #: Present the CA after each leaf (`--send-ca`, source runs only, 22 October 2026).
+        self.send_authority = send_authority
         self._contexts: dict[tuple[str, bool], tuple[datetime, ssl.SSLContext]] = {}
         #: Traces the contexts made while detailed logging is on.
         self.tracer = TlsTracer()
@@ -416,14 +425,17 @@ class LeafContexts:
             log.debug(
                 "Verdra's certificate for %s: %s",
                 host,
-                describe_leaf(leaf, self.authority.certificate),
+                describe_leaf(leaf, self.authority.certificate, with_authority=self.send_authority),
             )
         key = leaf.key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
             serialization.NoEncryption(),
         )
-        humus.current().load_cert_chain(context, resin.certificate_pem(leaf.certificate), key)
+        chain = resin.certificate_pem(leaf.certificate)
+        if self.send_authority:
+            chain += resin.certificate_pem(self.authority.certificate)
+        humus.current().load_cert_chain(context, chain, key)
         renew = leaf.certificate.not_valid_after_utc - LEAF_RENEW_BEFORE
         self._contexts[(host, traced)] = (renew, context)
         return context

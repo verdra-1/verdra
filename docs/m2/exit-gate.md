@@ -12,7 +12,7 @@ evidence for each part and says plainly what is not verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g), the release dry-run ZIP, failed on 15, 16 and 21 October; a source run on the owner's PC decides where the fault is | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g) failed on 15, 16 and 21 October with the ZIP and on 21 October from source: Roblox drops Verdra's decrypted asset connections; the pass-through control decides the next step | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
 
 M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
 one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
@@ -101,6 +101,34 @@ today's Roblox ([guide](../guides/m2-source-tls-check.md)):
 - If it works, the built app's TLS differs from a source run's: make them the same, and add a
   smoke test whose client offers HTTP/2 first.
 
+### The source run, 21 October 2026, 22:22 to 22:29
+
+From source (main ee5979b, OpenSSL 3.5.9, Python 3.14.8) on the updated Roblox, with no
+Roblox update during the test. Two starts of Roblox (22:24:48 and, after Apply now, 22:27:38).
+
+- **It fails exactly like the ZIP.** 26 connections to assetdelivery between 22:24:53 and
+  22:28:40, and every one ends the same way. The handshake completes with TLS 1.3,
+  TLS_AES_256_GCM_SHA384 and X25519MLKEM768. Then, 0 to 1 ms later, "closed … before its first
+  request (… a plain TCP close)". There were no TLS alerts, no requests and nothing served.
+  The wall stayed blank: neither the replacement nor the original.
+- **Not HTTP/2.** Roblox offered only `http/1.1` and Verdra chose it, on all 26 connections.
+- **Not the build.** The source run has the same TLS server as the built app (the CI smoke
+  test, 21 October), and it fails the same way.
+- **Confirmed again:** the honest Degraded status at 22:25:48 (M-STATUS-09), and the
+  Apply-while-running message at 22:27:36 (M-APPLY-08).
+- **The 15 October puzzle, not resolved.** That evening a source run worked at 19:51 and the
+  ZIP failed at 20:04. Today's cause fits if Roblox's behavior changed in between, with no
+  update Verdra saw. That is possible if the change came while Verdra was closed, or from
+  Roblox's servers rather than an update. It isn't proven.
+
+What's left: Roblox accepts Verdra's certificate during the handshake (it is trusted through
+the Player's certificate file), then drops the connection without a word. That points to a
+check made after the handshake, such as pinning the server's key, which a certificate from
+Verdra's own authority can't pass. It isn't proven. The pass-through control
+([guide](../guides/m2-pass-through-control.md)) tests it: assetdelivery passed through
+untouched, the real server's certificate logged for comparison, and, separately, Verdra's
+authority sent along with its certificate.
+
 ## Texture swap
 
 All on the owner's PC (Windows 11, Roblox Player 0.742), run from source, with the format check
@@ -182,8 +210,8 @@ Said plainly, so nobody reads more into the result than was tested:
 - **(b) geometry.** The asset-ID mesh swap showed a different shape; that it is exactly the other
   asset's geometry was not checked independently.
 - **The release dry-run ZIP.** Started on the owner's PC on 15, 16 and 21 October and failed
-  each time (step (g) above). Whether the cause is the built app or a Roblox update is open
-  until the source run of the TLS check.
+  each time (step (g) above), and so did a source run on 21 October: the cause is on Roblox's
+  side, not the build. Its exact nature is open until the pass-through control.
 - **The Qt source addresses** in the third-party notices (download.qt.io) weren't reachable from
   the session that wrote them. Needed: someone opens them once and checks they list the bundled
   Qt and Qt for Python version, or the notices name another address that does. It blocks nothing

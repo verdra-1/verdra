@@ -103,6 +103,12 @@ untouched.
   Verdra presents (key, names, validity, issuer and the CA's fingerprint, chain). These are log
   lines, not Activity messages; without detailed logging nothing is traced. The CI smoke test
   of the built app requires them and prints the TLS line.
+- M-DIAG-14 (Notice and Activity, source runs only, 22 October 2026) "Pass-through control is
+  on: Verdra doesn't decrypt <hosts>, so replacements that need them don't apply. Restart Verdra
+  without --no-intercept to turn it off."
+- M-DIAG-15 (Notice and Activity, source runs only, 22 October 2026) "Verdra sends its own
+  certificate authority with every certificate it presents to Roblox. Restart Verdra without
+  --send-ca to turn it off."
 - M-DIAG-01 (Notice, new) "Diagnostic interception is on. Verdra is reading Roblox's traffic to
   check it, and changes nothing. Restart Verdra without --diagnose-interception to turn it off."
 - M-DIAG-02 (Activity, new) "Diagnostic interception, <host> (<where>): <version>, <cipher>,
@@ -145,6 +151,12 @@ untouched.
     Debug line naming the version, cipher, ALPN chosen (http/1.1, or none) and what it offered;
     a close_notify, a plain TCP close and a refused handshake's alert (unknown_ca) are each
     named; without detailed logging no context is traced and none of these lines appear.
+14. (diagnostic, source runs only) `--no-intercept <hosts>` takes host names separated by commas
+    and `--send-ca` takes nothing; a frozen build rejects both (exit code 2). With
+    `--no-intercept`, those hosts are tunneled even when a replacement needs them, and the chain
+    each one's real server presents is logged at Debug (subject, issuer, key, validity, names,
+    signed certificate timestamps, basic constraints, key pin) after a handshake with no
+    request. With `--send-ca`, Roblox receives Verdra's leaf followed by its CA.
 
 ## Lives in
 
