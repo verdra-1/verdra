@@ -36,7 +36,7 @@ logging now also records which protocols Roblox asks for and how it hangs up.
 1. Open PowerShell and run this command:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1" --format-check
+   powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Documents\verdra\tools\run-latest.ps1" --format-check 15553230204
    ```
 
    Take the screenshot of its first lines (the commit). Keep the window open; closing it
