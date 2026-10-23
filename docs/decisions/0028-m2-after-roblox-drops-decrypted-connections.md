@@ -1,8 +1,9 @@
 # 0028. M2 after Roblox stopped asking for assets over Verdra's decrypted connections
 
-- **Status:** Proposed. Direction A, pending the read-only investigation and the owner's explicit
-  approval to write into Roblox's files; nothing that writes to Roblox is built until then.
-- **Date:** 2026-10-22 (options scoped); updated 2026-10-22 with the pass-through control
+- **Status:** Proposed; **Option A paused on 23 October 2026 pending the owner's legal review**
+  of the terms-of-service question. Nothing toward A is built while it is paused.
+- **Date:** 2026-10-22 (options scoped); 2026-10-22 pass-through control; 2026-10-23 store-swap
+  test and the pause
 - **Plan sections:** 3.1 (clean room), 10.1 to 10.3 (interception, hosts, local CA), 10.6, 14
   (M2 exit gate), 16.2 (autopilot: the owner decides direction, client changes and legal
   questions)
@@ -220,15 +221,33 @@ The owner approved it on 22 October. It is built as `tools/store_swap.py` (guide
 
 ## Decision
 
-Open. Recommended:
+Open, and **Option A is paused** (23 October 2026).
 
-- Approve A's read-only investigation now (no approval needed: nothing is written).
-- The verification test was approved by the owner on 22 October and is built; run it next.
-- Then decide on building A.
+What the store-swap test settled (owner's run, 23 October 2026, main 5b4b9c5; logs and frames
+checked, none committed): with nothing decrypted, one join filled a fresh store; two pictures'
+packs were swapped with Roblox closed; the rejoin showed the swapped picture on the wall (the
+500 x 500 asset's slot drew an 800 x 800 picture of a different format). So the Player draws
+what sits under a key and does not re-check it on a disk read. A is therefore technically
+possible. `undo` restored the store.
 
-D and B are rejected by test. C stays the owner's call, with its own record if ever wanted.
-Until A is approved and built, the M2 exit gate stays open, Phase A stays frozen, and nothing is
-released (decision record 0026).
+Why it is paused: whether writing into Roblox's local asset cache is allowed under Roblox's
+terms of service is unresolved, and the owner is taking that question to a legal review before
+any A work proceeds. A also works around a protection measure Roblox added (the certificate
+checks of 21 October), which is the maintainer's reservation; the maintainer has declined to
+build A, so a decision to proceed would need another contributor. A separate decision record
+(0029) for the terms question is deferred until the legal review returns.
+
+**Parked, not lost** — the open points, so a later session can pick them up deliberately:
+
+- D and B are rejected by test; C stays the owner's call.
+- The store-swap test passed (above).
+- **Not built, and not to be built while A is paused:** the read-only groundwork (the 16-byte
+  key formula, the on-disk KTX2 format), the layout-guard change for `sqlite_stat1`, the
+  `store_swap` launch-path fix, the saved-asset writer, and the S-10 / S-11 / S-24 and plan
+  10.x changes A would need.
+
+Until A is unpaused, approved and built, the M2 exit gate stays open, Phase A stays frozen, and
+nothing is released (decision record 0026).
 
 ## Consequences
 

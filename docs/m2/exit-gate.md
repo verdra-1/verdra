@@ -12,7 +12,7 @@ evidence for each part and says plainly what is not verified.
 |---|---|---|
 | A texture swap is visible in game on Windows | **Met** (11 and 12 October) | Below, "Texture swap" |
 | A mesh swap is visible in game on Windows | **Met** (12 October) | Below, "Mesh swap" |
-| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g) failed from 15 October on: since then Roblox refuses Verdra's certificate on both asset servers (pass-through control, 22 October); M2 needs a new way to apply replacements (decision record 0028, option A, pending the owner's approval) | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
+| 0.1.0 (internal milestone label, no tag; decision record 0026) | **Open**: steps (e), (e2), (e3) and (f) passed on 15 October; step (g) failed from 15 October on: since then Roblox refuses Verdra's certificate on both asset servers (pass-through control, 22 October); M2 needs a new way to apply replacements (decision record 0028, option A, viable but paused on 23 October pending the owner's legal review) | Below, "Final M2 test, 15 October 2026" and "Step (g) repeated" |
 
 M2 is complete (internal milestone 0.1.0) when the final M2 test passes: a large, a tiny and a
 one-color picture in game, the mesh report, and the release dry-run ZIP started on the owner's
