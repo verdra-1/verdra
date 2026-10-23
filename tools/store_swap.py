@@ -22,9 +22,9 @@ Safety, as decision record 0028 sets out:
   (trunk/branches/sprout).
 - Every write is read back. The tool prints only sizes, formats and counts, never content.
 
-    uv run python tools/store_swap.py plan --original 500x500
-    uv run python tools/store_swap.py swap --original 500x500 --yes
-    uv run python tools/store_swap.py check
+    uv run python -m tools.store_swap plan --original 500x500
+    uv run python -m tools.store_swap swap --original 500x500 --yes
+    uv run python -m tools.store_swap check
 """
 
 from __future__ import annotations

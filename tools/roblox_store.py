@@ -5,7 +5,8 @@
 The owner's store report of 22 October 2026 showed what this module relies on, and nothing
 more:
 - `rbx-storage.db` holds one table, `files`, keyed by a 16-byte `id`. Its columns are
-  `content`, `size`, `hits`, `atime`, `category`, `score` and `ttl`.
+  `content`, `size`, `hits`, `atime`, `category`, `score` and `ttl`. SQLite's own statistics
+  table `sqlite_stat1` may sit beside it (seen 23 October 2026).
 - `content` holds an entry's bytes inline, or is NULL when the bytes sit in the `rbx-storage`
   folder: one level deep, in a file named by the id in hex.
 
@@ -37,6 +38,8 @@ FOLDER: Final = "rbx-storage"
 TABLE: Final = "files"
 #: The columns observed on 22 October 2026, in order.
 COLUMNS: Final = ("id", "content", "size", "hits", "atime", "category", "score", "ttl")
+#: Tables SQLite makes for itself (statistics, autoincrement counters); no program may use it.
+SQLITE_PREFIX: Final = "sqlite_"
 KEY_LENGTH: Final = 16
 ZSTD_MAGIC: Final = b"\x28\xb5\x2f\xfd"
 #: How far into an entry its KTX2 file or zstd frame may start (a header of Roblox's own).
@@ -84,12 +87,17 @@ class Picture:
 
 
 def recognize(connection: sqlite3.Connection) -> None:
-    """Raise UnknownStoreError unless the database has exactly the observed table."""
+    """Raise UnknownStoreError unless the database has the observed table and no other of its own.
+
+    SQLite's own tables (names starting `sqlite_`, which only SQLite may make) don't count:
+    `ANALYZE` adds `sqlite_stat1`, as the owner's store had after a join on 23 October 2026.
+    """
     tables = [
         row[0]
         for row in connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
         )
+        if not str(row[0]).lower().startswith(SQLITE_PREFIX)
     ]
     if tables != [TABLE]:
         msg = f"the database has tables {tables}, not just '{TABLE}'"
