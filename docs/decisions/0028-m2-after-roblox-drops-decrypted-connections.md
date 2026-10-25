@@ -1,7 +1,7 @@
 # 0028. M2 after Roblox stopped asking for assets over Verdra's decrypted connections
 
-- **Status:** Proposed; **Option A paused on 23 October 2026 pending the owner's legal review**
-  of the terms-of-service question. Nothing toward A is built while it is paused.
+- **Status:** Accepted; pause lifted by 0030. **Option A paused on 23 October 2026 pending the
+  owner's legal review** of the terms-of-service question (decided by 0029).
 - **Date:** 2026-10-22 (options scoped); 2026-10-22 pass-through control; 2026-10-23 store-swap
   test and the pause
 - **Plan sections:** 3.1 (clean room), 10.1 to 10.3 (interception, hosts, local CA), 10.6, 14
@@ -241,7 +241,7 @@ build A, so a decision to proceed would need another contributor. A separate dec
 
 - D and B are rejected by test; C stays the owner's call.
 - The store-swap test passed (above).
-- **Not built, and not to be built while A is paused:** the read-only groundwork (the 16-byte
+- **Not built yet:** the read-only groundwork (the 16-byte
   key formula, the on-disk KTX2 format), the layout-guard change for `sqlite_stat1`, the
   `store_swap` launch-path fix, the saved-asset writer, and the S-10 / S-11 / S-24 and plan
   10.x changes A would need.
