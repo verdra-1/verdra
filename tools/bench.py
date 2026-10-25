@@ -39,11 +39,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
-from tests.support.client import FakeClient
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # run as a file (`python tools\bench.py`), not only with -m
 
-from tools import fake_roblox
-from verdra.bark import resin
-from verdra.roots import hyphae, mycelium, taproot
+from tests.support.client import FakeClient  # noqa: E402
+
+from tools import fake_roblox  # noqa: E402
+from verdra.bark import resin  # noqa: E402
+from verdra.roots import hyphae, mycelium, taproot  # noqa: E402
 
 BASELINE: Final = Path(__file__).with_name("bench_baseline.json")
 #: Plan 12.4: added latency per intercepted request.

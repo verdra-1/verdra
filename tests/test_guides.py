@@ -91,3 +91,32 @@ def test_each_guide_tool_starts_the_way_the_guide_runs_it(
         check=False,
     )
     assert done.returncode == 0, f"{guide}:{line}: {' '.join(tool)} failed:\n{done.stderr}"
+
+
+def importing_tools() -> list[str]:
+    """Every tool that imports another tool (`from tools import …`), as a path from Verdra's folder."""
+    return sorted(
+        f"tools/{path.name}"
+        for path in (ROOT / "tools").glob("*.py")
+        if re.search(r"^from tools import|^import tools", path.read_text("utf-8"), re.MULTILINE)
+    )
+
+
+def test_some_tools_import_other_tools() -> None:
+    assert "tools/store_swap.py" in importing_tools()
+
+
+@pytest.mark.parametrize("tool", importing_tools())
+def test_a_tool_that_imports_tools_starts_as_a_file(tool: str) -> None:
+    """25 October 2026: `python tools\\store_swap.py` needs Verdra's folder on sys.path itself."""
+    environment = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    done = subprocess.run(  # noqa: S603 - Verdra's own tool, with --help
+        [sys.executable, tool, "--help"],
+        cwd=ROOT,  # as `uv run --directory`: Python puts tools/, not Verdra's folder, on sys.path
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 0, f"{tool} failed:\n{done.stderr}"
