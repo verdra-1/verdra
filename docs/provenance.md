@@ -46,6 +46,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/leaves/dialogs.py` | Master plan 4.3, 7.8, message catalogue (M-RISK-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/drawer.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/leaves/empty.py` | Master plan 7.2, 7.3, message catalogue (M-SOON-01) | PySide6 | 2026-10-01 |
+| `verdra/canopy/leaves/elide.py` | docs/design/laws.md (law 2), D1 audit blocker 3 | PySide6 | 2026-10-25 |
 | `verdra/canopy/leaves/fields.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/leaves/notice.py` | Master plan 5.4, message catalogue (kind Notice) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/progress.py` | Design system brand book ("UI language": progress), Master plan 5.4, 6.6 | PySide6 | 2026-10-01 |

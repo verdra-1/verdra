@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtCore import QMimeData, QObject, QPoint, QPointF, Qt, QUrl, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
@@ -512,6 +512,68 @@ def test_without_the_service_the_screen_and_apply_now_say_why(shell: Shell) -> N
     screen = screen_of(shell)
     assert not any(b.isEnabled() for b in screen.empty.buttons)
     assert not shell.window.header.apply_now.isEnabled()
+
+
+@pytest.mark.spec("S-22", 2)
+def test_a_path_is_shortened_in_the_middle_with_the_full_text_on_hover_and_copyable(
+    made: tuple[Shell, StubSprout],
+) -> None:
+    """Design law 2 (D1 blocker 3): the "Replace with" path keeps its file name, shows in full
+    on hover, and the cell copies whole."""
+    from verdra.canopy.leaves.elide import PathItemDelegate  # noqa: PLC0415
+
+    shell, _stub = made
+    screen = screen_of(shell)
+    service = shell.services.grafts
+    assert service is not None
+    path = r"C:\Users\Player\Pictures\Verdra tests\verdra-test-1600x900.png"
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="file", value=path),
+    )
+    screen.refresh()
+    # The "Replace with" and "Note" columns elide in the middle (law 2); the others don't.
+    assert isinstance(screen.table.itemDelegateForColumn(1), PathItemDelegate)
+    assert isinstance(screen.table.itemDelegateForColumn(3), PathItemDelegate)
+    assert not isinstance(screen.table.itemDelegateForColumn(0), PathItemDelegate)
+    cell = screen.table.item(0, 1)
+    assert cell is not None
+    assert cell.text() == path  # the model keeps the whole path; only the painter shortens it
+    assert cell.toolTip() == path  # the full text is on hover
+    # Copyable: the current cell's whole text goes to the clipboard.
+    screen.table.setCurrentItem(cell)
+    screen._copy_cell()
+    assert QApplication.clipboard().text() == path
+
+
+@pytest.mark.spec("S-22", 2)
+def test_the_right_click_copy_copies_the_whole_path(made: tuple[Shell, StubSprout]) -> None:
+    """The table's "Copy" entry copies the full path, not the shortened one (law 2)."""
+    shell, _stub = made
+    screen = screen_of(shell)
+    service = shell.services.grafts
+    assert service is not None
+    path = r"C:\Users\Player\Pictures\Verdra tests\verdra-test-1600x900.png"
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="file", value=path),
+    )
+    screen.refresh()
+    QApplication.clipboard().setText("something else")
+    # The menu is modal (its exec can't run headless); build it and trigger its only action.
+    menu = screen.copy_menu(path)
+    assert [action.text() for action in menu.actions()] == ["Copy"]
+    menu.actions()[0].trigger()
+    assert QApplication.clipboard().text() == path
+    # A right-click on empty space (no cell) opens no menu and copies nothing.
+    screen._table_menu(QPoint(-1, -1))
+    assert QApplication.clipboard().text() == path  # unchanged
 
 
 def test_startup_publishes_saved_replacements(home: Path, services: Services) -> None:
