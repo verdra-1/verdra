@@ -194,6 +194,8 @@ All notable changes to Verdra are recorded here. The format follows
   and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
+- filelock 4.2.4 and setuptools 84.2.1 (development and build only) replace versions with
+  published security advisories.
 
 - The copyright holder is now "q0f7" (NOTICE, every file header, the About dialog and the package
   metadata). The project's home stays https://github.com/verdra-1/verdra.
