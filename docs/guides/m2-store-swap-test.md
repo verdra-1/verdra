@@ -67,7 +67,7 @@ second Apply now would move the swapped store aside before the second join.
    reads):
 
    ```powershell
-   uv run --directory "$env:USERPROFILE\Documents\verdra" python tools\store_swap.py plan --original 500x500
+   uv run --directory "$env:USERPROFILE\Documents\verdra" python -m tools.store_swap plan --original 500x500
    ```
 
    It lists the pictures in the store and ends with "Would swap picture … (the wall) with
@@ -75,7 +75,7 @@ second Apply now would move the swapped store aside before the second join.
 9. Swap them:
 
    ```powershell
-   uv run --directory "$env:USERPROFILE\Documents\verdra" python tools\store_swap.py swap --original 500x500 --yes
+   uv run --directory "$env:USERPROFILE\Documents\verdra" python -m tools.store_swap swap --original 500x500 --yes
    ```
 
    It ends with "every write read back as written".
@@ -85,13 +85,13 @@ second Apply now would move the swapped store aside before the second join.
 11. Leave the game, end any "Roblox" entry in Task Manager, then run in the second window:
 
     ```powershell
-    uv run --directory "$env:USERPROFILE\Documents\verdra" python tools\store_swap.py check
+    uv run --directory "$env:USERPROFILE\Documents\verdra" python -m tools.store_swap check
     ```
 
 12. Put the original bytes back:
 
     ```powershell
-    uv run --directory "$env:USERPROFILE\Documents\verdra" python tools\store_swap.py undo
+    uv run --directory "$env:USERPROFILE\Documents\verdra" python -m tools.store_swap undo
     ```
 
 13. Quit Verdra (tray icon › Quit Verdra). Copy `verdra.log` from `%LOCALAPPDATA%\Verdra\Logs`

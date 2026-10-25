@@ -22,9 +22,9 @@ Safety, as decision record 0028 sets out:
   (trunk/branches/sprout).
 - Every write is read back. The tool prints only sizes, formats and counts, never content.
 
-    uv run python tools/store_swap.py plan --original 500x500
-    uv run python tools/store_swap.py swap --original 500x500 --yes
-    uv run python tools/store_swap.py check
+    uv run python -m tools.store_swap plan --original 500x500
+    uv run python -m tools.store_swap swap --original 500x500 --yes
+    uv run python -m tools.store_swap check
 """
 
 from __future__ import annotations
@@ -42,10 +42,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
-from tools import roblox_store
-from verdra.bark import scar
-from verdra.soil import atomic, humus, terrain
-from verdra.trunk.branches import sprout
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # run as a file (`python tools\store_swap.py`), not only with -m
+
+from tools import roblox_store  # noqa: E402
+from verdra.bark import scar  # noqa: E402
+from verdra.soil import atomic, humus, terrain  # noqa: E402
+from verdra.trunk.branches import sprout  # noqa: E402
 
 KIND: Final = "roblox_store_swapped"
 #: Where the swapped entries' original bytes are kept, next to the cache backups.

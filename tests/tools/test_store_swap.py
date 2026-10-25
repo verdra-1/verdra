@@ -236,3 +236,24 @@ def test_the_command_needs_yes_before_it_writes(capsys: pytest.CaptureFixture[st
     assert "Add --yes to swap" in capsys.readouterr().err
     with pytest.raises(SystemExit):
         store_swap.main(["plan", "--original", "big"])
+
+
+def test_sqlite_statistics_tables_are_tolerated(store: store_swap.Store) -> None:
+    """23 October 2026: after the join the owner's store had `sqlite_stat1` beside `files`."""
+    before = [(p.original, sorted(map(str, p.packs))) for p in store_swap.pictures(store)]
+    connection = sqlite3.connect(store.database)
+    connection.execute("ANALYZE")  # SQLite makes sqlite_stat1, as Roblox's store had
+    connection.commit()
+    tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    connection.close()
+    assert tables == {"files", "sqlite_stat1"}
+    assert [(p.original, sorted(map(str, p.packs))) for p in store_swap.pictures(store)] == before
+
+
+def test_a_table_of_anyone_else_is_still_refused(store: store_swap.Store) -> None:
+    connection = sqlite3.connect(store.database)
+    connection.execute("CREATE TABLE names (id BLOB, asset INTEGER)")
+    connection.commit()
+    connection.close()
+    with pytest.raises(roblox_store.UnknownStoreError, match="'names'"):
+        store_swap.pictures(store)
