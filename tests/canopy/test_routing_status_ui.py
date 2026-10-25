@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from tests.roots.test_routing_status import FakeClock
+from tools import gallery
 from verdra.canopy.crown.header import Header, fix_for
 from verdra.canopy.crown.tray import Tray, tray_icon
 from verdra.canopy.crown.window import Shell
@@ -155,3 +156,40 @@ def test_the_shell_follows_every_published_change(
 def test_without_a_status_source_the_shell_shows_idle(shell: Shell, qapp: QApplication) -> None:
     assert shell.window.header.pill.status is Status.IDLE
     assert shell.window.header.popover.reason.text() == "Routing is off."
+
+
+#: A Degraded (f) reason and another active reason, as long as the real ones (D1 audit blocker 2).
+LONG_REASON = (
+    "Roblox isn't reaching Verdra: nothing from it came through in the minute after it started, "
+    "so your replacements can't apply. Save a support bundle and send it with your report."
+)
+OTHER_REASON = "Roblox isn't routed through Verdra yet. Restart it from here."
+
+
+@pytest.mark.spec("S-14", 2)
+def test_the_popover_grows_to_fit_its_message(qtbot: QtBot) -> None:
+    """Law 1 (D1 audit blocker 2): the popover's wrapped reason is never cut off, at any scale.
+
+    At 300 px wide a long Degraded message wraps to several lines; the popover must take the
+    height that needs. Checked at ~230 % text through the gallery's law-1 check, which fails on
+    the old fixed-height popover.
+    """
+    header = Header()
+    qtbot.addWidget(header)
+    font = header.popover.reason.font()
+    font.setPointSize(30)
+    header.popover.reason.setFont(font)
+    header.popover.others.setFont(font)
+    header.set_routing(
+        RoutingStatus(State.DEGRADED, Trigger.NOT_REACHING, LONG_REASON, (OTHER_REASON,))
+    )
+    popover = header.popover
+    header.open_popover()
+    qtbot.waitExposed(popover)
+    for _ in range(3):
+        QApplication.processEvents()
+    clipped = [
+        f.text for f in gallery.cut_off(popover, "test", "popover") if f.kind == "wrapped label"
+    ]
+    popover.hide()
+    assert clipped == []

@@ -102,6 +102,7 @@ class StatusPopover(QFrame):
         self.setFixedWidth(POPOVER_WIDTH)
         tokens = theme.Tokens.load()
         layout = QVBoxLayout(self)
+        self._body = layout
         padding = tokens.length("space-4")
         layout.setContentsMargins(padding, padding, padding, padding)
         layout.setSpacing(tokens.length("space-2"))
@@ -145,6 +146,36 @@ class StatusPopover(QFrame):
             self.fix.setAccessibleName(text)
             self.fix.setEnabled(key in self.handled)
             self.fix.setToolTip("" if key in self.handled else soon())
+        self.size_to_contents()
+
+    def size_to_contents(self) -> None:
+        """Grow the popover's height so its wrapped reason is never cut off (law 1).
+
+        The width is pinned at POPOVER_WIDTH, so the height is whatever the layout needs for the
+        reason and the other reasons wrapped to that width. Computed from the layout's own hint
+        (not the shown window), so it holds on a headless runner, where a top-level widget isn't
+        resized to its contents on show. The style is applied first, so the hint uses the fonts
+        the popover actually paints with (a theme stylesheet can set them).
+        """
+        self.ensurePolished()
+        self._body.activate()
+        height = self._body.heightForWidth(POPOVER_WIDTH)
+        if height <= 0:  # nothing wraps in this state: the ordinary hint is enough
+            height = self._body.sizeHint().height()
+        self.setFixedHeight(height)
+        self._body.activate()
+        # A theme stylesheet's label padding can leave a wrapped label a pixel or two short of
+        # the height its text needs at the width it is actually given; give that back (law 1).
+        deficit = max(
+            (
+                label.heightForWidth(label.width()) - label.height()
+                for label in (self.reason, self.others)
+                if label.isVisibleTo(self) and label.wordWrap() and label.width() > 0
+            ),
+            default=0,
+        )
+        if deficit > 0:
+            self.setFixedHeight(height + deficit)
 
     def _fix_clicked(self) -> None:
         if self.fix_key is not None:
@@ -236,4 +267,7 @@ class Header(QFrame):
         )
         self.popover.move(anchor)
         self.popover.show()
+        # Re-measure now the popover is shown and its children carry the theme's fonts, so a long
+        # reason is never cut off (law 1, D1 audit blocker 2).
+        self.popover.size_to_contents()
         self.popover.fix.setFocus()

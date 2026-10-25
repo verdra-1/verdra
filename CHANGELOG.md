@@ -222,6 +222,9 @@ All notable changes to Verdra are recorded here. The format follows
 - Dialogs no longer cut their buttons at larger text sizes: the action buttons sit on one row
   while they fit and stack into a column when they don't, and the dialog grows for a button wider
   than its content, so nothing is clipped at any text scale (D1 blocker 1, design law 1).
+- The status popover now grows tall enough to show its whole message: a long reason that wraps
+  to several lines is no longer cut off at the top and bottom, at any text size (D1 blocker 2,
+  design law 1).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your
