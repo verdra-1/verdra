@@ -29,7 +29,7 @@ from verdra.canopy.crown import theme
 from verdra.canopy.crown.about import AboutDialog
 from verdra.canopy.crown.dew import Dew, Kind, Toast
 from verdra.canopy.crown.header import Header, StatusView, status_of
-from verdra.canopy.crown.seedling import Onboarding
+from verdra.canopy.crown.seedling import Onboarding, TermsNotice
 from verdra.canopy.crown.shortcuts import ShortcutHelp, Shortcuts
 from verdra.canopy.crown.sidebar import ENTRIES, Sidebar
 from verdra.canopy.crown.splash import Splash
@@ -316,6 +316,7 @@ class Shell:
         )
         self.splash: Splash | None = None
         self.onboarding: Onboarding | None = None
+        self.terms_notice: TermsNotice | None = None
         self.tray: Tray | None = None
         self.window: MainWindow
         self.shortcuts: Shortcuts
@@ -480,6 +481,8 @@ class Shell:
             self.services.step("main window ready")
             if not self.services.settings.value("general.onboarding_done") and not stay_in_tray:
                 self.run_setup()
+            elif not self.services.settings.value("general.terms_notice_seen") and not stay_in_tray:
+                self.show_terms_notice()  # S-29 rule 2: set up before the notice existed
 
         if self.splash is None:
             reveal()
@@ -650,6 +653,13 @@ class Shell:
         """
         grafts, sprout = self.services.grafts, self.services.sprout
         if grafts is None:
+            return
+        if not self.services.settings.value("general.terms_notice_seen"):
+            # S-29 rule 3: nothing is applied until the user has acknowledged M-TERMS-01; once
+            # they have, Apply now goes on by itself.
+            self.show_terms_notice()
+            if self.terms_notice is not None:
+                self.terms_notice.accepted.connect(lambda: self.apply_now(retry=retry))
             return
         if self.monotonic() < self.apply_busy_until:
             log.info("%s", ApplyText().busy())
@@ -914,6 +924,13 @@ class Shell:
             settings.set("general.onboarding_done", False)
         self.onboarding = Onboarding(settings, self.window)
         self.onboarding.open()
+
+    def show_terms_notice(self) -> None:
+        """Show M-TERMS-01 once, to a user who hasn't acknowledged it (spec S-29)."""
+        if self.terms_notice is not None and self.terms_notice.isVisible():
+            return  # one notice at a time: Apply now waits on the one already shown
+        self.terms_notice = TermsNotice(self.services.settings, self.window)
+        self.terms_notice.open()
 
     def show_shortcuts(self) -> None:
         """Open the keyboard shortcut overlay."""

@@ -27,6 +27,8 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def services(home: Path, qapp: QApplication) -> Iterator[Services]:
     settings = SettingsStore()
     settings.load()
+    # A user who acknowledged the Terms notice (S-29); its own tests start from a fresh store.
+    settings.set("general.terms_notice_seen", True)
     state = StateStore()
     state.load()
     logs = rings.Rings()

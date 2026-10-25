@@ -48,6 +48,8 @@ class General(Struct, kw_only=True, omit_defaults=False):
     update_channel: Literal["stable", "beta"] = "stable"
     language: LanguageTag = "system"
     onboarding_done: bool = False
+    #: The user acknowledged the Terms of Service notice (S-29, M-TERMS-01); set once.
+    terms_notice_seen: bool = False
 
 
 class Upstream(Struct, kw_only=True):

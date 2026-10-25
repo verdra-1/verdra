@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """First-run onboarding (7.9).
 
-Four steps: Welcome (M-ONB-01), how it works (M-ONB-02), how Roblox reaches Verdra with the exact
-system changes for the chosen mode (M-ONB-03), and the start (M-ONB-04). The routing choice is
+Five steps: Welcome (M-ONB-01), how it works (M-ONB-02), the Terms of Service notice the user
+acknowledges (M-TERMS-01, spec S-29), how Roblox reaches Verdra with the exact system changes for
+the chosen mode (M-ONB-03), and the start (M-ONB-04). The routing choice is
 saved to `routing.mode` and `routing.handle_roblox_links`; nothing on the system changes until
 per-app routing exists (spec S-12). Finishing sets `general.onboarding_done`; Settings › General
-› "Run setup again" shows it again.
+› "Run setup again" shows it again. Acknowledging the notice sets `general.terms_notice_seen`;
+`TermsNotice` shows it once to a user who finished setup before it existed (S-29).
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from typing import Any
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QCheckBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -65,6 +68,69 @@ def system_changes(mode: str, handle_links: bool) -> list[str]:
     return changes
 
 
+def terms_notice() -> str:
+    """M-TERMS-01: the risk the owner's legal review found, for the user's informed consent."""
+    return QCoreApplication.translate(
+        "M-TERMS-01",
+        "Using Verdra may breach Roblox's Terms of Service. If Roblox detects it, the possible "
+        "consequence is suspension or termination of your Roblox account. Use Verdra at your "
+        "own risk.",
+    )
+
+
+def terms_heading() -> str:
+    """M-TERMS-02."""
+    return QCoreApplication.translate("M-TERMS-02", "Before you use Verdra")
+
+
+def understood() -> str:
+    """M-TERMS-03: the acknowledgement."""
+    return QCoreApplication.translate("M-TERMS-03", "I understand")
+
+
+def acknowledge_terms(settings: Any) -> None:
+    """Record that the user acknowledged M-TERMS-01 (S-29): it isn't asked again."""
+    if not settings.read_only:
+        settings.set("general.terms_notice_seen", True)
+
+
+class TermsNotice(QDialog):
+    """M-TERMS-01 on its own, for a user who hasn't acknowledged it yet (S-29 rules 2 and 3)."""
+
+    def __init__(self, settings: Any, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.settings = settings
+        title = terms_heading()
+        self.setWindowTitle(title)
+        self.setAccessibleName(title)
+        tokens = theme.Tokens.load()
+        padding = tokens.length("space-8")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(padding, padding, padding, padding)
+        layout.setSpacing(tokens.length("space-4"))
+        heading = QLabel(title, self)
+        theme.set_text_style(heading, "title-m")
+        layout.addWidget(heading)
+        self.text = QLabel(terms_notice(), self)
+        self.text.setWordWrap(True)
+        layout.addWidget(self.text)
+        row = QHBoxLayout()
+        row.addStretch()
+        self.later = QPushButton(QCoreApplication.translate("M-TERMS-02", "Not now"), self)
+        self.later.clicked.connect(self.reject)
+        row.addWidget(self.later)
+        self.understand = QPushButton(understood(), self)
+        self.understand.setProperty("primary", True)
+        self.understand.setDefault(True)
+        self.understand.clicked.connect(self._acknowledge)
+        row.addWidget(self.understand)
+        layout.addLayout(row)
+
+    def _acknowledge(self) -> None:
+        acknowledge_terms(self.settings)
+        self.accept()
+
+
 class Onboarding(QDialog):
     """The first-run setup."""
 
@@ -83,6 +149,7 @@ class Onboarding(QDialog):
         layout.addWidget(self.pages)
         self.pages.addWidget(self._welcome())
         self.pages.addWidget(self._how_it_works())
+        self.pages.addWidget(self._terms())
         self.pages.addWidget(self._routing())
         self.pages.addWidget(self._start())
 
@@ -170,6 +237,30 @@ class Onboarding(QDialog):
         self.continue_button.clicked.connect(self._next)
         self._buttons(layout, self.continue_button)
         return page
+
+    def _terms(self) -> QWidget:
+        page, layout = self._page()
+        heading = QLabel(terms_heading(), page)
+        theme.set_text_style(heading, "title-m")
+        layout.addWidget(heading)
+        text = QLabel(terms_notice(), page)
+        text.setWordWrap(True)
+        layout.addWidget(text)
+        self.terms_check = QCheckBox(understood(), page)
+        self.terms_check.setChecked(bool(self.settings.value("general.terms_notice_seen")))
+        layout.addWidget(self.terms_check)
+        self.terms_continue = QPushButton(
+            QCoreApplication.translate("Onboarding", "Continue"), page
+        )
+        self.terms_continue.setEnabled(self.terms_check.isChecked())
+        self.terms_check.toggled.connect(self.terms_continue.setEnabled)
+        self.terms_continue.clicked.connect(self._accept_terms)
+        self._buttons(layout, self.terms_continue)
+        return page
+
+    def _accept_terms(self) -> None:
+        acknowledge_terms(self.settings)
+        self._next()
 
     def _routing(self) -> QWidget:
         page, layout = self._page()
