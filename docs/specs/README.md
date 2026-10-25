@@ -32,6 +32,7 @@ automatable acceptance test `n` (`tools/check_docs.py`).
 | [S-25](S-25-row-status.md) | Row status (Editor 2.0 phase A) | M2 follow-up | Agreed |
 | [S-26](S-26-editing-in-place.md) | Editing replacements in place (Editor 2.0 phase A) | M2 follow-up | Agreed |
 | [S-27](S-27-review-and-apply.md) | Review and apply (Editor 2.0 phase A) | M2 follow-up | Agreed |
+| [S-28](S-28-saved-asset-writer.md) | Saved-asset writer (decision records 0028, 0030) | M2 | Draft |
 
 Windows is the only platform (decision record 0018). Linux is paused and macOS is deferred until
 after 1.0 (decision record 0014): their parts of the specs stay as reference only, and nothing
