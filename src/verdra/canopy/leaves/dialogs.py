@@ -10,6 +10,7 @@ the feature on only after "I understand the risk" is ticked; Cancel is its defau
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QShowEvent
@@ -39,11 +40,11 @@ class _Dialog(QDialog):
         self.setWindowTitle(title)
         self.setAccessibleName(title)
         self.setModal(True)
-        self.setFixedWidth(WIDTH)
         tokens = theme.Tokens.load()
+        self._padding = tokens.length("space-8")
+        self._spacing = tokens.length("space-2")
         self.layout_ = QVBoxLayout(self)
-        padding = tokens.length("space-8")
-        self.layout_.setContentsMargins(padding, padding, padding, padding)
+        self.layout_.setContentsMargins(self._padding, self._padding, self._padding, self._padding)
         self.layout_.setSpacing(tokens.length("space-4"))
         self.title = QLabel(title, self)
         self.title.setWordWrap(True)
@@ -52,9 +53,8 @@ class _Dialog(QDialog):
         self.body = QLabel(body, self)
         self.body.setWordWrap(True)
         self.layout_.addWidget(self.body)
-        self.buttons = QHBoxLayout()
-        self.buttons.setSpacing(tokens.length("space-2"))
-        self.buttons.addStretch()
+        #: The action buttons, left to right as they appear in one row (law 1: never clipped).
+        self._action_buttons: list[QPushButton] = []
         self.cancel = QPushButton(QCoreApplication.translate("Dialogs", "Cancel"), self)
         self.cancel.clicked.connect(self.reject)
         # Detailed logging only: Activity shows a dialog when it appears; this line says how it
@@ -73,16 +73,57 @@ class _Dialog(QDialog):
             body = self.body.text() if self.body.isVisibleTo(self) else ""
             log.info("%s", f"{self.title.text()} {body}".strip())
 
-    def _finish(self, confirm: QPushButton, *, cancel_first: bool, accepts: bool = True) -> None:
+    def _finish(
+        self,
+        confirm: QPushButton,
+        *,
+        cancel_first: bool,
+        accepts: bool = True,
+        extra: Sequence[QPushButton] = (),
+    ) -> None:
         self.confirm = confirm
         if accepts:  # Choice accepts through `_chosen`; twice gave two "Dialog answered" lines
             confirm.clicked.connect(self.accept)
-        self.buttons.addWidget(self.cancel)
-        self.buttons.addWidget(confirm)
-        self.layout_.addLayout(self.buttons)
-        default = self.cancel if cancel_first else confirm
+        self._lay_out_buttons(
+            [self.cancel, *extra, confirm], self.cancel if cancel_first else confirm
+        )
+
+    def _lay_out_buttons(self, buttons: list[QPushButton], default: QPushButton) -> None:
+        """Place the action buttons so none is ever cut off (law 1, D1 blocker 1).
+
+        One row, right-aligned, while the buttons fit the content width; otherwise stacked full
+        width, most important first. A single button wider than the content widens the dialog
+        instead of clipping. The choice is made once from the buttons' size hints (the text scale
+        is fixed while a dialog is open), so it holds at every scale.
+        """
+        self._action_buttons = buttons
         default.setDefault(True)
         default.setFocus(Qt.FocusReason.OtherFocusReason)
+        hints = [button.sizeHint().width() for button in buttons]
+        content = WIDTH - 2 * self._padding
+        if sum(hints) + self._spacing * (len(buttons) - 1) <= content:
+            row = QHBoxLayout()
+            row.setSpacing(self._spacing)
+            row.addStretch()
+            for button in buttons:
+                row.addWidget(button)
+            self.layout_.addLayout(row)
+            self.setFixedWidth(WIDTH)
+            return
+        column = QVBoxLayout()
+        column.setSpacing(self._spacing)
+        for button in self._stacked_order(buttons):
+            column.addWidget(button)
+        self.layout_.addLayout(column)
+        self.setFixedWidth(max(WIDTH, max(hints) + 2 * self._padding))
+
+    def _stacked_order(self, buttons: list[QPushButton]) -> list[QPushButton]:
+        """Stacked, most important first: the primary action, then the rest, then Cancel last."""
+        primary = getattr(self, "confirm", None)
+        head = [primary] if primary in buttons else []
+        tail = [self.cancel] if self.cancel in buttons else []
+        middle = [button for button in buttons if button not in (primary, self.cancel)]
+        return head + middle + tail
 
 
 class RiskWarning(_Dialog):
@@ -161,10 +202,10 @@ class Choice(_Dialog):
         go = QPushButton(primary, self)
         go.setProperty("primary", True)
         go.clicked.connect(lambda: self._chosen("primary"))
-        self._finish(go, cancel_first=True, accepts=False)  # the primary may close something
         self.secondary = QPushButton(secondary, self)
         self.secondary.clicked.connect(lambda: self._chosen("secondary"))
-        self.buttons.insertWidget(self.buttons.indexOf(go), self.secondary)
+        # The primary may close something, so Choice accepts through `_chosen`, not accept().
+        self._finish(go, cancel_first=True, accepts=False, extra=[self.secondary])
 
     def _chosen(self, which: str) -> None:
         self.choice = which
@@ -178,6 +219,4 @@ class Information(_Dialog):
         super().__init__(title, body, parent)
         self.body.setTextFormat(Qt.TextFormat.PlainText)
         self.cancel.setText(QCoreApplication.translate("Dialogs", "Close"))
-        self.cancel.setDefault(True)
-        self.buttons.addWidget(self.cancel)
-        self.layout_.addLayout(self.buttons)
+        self._lay_out_buttons([self.cancel], self.cancel)
