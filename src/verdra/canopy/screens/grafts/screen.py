@@ -14,8 +14,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
+from verdra.canopy.leaves.elide import PathItemDelegate
 from verdra.canopy.leaves.empty import EmptyState, soon
 from verdra.canopy.screens.grafts.editor import Editor
 from verdra.canopy.screens.grafts.preview import PreviewDialog
@@ -183,8 +184,38 @@ class ReplacementsScreen(QWidget):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().hide()
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # "Replace with" (a path or link) and "Note" (a message that may name a path) are
+        # free-length data: shorten them in the middle, keeping the file name whole, with the
+        # full text on hover and copyable (design law 2). The asset ID and kind never shorten.
+        for column in (1, 3):
+            self.table.setItemDelegateForColumn(column, PathItemDelegate(self.table))
+        copy = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
+        copy.activated.connect(self._copy_cell)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._table_menu)
         middle.addWidget(self.table, 1)
         return middle
+
+    def _copy_cell(self) -> None:
+        """Copy the selected cell's full text to the clipboard (law 2: copyable)."""
+        item = self.table.currentItem()
+        if item is not None and item.text():
+            QGuiApplication.clipboard().setText(item.text())
+
+    def _table_menu(self, where: QPoint) -> None:
+        """A "Copy" entry on the replacements table, so a shortened path can be copied whole."""
+        item = self.table.itemAt(where)
+        if item is None or not item.text():
+            return
+        self.copy_menu(item.text()).exec(self.table.viewport().mapToGlobal(where))
+
+    def copy_menu(self, text: str) -> QMenu:
+        """The right-click menu with one "Copy" entry that puts `text` on the clipboard whole."""
+        menu = QMenu(self.table)
+        menu.addAction(self.tr("Copy")).triggered.connect(
+            lambda: QGuiApplication.clipboard().setText(text)
+        )
+        return menu
 
     # --- Showing ----------------------------------------------------------------------------
 
@@ -243,9 +274,18 @@ class ReplacementsScreen(QWidget):
             original = QTableWidgetItem(str(replacement.original.asset_id))
             original.setData(Qt.ItemDataRole.UserRole, replacement.id)
             self.table.setItem(row, 0, original)
-            self.table.setItem(row, 1, QTableWidgetItem(replacement.target.value))
+            note = notes.get(replacement.id, "")
+            self.table.setItem(row, 1, self._cell(replacement.target.value))
             self.table.setItem(row, 2, QTableWidgetItem(kinds[replacement.target.kind]))
-            self.table.setItem(row, 3, QTableWidgetItem(notes.get(replacement.id, "")))
+            self.table.setItem(row, 3, self._cell(note))
+
+    @staticmethod
+    def _cell(text: str) -> QTableWidgetItem:
+        """A cell whose full text is on hover, for a value that may be shortened (law 2)."""
+        item = QTableWidgetItem(text)
+        if text:
+            item.setToolTip(text)
+        return item
 
     # --- Editing ----------------------------------------------------------------------------
 

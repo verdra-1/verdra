@@ -74,6 +74,7 @@ src/verdra/
 │   │   ├── notice.py        Inline notices: info, success, warning, danger.
 │   │   ├── dialogs.py       Risk warning, explanation and destructive confirmation dialogs (7.8).
 │   │   ├── empty.py         Empty states with illustration, heading, sentence and up to two buttons.
+│   │   ├── elide.py         Middle-elides a path or link in a table column, keeping the file name (law 2).
 │   │   ├── tables.py        Virtualised table view, filter proxy models, column memory.
 │   │   ├── fields.py        Asset-ID field, file picker, HTTPS-only URL field, all with live validation.
 │   │   └── drawer.py        Right-hand drawer container with Save / Cancel footer.

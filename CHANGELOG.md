@@ -225,6 +225,10 @@ All notable changes to Verdra are recorded here. The format follows
 - The status popover now grows tall enough to show its whole message: a long reason that wraps
   to several lines is no longer cut off at the top and bottom, at any text size (D1 blocker 2,
   design law 1).
+- In Replacements, a long "Replace with" path or link and a long note now shorten in the middle,
+  keeping the file name whole (for example "C:\Users\…\verdra-test-1600x900.png") instead of
+  losing their end. The full text shows on hover, and a cell can be copied with Ctrl+C or the
+  right-click "Copy" (D1 blocker 3, design law 2).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your

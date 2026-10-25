@@ -1819,6 +1819,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Asset ID</source>
         <translation type="unfinished"></translation>
     </message>
