@@ -219,6 +219,9 @@ All notable changes to Verdra are recorded here. The format follows
   faster.
 
 ### Fixed
+- Dialogs no longer cut their buttons at larger text sizes: the action buttons sit on one row
+  while they fit and stack into a column when they don't, and the dialog grows for a button wider
+  than its content, so nothing is clipped at any text scale (D1 blocker 1, design law 1).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your
