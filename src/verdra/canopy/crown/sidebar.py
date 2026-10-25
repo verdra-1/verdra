@@ -79,7 +79,10 @@ class Sidebar(QFrame):
         super().__init__(parent)
         self.setObjectName("sidebar")
         tokens = theme.Tokens.load()
-        self.expanded_width = tokens.length("sidebar-width")
+        #: The design width (plan 7.1); the sidebar grows past it so a label is never cut off
+        #: at larger text (law 1), never shrinks below it.
+        self._base_width = tokens.length("sidebar-width")
+        self.expanded_width = self._base_width
         self.collapsed_width = tokens.length("sidebar-width-collapsed")
         self.collapsed = False
         self.buttons: dict[str, QToolButton] = {}
@@ -88,6 +91,7 @@ class Sidebar(QFrame):
 
         layout = QVBoxLayout(self)
         margin = tokens.length("space-3")
+        self._side_margin = margin  # left + right padding, for the expanded-width measurement
         layout.setContentsMargins(margin, tokens.length("space-4"), margin, margin)
         layout.setSpacing(tokens.length("space-1"))
 
@@ -147,6 +151,17 @@ class Sidebar(QFrame):
                 theme.icon(entry.icon, "ink-muted", 20, active="primary")
             )
         self._update_toggle()
+        if not self.collapsed:  # the text may have grown; keep every label readable (law 1)
+            self.setFixedWidth(self._expanded_width())
+
+    def _expanded_width(self) -> int:
+        """The expanded width: the design width, or wider so no label is cut (law 1).
+
+        Measured from the buttons' own size hints in the text beside icon style, so it tracks the
+        current text size; it is only read while expanded, when that style is set.
+        """
+        widest = max((button.sizeHint().width() for button in self.buttons.values()), default=0)
+        return max(self._base_width, widest + 2 * self._side_margin)
 
     def select(self, key: str) -> None:
         """Mark an entry as the current screen."""
@@ -164,7 +179,6 @@ class Sidebar(QFrame):
         """Collapse to icons only, or expand to icons and labels."""
         changed = collapsed != self.collapsed
         self.collapsed = collapsed
-        self.setFixedWidth(self.collapsed_width if collapsed else self.expanded_width)
         self.name.setVisible(not collapsed)
         style = (
             Qt.ToolButtonStyle.ToolButtonIconOnly
@@ -173,6 +187,12 @@ class Sidebar(QFrame):
         )
         for button in self.buttons.values():
             button.setToolButtonStyle(style)
+        # Set the width after the style, so an expanded sidebar is measured with its labels on.
+        if collapsed:
+            self.setFixedWidth(self.collapsed_width)
+        else:
+            self.expanded_width = self._expanded_width()
+            self.setFixedWidth(self.expanded_width)
         self._update_toggle()
         if changed:
             self.collapsed_changed.emit(collapsed)

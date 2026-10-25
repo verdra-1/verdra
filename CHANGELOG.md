@@ -229,6 +229,9 @@ All notable changes to Verdra are recorded here. The format follows
   keeping the file name whole (for example "C:\Users\…\verdra-test-1600x900.png") instead of
   losing their end. The full text shows on hover, and a cell can be copied with Ctrl+C or the
   right-click "Copy" (D1 blocker 3, design law 2).
+- The sidebar now widens to fit its navigation labels at larger text sizes, so names like
+  "Replacements" are no longer cut to "Repl…ents"; it still collapses to icons and keeps its
+  usual width at normal text (D1 blocker 4, design law 1).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your
