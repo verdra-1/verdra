@@ -239,6 +239,9 @@ All notable changes to Verdra are recorded here. The format follows
   shortened (an ID like 15553230204 was cut to "155532…" at larger text), and the table's column
   headers keep their titles instead of being clipped; the path and note columns still shorten in
   the middle (D1 blockers 5 and 7, design laws 1 and 2).
+- The "New profile name" field now stays wide enough to show its placeholder at every text size,
+  and each profile in the list shows its full name on hover when a long name is shortened in the
+  narrow list (D1 Major 6, design laws 1 and 2).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your
