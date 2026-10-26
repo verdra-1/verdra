@@ -232,6 +232,9 @@ All notable changes to Verdra are recorded here. The format follows
 - The sidebar now widens to fit its navigation labels at larger text sizes, so names like
   "Replacements" are no longer cut to "Repl…ents"; it still collapses to icons and keeps its
   usual width at normal text (D1 blocker 4, design law 1).
+- The header now wraps the status, profile selector and "Apply now" onto a second row and grows
+  taller when they no longer fit beside the screen title, so none of them is cut off in a narrow
+  window at larger text; it stays a single row at normal sizes (D1 blocker 4, design law 1).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your

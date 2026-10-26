@@ -14,13 +14,16 @@ from __future__ import annotations
 from collections.abc import Collection, Sequence
 from typing import Protocol
 
-from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPoint, QSize, Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -207,37 +210,107 @@ class Header(QFrame):
         super().__init__(parent)
         self.setObjectName("header")
         tokens = theme.Tokens.load()
-        self.setFixedHeight(tokens.length("header-height"))
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(tokens.length("space-6"), 0, tokens.length("space-6"), 0)
-        layout.setSpacing(tokens.length("space-3"))
+        self._row_height = tokens.length("header-height")
+        self._hpad = tokens.length("space-6")
+        self._vpad = tokens.length("space-2")
+        self._gap = tokens.length("space-3")
+        # The header keeps the width it is given and takes only the height it needs, so it can
+        # grow to a second row when the title and controls don't fit side by side (law 1).
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+        self._stack = QVBoxLayout(self)
+        self._stack.setContentsMargins(self._hpad, 0, self._hpad, 0)
+        self._stack.setSpacing(0)
+        self._row1 = QHBoxLayout()
+        self._row1.setSpacing(self._gap)
+        self._row2 = QHBoxLayout()
+        self._row2.setSpacing(self._gap)
+        self._stack.addLayout(self._row1)
+        self._stack.addLayout(self._row2)
 
         self.title = QLabel(self)
         theme.set_text_style(self.title, "title-l")
-        layout.addWidget(self.title)
-        layout.addStretch()
 
-        self.pill = StatusPill(self)
+        # The status pill, profile selector and "Apply now" travel together between the one-row
+        # layout (right of the title) and the second row, so they stay a group.
+        self.controls = QWidget(self)
+        controls = QHBoxLayout(self.controls)
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(self._gap)
+
+        self.pill = StatusPill(self.controls)
         self.pill.clicked.connect(self.open_popover)
-        layout.addWidget(self.pill)
-        self.popover = StatusPopover(self)
-        self.set_routing(IDLE)
+        controls.addWidget(self.pill)
 
         not_yet = soon()
-        self.profiles = QComboBox(self)
+        self.profiles = QComboBox(self.controls)
         self.profiles.setMinimumWidth(180)
         self.profiles.setPlaceholderText(self.tr("No profile yet"))
         self.profiles.setAccessibleName(self.tr("Active profile"))
         self.profiles.setEnabled(False)
         self.profiles.setToolTip(not_yet)
-        layout.addWidget(self.profiles)
+        controls.addWidget(self.profiles)
 
-        self.apply_now = QPushButton(self.tr("Apply now"), self)
+        self.apply_now = QPushButton(self.tr("Apply now"), self.controls)
         self.apply_now.setProperty("primary", True)
         self.apply_now.setAccessibleName(self.tr("Apply now"))
         self.apply_now.setEnabled(False)
         self.apply_now.setToolTip(not_yet)
-        layout.addWidget(self.apply_now)
+        controls.addWidget(self.apply_now)
+
+        self.popover = StatusPopover(self)
+        self._two_row: bool | None = None
+        self._apply_rows(two_row=False)
+        self.set_routing(IDLE)
+
+    def _apply_rows(self, *, two_row: bool) -> None:
+        """Lay the title and controls on one row, or stack them when they don't fit (law 1)."""
+        if two_row == self._two_row:
+            return
+        self._two_row = two_row
+        self._empty(self._row1)
+        self._empty(self._row2)
+        self._row1.addWidget(self.title)
+        self._row1.addStretch()
+        if two_row:
+            self._row2.addStretch()
+            self._row2.addWidget(self.controls)
+        else:
+            self._row1.addWidget(self.controls)
+        self._set_height(two_row=two_row)
+
+    def _empty(self, layout: QLayout) -> None:
+        """Take every item off a row, keeping its widgets alive for the other row."""
+        while layout.count():
+            item = layout.takeAt(0)
+            if item is None:  # pragma: no cover - count() guarantees an item; guard for the type
+                break
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(self)
+
+    def _set_height(self, *, two_row: bool) -> None:
+        """Fix the header's height to the chosen layout, tall enough for the text (law 1)."""
+        title_height = max(self._row_height, self.title.sizeHint().height() + 2 * self._vpad)
+        controls_height = max(self._row_height, self.controls.sizeHint().height() + 2 * self._vpad)
+        self.setFixedHeight(
+            title_height + controls_height if two_row else max(title_height, controls_height)
+        )
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        """Allow the header to be as narrow as its wider single row, so it can wrap instead of
+        forcing the window wider (law 1): the minimum is the widest of the title and the controls,
+        not their sum."""
+        widest = max(self.title.minimumSizeHint().width(), self.controls.minimumSizeHint().width())
+        return QSize(widest + 2 * self._hpad, self.height())
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt API
+        """Stack the controls onto a second row when they no longer fit beside the title."""
+        super().resizeEvent(event)
+        available = self.width() - 2 * self._hpad
+        needed = self.title.sizeHint().width() + self._gap + self.controls.sizeHint().width()
+        if available > 0:
+            self._apply_rows(two_row=needed > available)
 
     def show_profiles(self, profiles: Sequence[object]) -> None:
         """List the profiles that apply (switching from here comes later, M-SOON-01)."""
