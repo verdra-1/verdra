@@ -36,7 +36,7 @@ PULSE_MS = 240
 WORDMARK_MS = 240
 PULSE_SCALE = 0.15
 SYMBOL_BOX = (5.0, 6.0, 59.0, 63.0)  # ink bounds of the symbol on the 64 grid (approximate top)
-CAP_TO_UNITS = 0.70  # the wordmark's cap height as a share of its view-box height
+CAP_TO_UNITS = 1.00  # the wordmark's cap height as a share of its view-box height (no dot, 0027)
 
 
 class Splash(QWidget):

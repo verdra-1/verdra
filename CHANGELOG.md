@@ -220,6 +220,8 @@ All notable changes to Verdra are recorded here. The format follows
 - The design law 1 check (nothing is cut off) now fails CI for a screen whose redesign has
   landed, while the screens still waiting for their redesign stay report-only; each redesigned
   screen is added to the enforced set as it lands.
+- The Verdra wordmark no longer carries the small node dot over the final "a" (About, the splash
+  and the logo lockups); the letters stand on their own.
 
 ### Fixed
 - Dialogs no longer cut their buttons at larger text sizes: the action buttons sit on one row

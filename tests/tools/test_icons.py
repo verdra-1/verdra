@@ -36,6 +36,17 @@ def test_symbol_uses_brand_tokens() -> None:
     assert colors["brand-verdigris"]["light"] in symbol
 
 
+def test_the_wordmark_has_no_node_dot_but_the_symbol_keeps_its_node() -> None:
+    files = icons.svg_files()
+    # Decision 0027 item 8: the node dot over the final "a" is removed from the wordmark and the
+    # lockups everywhere. The symbol's own node (between the two leaves) stays.
+    assert "<circle" not in files["wordmark.svg"]
+    assert "<circle" not in files["wordmark-reversed.svg"]
+    assert files["symbol.svg"].count("<circle") == 1
+    # The lockup's only circle is the symbol's node, not a wordmark dot.
+    assert files["lockup-horizontal.svg"].count("<circle") == 1
+
+
 @pytest.mark.usefixtures("qapp")
 def test_raster_set_has_every_size(tmp_path: Path) -> None:
     from PIL import Image
