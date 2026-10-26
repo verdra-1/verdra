@@ -500,7 +500,7 @@ def test_dialogs_and_notices_reach_activity(
         notice = Notice("Your settings file was damaged.", Tone.WARNING)
         qtbot.addWidget(notice)
     messages = {record.getMessage() for record in caplog.records}
-    assert "Remove 3 replacements? They're gone." in messages
+    assert "Remove 3 replacements? — They're gone." in messages  # title and body parted (#18)
     assert "Your settings file was damaged." in messages
 
 

@@ -245,6 +245,11 @@ All notable changes to Verdra are recorded here. The format follows
 - Activity now has a detail pane that shows the selected record in full — wrapped, selectable and
   copyable — and every message shows in full on hover, so a long line is no longer only cut at
   the right edge (D1 Major 8, design law 2).
+- When a dialog is written to Activity its title and body are now parted by a dash instead of
+  running together (D1 #18).
+- The Replacements row action is now "Delete" (it removes the selected replacement), so it no
+  longer shares the word "Remove" with the replacement kind that makes an asset invisible in game
+  (D1 #22).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your

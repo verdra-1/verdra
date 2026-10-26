@@ -187,7 +187,9 @@ class ReplacementsScreen(QWidget):
         self.add = QPushButton(self.tr("Add replacement"), host)
         self.add.setProperty("primary", True)
         self.add.clicked.connect(self._open_editor)
-        self.remove = QPushButton(self.tr("Remove"), host)
+        # "Delete" removes the selected replacement row; "Remove" is a replacement kind (show
+        # nothing in game), so the row action uses a different word to tell the two apart (D1 #22).
+        self.remove = QPushButton(self.tr("Delete"), host)
         self.remove.clicked.connect(self._remove)
         self.undo = QPushButton(self.tr("Undo"), host)
         self.undo.clicked.connect(lambda: self._edit("undo"))
