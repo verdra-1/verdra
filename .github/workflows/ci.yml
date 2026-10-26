@@ -177,12 +177,14 @@ jobs:
           path: .coverage.${{ matrix.runner }}
           include-hidden-files: true
           if-no-files-found: error
-      - name: Design gallery and law 1 (report only until D3; decision record 0027)
+      - name: Design gallery and law 1 (strict on redesigned screens; decision record 0027)
         # Every screen, dialog and status of today's app at text scale 100, 115, 150 and 200 %,
         # light and dark, the smallest and the default window, and the pseudo-language;
-        # law1.md lists every text that doesn't fit. Report only: today's app fails it (D1).
+        # law1.md lists every text that doesn't fit. --strict fails only on a screen whose
+        # redesign (D3) has landed (gallery.CLEAN_SCREENS); the un-redesigned app stays
+        # report-only until each screen's D3 adds it to that set (A.7).
         if: ${{ always() }}
-        run: uv run python tools/gallery.py gallery
+        run: uv run python tools/gallery.py gallery --strict
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
