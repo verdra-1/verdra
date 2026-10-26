@@ -1,0 +1,34 @@
+<!-- shell active="replacements" title="Replacements" status="working" word="Working" -->
+<!-- SPDX-FileCopyrightText: 2026 q0f7 / SPDX-License-Identifier: Apache-2.0 -->
+<!-- D2 screen 3: the status leaf and the status popover. Plain words
+     (Working · Waiting for the game · Needs you · Stopped · Off); a change is shown only after it
+     has lasted 5 seconds, but every change is logged (0027 §3-5). Each state has its own shape, so
+     it reads in grayscale and in contrast themes. -->
+<div class="content">
+  <div class="split">
+    <div class="timeline">
+      <div class="section-title">The status leaf, in every state</div>
+      <div class="rows" style="display:flex;gap:var(--space-6);padding:var(--space-6);flex-wrap:wrap">
+        <div style="text-align:center;width:110px"><svg style="width:44px;height:44px;color:var(--color-success)" viewBox="0 0 64 64"><path fill="currentColor" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/><path fill="currentColor" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/><circle fill="currentColor" cx="32" cy="59.6" r="3.4"/></svg><div class="name">Working</div><div class="caption">breathes</div></div>
+        <div style="text-align:center;width:110px"><svg style="width:44px;height:44px;color:var(--color-success)" viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="3.2" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/><path fill="none" stroke="currentColor" stroke-width="3.2" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/><circle fill="currentColor" cx="32" cy="59.6" r="3.4"/></svg><div class="name">Waiting</div><div class="caption">for the game</div></div>
+        <div style="text-align:center;width:110px"><svg style="width:44px;height:44px;color:var(--color-warning)" viewBox="0 0 64 64"><path fill="currentColor" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/><path fill="currentColor" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/><circle fill="var(--color-surface)" cx="50" cy="50" r="13"/><line stroke="currentColor" stroke-width="3.2" stroke-linecap="round" x1="50" y1="45" x2="50" y2="52"/><circle fill="currentColor" cx="50" cy="56" r="1.9"/></svg><div class="name">Needs you</div></div>
+        <div style="text-align:center;width:110px"><svg style="width:44px;height:44px;color:var(--color-danger)" viewBox="0 0 64 64"><path fill="currentColor" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/><path fill="currentColor" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/><circle fill="var(--color-surface)" cx="50" cy="50" r="13"/><line stroke="currentColor" stroke-width="3.2" stroke-linecap="round" x1="45.4" y1="45.4" x2="54.6" y2="54.6"/><line stroke="currentColor" stroke-width="3.2" stroke-linecap="round" x1="54.6" y1="45.4" x2="45.4" y2="54.6"/></svg><div class="name">Stopped</div></div>
+        <div style="text-align:center;width:110px"><svg style="width:44px;height:44px;color:var(--color-ink-muted)" viewBox="0 0 64 64"><path fill="none" stroke="currentColor" stroke-width="3.2" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/><path fill="none" stroke="currentColor" stroke-width="3.2" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/><circle fill="none" stroke="currentColor" stroke-width="3.2" cx="32" cy="59.6" r="3.4"/></svg><div class="name">Off</div></div>
+      </div>
+      <div class="caption" style="margin-top:var(--space-4)">The word is always beside the leaf, so status never rests on colour alone. A change appears
+        only after it has lasted 5 seconds; every change, including the ones too brief to show, is in Activity.</div>
+    </div>
+    <div style="width:320px;flex:none">
+      <div class="session">The status popover</div>
+      <div class="popover" style="position:static;width:auto">
+        <h3>Working</h3>
+        <div class="meta">Your replacements are going into the game.</div>
+        <ul>
+          <li><span class="when">now</span><span>Working &#8212; grass texture shown</span></li>
+          <li><span class="when">12:04</span><span>Waiting for the game</span></li>
+          <li><span class="when">12:03</span><span>Apply now finished</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
