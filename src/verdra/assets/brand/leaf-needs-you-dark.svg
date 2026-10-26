@@ -1,0 +1,10 @@
+<!-- SPDX-FileCopyrightText: 2026 q0f7 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path fill="#E7B04F" d="M5 6C3 25 13 44 31.2 55.5C26 41 19 24 5 6Z"/>
+  <path fill="#E7B04F" d="M59 12C60 29 50 45 32.8 55.5C37 43 44 27 59 12Z"/>
+  <circle fill="#E7B04F" cx="32" cy="59.6" r="3.4"/>
+  <circle fill="#15201C" cx="50" cy="50" r="13"/>
+  <line fill="none" stroke="#E7B04F" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" x1="50" y1="45" x2="50" y2="52"/>
+  <circle fill="#E7B04F" cx="50" cy="56" r="1.9"/>
+</svg>

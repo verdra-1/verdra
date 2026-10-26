@@ -185,6 +185,103 @@ def tray_template_svg(state: str) -> str:
     return svg(f"0 0 {GRID:g} {GRID:g}", body)
 
 
+# --- Status leaf (decision record 0027 item 4) ------------------------------------------------
+
+#: The five status-light states. The whole Verdra leaf takes the state's colour, and each state
+#: also has its own shape, so it reads in grayscale and in Windows contrast themes.
+STATUS_LEAF_STATES = ("working", "waiting", "needs-you", "stopped", "off")
+#: The leaf colour per state. 0027 names a colour for working (teal), needs-you (amber) and
+#: stopped (red); "waiting" keeps the working teal (its outline-with-lower-half shape, not its
+#: colour, tells it apart from working), and "off" is the neutral `ink-muted` of a dim, inactive
+#: mark.
+STATUS_LEAF_TOKEN = {
+    "working": "success",
+    "waiting": "success",
+    "needs-you": "warning",
+    "stopped": "danger",
+    "off": "ink-muted",
+}
+STATUS_LEAF_STROKE = 3.2  # outline width on the 64 grid
+
+
+def _leaf_outline(color: str) -> str:
+    """Return the two leaves and the node as strokes (no fill)."""
+    cx, cy, r = NODE
+    stroke = (
+        f'fill="none" stroke="{color}" stroke-width="{STATUS_LEAF_STROKE:g}" '
+        'stroke-linejoin="round"'
+    )
+    return (
+        f'  <path {stroke} d="{LEFT_LEAF}"/>\n'
+        f'  <path {stroke} d="{RIGHT_LEAF}"/>\n'
+        f'  <circle {stroke} cx="{cx:g}" cy="{cy:g}" r="{r:g}"/>\n'
+    )
+
+
+def _leaf_fill(fill: str) -> str:
+    """Return the two leaves and the node filled solid."""
+    cx, cy, r = NODE
+    return (
+        f'  <path fill="{fill}" d="{LEFT_LEAF}"/>\n'
+        f'  <path fill="{fill}" d="{RIGHT_LEAF}"/>\n'
+        f'  <circle fill="{fill}" cx="{cx:g}" cy="{cy:g}" r="{r:g}"/>\n'
+    )
+
+
+def _leaf_badge(glyph: str, disc: str, mark: str) -> str:
+    """Return a small bottom-right badge: a filled disc with a "!" or "×" mark (0027 item 4)."""
+    bx, by, br = 50.0, 50.0, 13.0
+    pen = (
+        f'fill="none" stroke="{mark}" stroke-width="3.2" stroke-linecap="round" '
+        'stroke-linejoin="round"'
+    )
+    if glyph == "!":
+        marks = f'  <line {pen} x1="{bx:g}" y1="{by - 5:g}" x2="{bx:g}" y2="{by + 2:g}"/>\n'
+        marks += f'  <circle fill="{mark}" cx="{bx:g}" cy="{by + 6:g}" r="1.9"/>\n'
+    else:  # "×"
+        d = 4.6
+        marks = (
+            f'  <line {pen} x1="{bx - d:g}" y1="{by - d:g}" x2="{bx + d:g}" y2="{by + d:g}"/>\n'
+            f'  <line {pen} x1="{bx + d:g}" y1="{by - d:g}" x2="{bx - d:g}" y2="{by + d:g}"/>\n'
+        )
+    return f'  <circle fill="{disc}" cx="{bx:g}" cy="{by:g}" r="{br:g}"/>\n{marks}'
+
+
+def status_leaf_svg(state: str, theme: str = "light") -> str:
+    """Return the status leaf for one state and theme (decision record 0027 item 4)."""
+    colors = load_colors()
+
+    def token(name: str) -> str:
+        return colors[name][theme]
+
+    color = token(STATUS_LEAF_TOKEN[state])
+    if state in ("working", "needs-you", "stopped"):
+        body = _leaf_fill(color)
+    elif state == "off":
+        body = _leaf_outline(color)
+    else:  # "waiting": outline with the lower half of the leaf filled
+        _left, top, _right, bottom = symbol_bounds()
+        # A vertical gradient with both stops at the midline: transparent above, solid below.
+        gradient = (
+            f'  <defs><linearGradient id="lower-half" gradientUnits="userSpaceOnUse" '
+            f'x1="0" y1="{top:g}" x2="0" y2="{bottom:g}">\n'
+            f'    <stop offset="0.5" stop-color="{color}" stop-opacity="0"/>\n'
+            f'    <stop offset="0.5" stop-color="{color}" stop-opacity="1"/>\n'
+            f"  </linearGradient></defs>\n"
+        )
+        cx, cy, r = NODE
+        fill = (
+            f'  <path fill="url(#lower-half)" d="{LEFT_LEAF}"/>\n'
+            f'  <path fill="url(#lower-half)" d="{RIGHT_LEAF}"/>\n'
+            f'  <circle fill="url(#lower-half)" cx="{cx:g}" cy="{cy:g}" r="{r:g}"/>\n'
+        )
+        body = gradient + fill + _leaf_outline(color)
+    if state in ("needs-you", "stopped"):
+        glyph = "!" if state == "needs-you" else "×"
+        body += _leaf_badge(glyph, token("surface"), color)
+    return svg(f"0 0 {GRID:g} {GRID:g}", body)
+
+
 # --- Wordmark ---------------------------------------------------------------------------------
 
 
@@ -334,6 +431,9 @@ def svg_files() -> dict[str, str]:
             status = token(status_token, theme) if status_token else None
             files[f"tray-{state}-{theme}.svg"] = tray_svg(state, token("ink-muted", theme), status)
         files[f"tray-{state}-template.svg"] = tray_template_svg(state)
+    for state in STATUS_LEAF_STATES:
+        for theme in ("light", "dark"):
+            files[f"leaf-{state}-{theme}.svg"] = status_leaf_svg(state, theme)
     for direction in ("up", "down"):
         for theme in ("light", "dark"):
             ink, disabled = token("ink-muted", theme), token("ink-disabled", theme)
