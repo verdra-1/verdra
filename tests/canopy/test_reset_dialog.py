@@ -64,7 +64,7 @@ def test_the_question_names_what_goes_and_cancel_is_the_default(
     assert question.cancel.isDefault() and question.focusWidget() is question.cancel
     assert not question.confirm.isDefault()
     assert caplog.messages == [
-        "Remove everything Verdra changed on this computer? Your profiles and library stay."
+        "Remove everything Verdra changed on this computer? — Your profiles and library stay."
     ]
     qtbot.keyClick(question, Qt.Key.Key_Return)  # Enter takes the default: Cancel
     assert question.result() == QDialog.DialogCode.Rejected
