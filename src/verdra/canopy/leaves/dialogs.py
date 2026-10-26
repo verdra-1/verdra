@@ -70,8 +70,9 @@ class _Dialog(QDialog):
         """Write the dialog to Activity when it appears (Reference R5)."""
         super().showEvent(event)
         if not event.spontaneous():
+            title = self.title.text()
             body = self.body.text() if self.body.isVisibleTo(self) else ""
-            log.info("%s", f"{self.title.text()} {body}".strip())
+            log.info("%s", f"{title} — {body}" if body else title)
 
     def _finish(
         self,

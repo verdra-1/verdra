@@ -1795,6 +1795,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Delete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Redo</source>
         <translation type="unfinished"></translation>
     </message>

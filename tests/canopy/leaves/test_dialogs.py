@@ -65,3 +65,23 @@ def test_a_plain_two_button_dialog_keeps_the_base_width(qtbot: QtBot) -> None:
     # At the base scale the two short buttons fit one row, so the dialog keeps the base width.
     assert dialog.width() == WIDTH
     assert dialog.cancel.y() == dialog.confirm.y()
+
+
+def test_a_shown_dialog_logs_its_title_and_body_apart(
+    qtbot: QtBot, caplog: pytest.LogCaptureFixture
+) -> None:
+    """D1 #18: Activity got the dialog's title and body run together; a separator now parts them."""
+    dialog = DestructiveConfirmation(
+        "Delete profile My replacements?", "Delete", "Its 5 replacements are deleted with it."
+    )
+    qtbot.addWidget(dialog)
+    with caplog.at_level("INFO", logger="verdra.canopy.leaves.dialogs"):
+        dialog.show()
+        qtbot.waitExposed(dialog)
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if "Delete profile My replacements?" in r.getMessage()
+    ]
+    assert lines == ["Delete profile My replacements? — Its 5 replacements are deleted with it."]
+    dialog.close()

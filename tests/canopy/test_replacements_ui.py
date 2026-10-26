@@ -306,7 +306,8 @@ def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
         )
     before = service.store.get(profile.id)
     buttons = [b.text() for b in screen.findChildren(QPushButton)]
-    assert not any("Delete" in text for text in buttons)  # only in "Profile options"
+    # Deleting a *profile* is only in "Profile options"; the row "Delete" removes a replacement.
+    assert not any("delete" in text.lower() and "profile" in text.lower() for text in buttons)
     assert screen.delete_action in screen.profile_menu.menu().actions()
     asked: list[tuple[str, str, str]] = []
 
@@ -589,6 +590,17 @@ def test_the_asset_id_and_kind_columns_never_shorten(
         assert cut_headers == []  # their headers are shown in full
     finally:
         qapp.setFont(original)
+
+
+def test_the_row_action_is_named_delete_apart_from_the_remove_kind(
+    made: tuple[Shell, StubSprout],
+) -> None:
+    """D1 #22: the row action and the "Remove" replacement kind no longer share one word."""
+    shell, _stub = made
+    screen = screen_of(shell)
+    assert screen.remove.text() == "Delete"  # deletes the selected replacement row
+    screen.empty.buttons[0].click()  # open the editor, which offers the kinds
+    assert "Remove" in [button.text() for button in screen.editor.kinds.buttons()]
 
 
 @pytest.mark.spec("S-20", 6)
