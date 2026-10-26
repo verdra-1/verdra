@@ -42,11 +42,10 @@ APP_ICON_OFFSET = (10.0, 7.0)
 APP_ICON_NODE_RADIUS = 4.4
 APP_ICON_CORNER = 14.0
 
-# Wordmark (4.4): weight 600, letter-spacing -2 %, node dot over the final "a" with a diameter of
-# 22 % of the x-height and a gap above the x-height equal to its diameter.
+# Wordmark (4.4): weight 600, letter-spacing -2 %. The node dot over the final "a" was removed
+# (decision record 0027 item 8); the view box now fits the letters' own ink.
 WORDMARK_TEXT = "Verdra"
 WORDMARK_TRACKING = -0.02
-DOT_TO_X_HEIGHT = 0.22
 
 # Tray (4.6): status dot at the bottom right, 40 % of the icon height.
 TRAY_DOT = 0.40
@@ -194,15 +193,14 @@ class Wordmark:
     """The outlined wordmark in font units, with its metrics."""
 
     path: str
-    dot: tuple[float, float, float]  # cx, cy, r (y grows downwards)
     width: float
     cap_height: float
-    ascent: float  # top of the dot, above the baseline
+    ascent: float  # top of the letters' ink, above the baseline
     baseline_to_bottom: float  # descent of the outlines below the baseline (0 for "Verdra")
 
 
 def wordmark() -> Wordmark:
-    """Shape "Verdra" with HarfBuzz, outline it with fontTools, and place the node dot."""
+    """Shape "Verdra" with HarfBuzz and outline it with fontTools (no node dot, decision 0027)."""
     hb: Any = importlib.import_module("uharfbuzz")  # dev-only dependency, loaded on use
     from fontTools.pens.boundsPen import BoundsPen  # noqa: PLC0415
     from fontTools.pens.svgPathPen import SVGPathPen  # noqa: PLC0415
@@ -214,8 +212,7 @@ def wordmark() -> Wordmark:
     glyph_set = font.getGlyphSet()
     head: Any = font["head"]
     os2: Any = font["OS/2"]
-    units = head.unitsPerEm
-    x_height, cap_height = float(os2.sxHeight), float(os2.sCapHeight)
+    cap_height = float(os2.sCapHeight)
 
     shaper = hb.Font(hb.Face(data))
     buffer = hb.Buffer()
@@ -224,53 +221,42 @@ def wordmark() -> Wordmark:
     hb.shape(shaper, buffer, {"kern": True, "liga": False})
 
     pen = SVGPathPen(glyph_set, ntos=lambda value: f"{round(value, 1):g}")
-    tracking = WORDMARK_TRACKING * units
+    bounds_pen = BoundsPen(glyph_set)
+    tracking = WORDMARK_TRACKING * head.unitsPerEm
     x = 0.0
-    last_bounds = (0.0, 0.0, 0.0, 0.0)
     glyph_names = font.getGlyphOrder()
-    for index, (info, position) in enumerate(
-        zip(buffer.glyph_infos, buffer.glyph_positions, strict=True)
-    ):
+    for info, position in zip(buffer.glyph_infos, buffer.glyph_positions, strict=True):
         name = glyph_names[info.codepoint]
         # Flip y so the outlines read top-down like the rest of the SVG.
         glyph_set[name].draw(TransformPen(pen, (1, 0, 0, -1, x + position.x_offset, 0)))
-        if index == len(buffer.glyph_infos) - 1:
-            bounds_pen = BoundsPen(glyph_set)
-            glyph_set[name].draw(bounds_pen)
-            left, _bottom, right, _top = bounds_pen.bounds or (0, 0, 0, 0)
-            last_bounds = (x + left, 0.0, x + right, 0.0)
+        # Measure in font space (y up) so the view box fits the letters' own ink.
+        glyph_set[name].draw(bounds_pen)
         x += position.x_advance + tracking
     width = x - tracking
 
-    diameter = DOT_TO_X_HEIGHT * x_height
-    radius = diameter / 2
-    center_x = (last_bounds[0] + last_bounds[2]) / 2
-    center_y = -(x_height + diameter + radius)
+    _left, bottom, _right, top = bounds_pen.bounds or (0.0, 0.0, 0.0, 0.0)
     return Wordmark(
         path=pen.getCommands(),
-        dot=(round(center_x, 1), round(center_y, 1), round(radius, 1)),
         width=round(width, 1),
         cap_height=cap_height,
-        ascent=-(center_y - radius),
-        baseline_to_bottom=0.0,
+        ascent=round(top, 1),
+        baseline_to_bottom=round(max(0.0, -bottom), 1),
     )
 
 
-def wordmark_body(mark: Wordmark, ink: str, node: str, *, dx: float, dy: float) -> str:
-    """Return the wordmark's elements placed with its baseline at dy."""
-    cx, cy, r = mark.dot
+def wordmark_body(mark: Wordmark, ink: str, *, dx: float, dy: float) -> str:
+    """Return the wordmark's letters placed with their baseline at dy."""
     return (
         f'  <g transform="translate({dx:g} {dy:g}) scale(1)">\n'
         f'    <path fill="{ink}" d="{mark.path}"/>\n'
-        f'    <circle fill="{node}" cx="{cx:g}" cy="{cy:g}" r="{r:g}"/>\n'
         f"  </g>\n"
     )
 
 
-def wordmark_svg(mark: Wordmark, ink: str, node: str) -> str:
+def wordmark_svg(mark: Wordmark, ink: str) -> str:
     """Return the wordmark alone, in font units."""
     height = mark.ascent
-    body = wordmark_body(mark, ink, node, dx=0, dy=height)
+    body = wordmark_body(mark, ink, dx=0, dy=height)
     return svg(f"0 0 {mark.width:g} {round(height, 1):g}", body)
 
 
@@ -316,7 +302,7 @@ def lockup_svg(mark: Wordmark, palette: Palette, ink: str, *, stacked: bool) -> 
     sy = (baseline - symbol_height) - top * scale if not stacked else -top * scale
     place = f"translate({round(sx, 1):g} {round(sy, 1):g}) scale({round(scale, 4):g})"
     body = f'  <g transform="{place}">\n  {shapes}  </g>\n' + wordmark_body(
-        mark, ink, palette.node, dx=round(wx, 1), dy=round(baseline, 1)
+        mark, ink, dx=round(wx, 1), dy=round(baseline, 1)
     )
     return svg(f"0 0 {round(width, 1):g} {round(height, 1):g}", body)
 
@@ -354,8 +340,8 @@ def svg_files() -> dict[str, str]:
             files[f"arrow-{direction}-{theme}.svg"] = arrow_svg(direction, ink)
             files[f"arrow-{direction}-{theme}-disabled.svg"] = arrow_svg(direction, disabled)
     mark = wordmark()
-    files["wordmark.svg"] = wordmark_svg(mark, light.leaves, light.node)
-    files["wordmark-reversed.svg"] = wordmark_svg(mark, reversed_.leaves, reversed_.node)
+    files["wordmark.svg"] = wordmark_svg(mark, light.leaves)
+    files["wordmark-reversed.svg"] = wordmark_svg(mark, reversed_.leaves)
     files["lockup-horizontal.svg"] = lockup_svg(mark, light, light.leaves, stacked=False)
     files["lockup-horizontal-reversed.svg"] = lockup_svg(
         mark, reversed_, reversed_.leaves, stacked=False
