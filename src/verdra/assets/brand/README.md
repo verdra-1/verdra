@@ -16,6 +16,7 @@
 | `app-icon.svg` | App icon, favicon, avatars; below 24 px, use this instead of the symbol |
 | `wordmark.svg`, `wordmark-reversed.svg` | "Verdra" outlined from the display face (no node dot, decision 0027) |
 | `lockup-horizontal*.svg`, `lockup-stacked*.svg` | Symbol and wordmark together |
+| `leaf-<state>-light.svg`, `leaf-<state>-dark.svg` | Status-light leaf for the five states (working, waiting, needs-you, stopped, off); decision 0027 item 4 |
 | `tray-<state>-light.svg`, `tray-<state>-dark.svg` | Windows tray, for light and dark taskbars (the Linux sizes are kept for later: Linux is paused) |
 | `tray-<state>-template.svg` | macOS menu bar template images (black with alpha; macOS is deferred, planned later) |
 | `arrow-up-<theme>*.svg`, `arrow-down-<theme>*.svg` | Combo and spin box chevrons (`ink-muted`, or `ink-disabled` when disabled) |
