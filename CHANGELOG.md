@@ -235,6 +235,10 @@ All notable changes to Verdra are recorded here. The format follows
 - The header now wraps the status, profile selector and "Apply now" onto a second row and grows
   taller when they no longer fit beside the screen title, so none of them is cut off in a narrow
   window at larger text; it stays a single row at normal sizes (D1 blocker 4, design law 1).
+- In the Replacements table the asset ID and the kind are now sized to their contents and never
+  shortened (an ID like 15553230204 was cut to "155532…" at larger text), and the table's column
+  headers keep their titles instead of being clipped; the path and note columns still shorten in
+  the middle (D1 blockers 5 and 7, design laws 1 and 2).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your

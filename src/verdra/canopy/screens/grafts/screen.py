@@ -183,10 +183,15 @@ class ReplacementsScreen(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().hide()
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        # "Replace with" (a path or link) and "Note" (a message that may name a path) are
-        # free-length data: shorten them in the middle, keeping the file name whole, with the
-        # full text on hover and copyable (design law 2). The asset ID and kind never shorten.
+        header = self.table.horizontalHeader()
+        # The asset ID and the kind are not free-length data, so they are sized to their contents
+        # and never shorten (law 1, D1 blockers 5 and 7). "Replace with" (a path or link) and
+        # "Note" (a message that may name a path) may shorten, so they stretch and middle-elide,
+        # keeping the file name whole with the full text on hover and copyable (law 2).
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         for column in (1, 3):
             self.table.setItemDelegateForColumn(column, PathItemDelegate(self.table))
         copy = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
