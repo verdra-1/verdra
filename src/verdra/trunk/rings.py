@@ -181,19 +181,23 @@ class ActivityModel(QAbstractTableModel):
         record = self._records[index.row()]
         if role == Qt.ItemDataRole.UserRole:
             return record
+        if role == Qt.ItemDataRole.ToolTipRole:
+            return record.message  # the full message on hover, even when the cell elides (law 2)
         if role != Qt.ItemDataRole.DisplayRole:
             return None
         column = self.COLUMNS[index.column()]
         if column == "time":
-            return datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
-        if column == "level":
-            return {
+            value = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
+        elif column == "level":
+            value = {
                 logging.DEBUG: QCoreApplication.translate("Activity", "Debug"),
                 logging.INFO: QCoreApplication.translate("Activity", "Info"),
                 logging.WARNING: QCoreApplication.translate("Activity", "Warning"),
                 logging.ERROR: QCoreApplication.translate("Activity", "Error"),
             }.get(record.level, record.level_name.capitalize())
-        return record.message
+        else:
+            value = record.message
+        return value
 
 
 class ActivityFilter(QSortFilterProxyModel):

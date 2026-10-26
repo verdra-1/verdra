@@ -65,6 +65,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Selected record</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Show {level} records</source>
         <translation type="unfinished"></translation>
     </message>
