@@ -69,6 +69,7 @@ src/verdra/
 │   │   └── about.py         About dialog; licence, third-party notices and privacy viewers.
 │   ├── leaves/              Reusable widgets built only from tokens.
 │   │   ├── switch.py        Pill switch with the leaf glyph on the thumb when on.
+│   │   ├── status_leaf.py   The status light: the whole Verdra leaf, one colour and shape per state (0027 item 4).
 │   │   ├── progress.py      Progress bar with leading leaf, arc spinner.
 │   │   ├── badge.py         Risk badges (four levels) and status pills (four states).
 │   │   ├── notice.py        Inline notices: info, success, warning, danger.
