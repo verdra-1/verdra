@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QTableView,
     QToolButton,
@@ -133,6 +134,17 @@ class ActivityScreen(QWidget):
         header.setStretchLastSection(True)
         layout.addWidget(self.table, 1)
 
+        # The message column elides long lines; a read-only pane shows the selected record in
+        # full, wrapped, selectable and copyable (design law 2, D1 Major 8).
+        self.detail = QPlainTextEdit(self)
+        self.detail.setReadOnly(True)
+        self.detail.setAccessibleName(QCoreApplication.translate("Activity", "Selected record"))
+        self.detail.setMaximumHeight(
+            self.detail.fontMetrics().lineSpacing() * 4 + 2 * tokens.length("space-3")
+        )
+        layout.addWidget(self.detail)
+        self.table.selectionModel().selectionChanged.connect(self._show_detail)
+
         self.search.textChanged.connect(self.filter.set_text)
         self._levels_changed()
         if services is not None and not services.settings.value("advanced.detailed_logging"):
@@ -188,6 +200,15 @@ class ActivityScreen(QWidget):
     def _levels_changed(self) -> None:
         levels = [level for level, button in self.level_buttons.items() if button.isChecked()]
         self.filter.set_levels(levels)
+
+    def _show_detail(self) -> None:
+        """Show the selected record's whole line in the detail pane (law 2)."""
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            self.detail.clear()
+            return
+        record = self.filter.data(rows[0], Qt.ItemDataRole.UserRole)
+        self.detail.setPlainText(record.line() if isinstance(record, rings.ActivityRecord) else "")
 
     def visible_records(self) -> list[rings.ActivityRecord]:
         """Return the records the filter shows, in order."""

@@ -242,6 +242,9 @@ All notable changes to Verdra are recorded here. The format follows
 - The "New profile name" field now stays wide enough to show its placeholder at every text size,
   and each profile in the list shows its full name on hover when a long name is shortened in the
   narrow list (D1 Major 6, design laws 1 and 2).
+- Activity now has a detail pane that shows the selected record in full — wrapped, selectable and
+  copyable — and every message shows in full on hover, so a long line is no longer only cut at
+  the right edge (D1 Major 8, design law 2).
 
 - Before it starts Roblox, Verdra moves Roblox's saved assets aside again when another Roblox
   may have saved the original pictures since the last Apply now, so the game asks for your

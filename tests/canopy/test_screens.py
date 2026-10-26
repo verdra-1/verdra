@@ -346,6 +346,32 @@ def test_activity_screen_filters_copies_and_exports(
         assert "verdra.log" in bundle.namelist()
 
 
+@pytest.mark.spec("S-03", 8)
+def test_activity_shows_a_selected_record_in_full_and_on_hover(
+    shell: Shell, services: Services, qtbot: QtBot
+) -> None:
+    """D1 Major 8 (law 2): a long message is cut in the list but readable in full in the detail
+    pane (selectable, copyable) and on the cell's tooltip."""
+    screen = shell.window.screens["activity"]
+    assert isinstance(screen, ActivityScreen)
+    long_message = (
+        "Roblox isn't reaching Verdra: " + "nothing came through, " * 12 + "so nothing applied."
+    )
+    logging.getLogger("verdra.example").warning(long_message)
+    qtbot.waitUntil(lambda: len(screen.visible_records()) >= 1, timeout=2000)
+    # The pane is empty until a record is chosen; the message cell carries the full text on hover.
+    assert screen.detail.toPlainText() == ""
+    message_index = screen.filter.index(0, 2)
+    assert screen.filter.data(message_index, Qt.ItemDataRole.ToolTipRole) == long_message
+    # Choosing the record shows its whole line in a read-only, selectable pane.
+    screen.table.selectRow(0)
+    QApplication.processEvents()
+    assert long_message in screen.detail.toPlainText()
+    assert screen.detail.isReadOnly()
+    flags = screen.detail.textInteractionFlags()
+    assert flags & Qt.TextInteractionFlag.TextSelectableByMouse
+
+
 def test_unbuilt_parts_never_promise_a_version() -> None:
     # Screens and controls that aren't built yet say M-SOON-01 instead (Reference R5).
     catalog = (ROOT / "src" / "verdra" / "assets" / "i18n" / "verdra_en.ts").read_text("utf-8")
