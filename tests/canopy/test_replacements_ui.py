@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPoint, QPointF, Qt, QUrl, Signal
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QFont
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
@@ -547,6 +547,48 @@ def test_a_path_is_shortened_in_the_middle_with_the_full_text_on_hover_and_copya
     screen.table.setCurrentItem(cell)
     screen._copy_cell()
     assert QApplication.clipboard().text() == path
+
+
+@pytest.mark.spec("S-20", 5)
+def test_the_asset_id_and_kind_columns_never_shorten(
+    made: tuple[Shell, StubSprout], qtbot: QtBot, qapp: QApplication
+) -> None:
+    """D1 blockers 5 and 7 (law 1): the asset ID and kind are not free-length, so their columns
+    size to their contents and are never cut; their headers are never cut either."""
+    from tools import gallery  # noqa: PLC0415
+
+    shell, _stub = made
+    service = shell.services.grafts
+    assert service is not None
+    profile = service.edit("create", "P")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=15553230204),
+        grafts.Target(kind="file", value=r"C:\Users\Player\Pictures\verdra-test-1600x900.png"),
+    )
+    screen = ReplacementsScreen(service=service)
+    qtbot.addWidget(screen)
+    original = qapp.font()
+    large = QFont(original)
+    large.setPointSize(18)  # ~200 %
+    qapp.setFont(large)
+    try:
+        screen.resize(520, 400)
+        screen.show()
+        qtbot.waitExposed(screen)
+        for _ in range(3):
+            QApplication.processEvents()
+        findings = gallery.cut_off(screen, "test", "replacements")
+        fixed = {"15553230204", "Local file", "Asset ID", "URL", "Remove"}
+        cut_cells = [f.text for f in findings if f.kind == "cell" and f.text in fixed]
+        cut_headers = [
+            f.text for f in findings if f.kind == "header" and f.text in {"Original", "Kind"}
+        ]
+        assert cut_cells == []  # the asset ID and kind are shown in full
+        assert cut_headers == []  # their headers are shown in full
+    finally:
+        qapp.setFont(original)
 
 
 @pytest.mark.spec("S-22", 2)
