@@ -14,7 +14,7 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QStackedLayout,
+    QStyle,
+    QStyleOptionFrame,
     QTableWidget,
     QTableWidgetItem,
     QToolButton,
@@ -42,9 +44,10 @@ from verdra.canopy.screens.grafts.editor import Editor
 from verdra.canopy.screens.grafts.preview import PreviewDialog
 from verdra.trunk.branches import grafts
 
-#: A line edit's own horizontal text margin each side (Qt's QLineEdit), and its frame each side.
+#: A line edit's own horizontal text margin each side (Qt's QLineEdit). One pixel of slack on top,
+#: for the rounding the gallery's law-1 check allows.
 _FIELD_TEXT_MARGIN = 2
-_FIELD_FRAME = 6
+_FIELD_SLACK = 1
 
 
 class ReplacementsScreen(QWidget):
@@ -164,11 +167,19 @@ class ReplacementsScreen(QWidget):
     def _fit_name_field(self) -> None:
         """Keep the name field at least as wide as its placeholder, so it is never cut (law 1).
 
-        It tracks the text size; a line edit has a small fixed margin each side plus its frame.
+        The frame width around the text area is taken from the style (it differs per platform),
+        so the placeholder fits whatever the text size.
         """
-        metrics = self.new_name.fontMetrics()
-        needed = metrics.horizontalAdvance(self.new_name.placeholderText())
-        self.new_name.setMinimumWidth(needed + 2 * _FIELD_TEXT_MARGIN + 2 * _FIELD_FRAME)
+        field = self.new_name
+        text = field.fontMetrics().horizontalAdvance(field.placeholderText())
+        option = QStyleOptionFrame()
+        field.initStyleOption(option)
+        option.rect = QRect(0, 0, text + 200, field.sizeHint().height())
+        contents = field.style().subElementRect(
+            QStyle.SubElement.SE_LineEditContents, option, field
+        )
+        frame = option.rect.width() - contents.width()  # the frame and padding, both sides
+        field.setMinimumWidth(text + 2 * _FIELD_TEXT_MARGIN + frame + _FIELD_SLACK)
 
     def _build_table(self, host: QWidget) -> QVBoxLayout:
         middle = QVBoxLayout()
