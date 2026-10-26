@@ -54,7 +54,7 @@ def test_the_status_leaf_has_every_state_in_both_themes() -> None:
             assert f"leaf-{state}-{theme}.svg" in files
 
 
-def test_each_status_leaf_state_reads_by_shape_not_only_colour() -> None:
+def test_each_status_leaf_state_reads_by_shape_not_only_color() -> None:
     # Decision 0027 item 4: each state has its own shape so it reads in grayscale and contrast.
     files = icons.svg_files()
     working = files["leaf-working-light.svg"]
@@ -72,7 +72,7 @@ def test_each_status_leaf_state_reads_by_shape_not_only_colour() -> None:
     assert stopped.count("<circle") > working.count("<circle")
 
 
-def test_the_status_leaf_colours_come_from_tokens() -> None:
+def test_the_status_leaf_colors_come_from_tokens() -> None:
     colors = icons.load_colors()
     files = icons.svg_files()
     assert colors["success"]["light"] in files["leaf-working-light.svg"]
