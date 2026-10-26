@@ -70,6 +70,9 @@ uv run pre-commit install
 uv run pytest
 ```
 
+For the fuller walkthrough — how Verdra is put together, running it from source, every gate, the
+build and how CI works — see [docs/guides/development.md](docs/guides/development.md).
+
 ## Conventions
 
 - **Branches:** `spec/S-11-proxy-core`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`.

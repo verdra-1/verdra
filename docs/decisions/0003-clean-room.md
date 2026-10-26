@@ -31,6 +31,10 @@ for the import feature. Forbidden inputs: any source file, comment, UI text, mes
 implementation-specific name or bundled file of the old tool, and a one-to-one copy of its window
 layout.
 
+To be exact about one grey area: a tool's own published release notes or changelog — the vendor
+describing in prose what the tool does — may be consulted as public documentation, while its
+source code, its code repositories, and any decompiled or disassembled copy of its binary may not.
+
 ## Consequences
 
 - `tools/similarity.py` takes the archive path as an argument; the archive never enters the
