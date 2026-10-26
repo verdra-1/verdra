@@ -82,3 +82,8 @@ record changes the app's code yet; D3 builds it, screen by screen, after D2 is a
   status words (Working, Waiting for the game, Needs you, Stopped, Off) and adds the 5-second
   rule. Until then the window keeps today's words.
 - The extras in decision 10 add no work until each has its own spec.
+- The law 1 check (decision 12) starts report-only because today's app fails it (D1 left ~334
+  findings). A.7 makes it strict per screen: `tools/gallery.py --strict` (the CI gate) fails only
+  on a law 1 finding in a screen listed in `gallery.CLEAN_SCREENS`, which is empty until a
+  redesign lands. Each D3 pull request adds its screen's scene name(s) to that set, so from then
+  on CI holds that screen to law 1 while the un-redesigned screens stay report-only.

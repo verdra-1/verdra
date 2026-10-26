@@ -217,6 +217,9 @@ All notable changes to Verdra are recorded here. The format follows
 - The Qt lifetime guard checks every test once Qt is running, not only tests that ask for the Qt
   fixtures, and reads Shiboken's wrapper list instead of every Python object, which makes it
   faster.
+- The design law 1 check (nothing is cut off) now fails CI for a screen whose redesign has
+  landed, while the screens still waiting for their redesign stay report-only; each redesigned
+  screen is added to the enforced set as it lands.
 
 ### Fixed
 - Dialogs no longer cut their buttons at larger text sizes: the action buttons sit on one row

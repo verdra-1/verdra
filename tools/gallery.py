@@ -21,7 +21,7 @@ ones 40 % longer, with accents). Windows contrast themes aren't rendered: CI can
 on without changing the runner's system settings, and Verdra doesn't read them yet (audit).
 
     uv run python tools/gallery.py OUT                 every configuration, report only
-    uv run python tools/gallery.py OUT --strict        exit 1 on any law 1 finding
+    uv run python tools/gallery.py OUT --strict        exit 1 if a redesigned screen breaks law 1
     uv run python tools/gallery.py OUT --quick         100 % light, both windows (local)
 
 Writes OUT/<config>/<NN-scene>.png, OUT/law1.json (every finding) and OUT/law1.md (a summary).
@@ -37,7 +37,7 @@ import math
 import os
 import sys
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -52,6 +52,14 @@ WINDOWS = ("minimum", "default")
 SLACK = 1
 #: Qt's own margin around a line edit's text, each side (QLineEdit's horizontal margin).
 PLACEHOLDER_MARGIN = 2
+
+#: Screens whose redesign (D3) has landed and must stay within law 1 ("nothing is cut off").
+#: `--strict` fails on any law 1 finding in one of these scenes (the CI gate); every other scene
+#: is still report-only while its redesign is pending — D1 left ~334 findings across the
+#: un-redesigned app, and failing on those would block every unrelated change. Each D3 pull
+#: request adds its scene name(s) here as it lands (plan Part C phase 2; decision record 0027).
+#: Names are the exact scene names in `_scenes()`, e.g. "replacements", "status-error".
+CLEAN_SCREENS: frozenset[str] = frozenset()
 
 #: Letters with an accent, for the pseudo-language (law 1).
 _ACCENTED = str.maketrans("aceinouyACEINOUY", "áçéîñöüýÁÇÉÎÑÖÜÝ")
@@ -110,6 +118,14 @@ class Report:
     def law_one(self) -> list[Finding]:
         """The findings that break law 1 (table cells are law 2 and listed apart)."""
         return [f for f in self.findings if f.kind != "cell"]
+
+    def enforced(self, clean: Collection[str]) -> list[Finding]:
+        """Law 1 findings on a redesigned screen: what `--strict` fails on (A.7, decision 0027).
+
+        Every other screen stays report-only while its redesign (D3) is pending; each D3 pull
+        request adds its scene to `clean` (CLEAN_SCREENS) as it lands.
+        """
+        return [f for f in self.law_one() if f.scene in clean]
 
 
 def cut_off(root: Any, config: str, scene: str) -> list[Finding]:
@@ -673,7 +689,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="D1 screenshot gallery and law 1 check.")
     parser.add_argument("out", type=Path, help="the folder for the screenshots and the report")
     parser.add_argument("--quick", action="store_true", help="100 %% light only")
-    parser.add_argument("--strict", action="store_true", help="exit 1 on any law 1 finding")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 1 if a redesigned (clean) screen breaks law 1; other screens stay report-only",
+    )
     args = parser.parse_args(argv)
     report = run(args.out, quick=args.quick)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -684,7 +704,14 @@ def main(argv: list[str] | None = None) -> int:
     text = summary(report)
     (args.out / "law1.md").write_text(text, encoding="utf-8")
     print(text.splitlines()[2])
-    if args.strict and report.law_one():
+    enforced = report.enforced(CLEAN_SCREENS)
+    if CLEAN_SCREENS:
+        print(f"{len(CLEAN_SCREENS)} redesigned screens enforced; {len(enforced)} break law 1")
+    else:
+        print("no redesigned screens yet; law 1 is report-only (D1)")
+    if args.strict and enforced:
+        scenes = ", ".join(sorted({f.scene for f in enforced}))
+        print(f"law 1 broken in redesigned screens: {scenes}", file=sys.stderr)
         return 1
     return 0
 

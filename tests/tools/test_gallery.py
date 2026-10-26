@@ -94,3 +94,44 @@ def test_the_report_keeps_table_cells_apart_from_law_1() -> None:
     ]
     assert [f.kind for f in report.law_one()] == ["button"]
     assert "1 findings break law 1; 1 table cells are shortened" in gallery.summary(report)
+
+
+def _law_one_report() -> gallery.Report:
+    """A report with a law 1 finding on "replacements" and one on "settings"."""
+    report = gallery.Report()
+    report.findings = [
+        gallery.Finding("light-200", "replacements", "button", "QPushButton", "Delete", 90, 40),
+        gallery.Finding("light-200", "settings", "label", "QLabel", "A long label", 200, 88),
+        gallery.Finding("light-100", "settings", "cell", "QTableView", r"C:\…\a.png", 400, 88),
+    ]
+    return report
+
+
+def test_enforced_is_empty_when_no_screen_is_clean() -> None:
+    # Report-only is the whole un-redesigned app: nothing is enforced until a screen's D3 lands.
+    assert _law_one_report().enforced(frozenset()) == []
+
+
+def test_enforced_lists_only_law_1_findings_on_a_clean_screen() -> None:
+    report = _law_one_report()
+    enforced = report.enforced({"settings"})
+    # The "settings" label counts; its table cell (law 2) and the "replacements" button do not.
+    assert [(f.scene, f.kind) for f in enforced] == [("settings", "label")]
+
+
+def test_strict_exits_1_only_when_a_clean_screen_breaks_law_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: object
+) -> None:
+    from pathlib import Path  # noqa: PLC0415
+
+    out = Path(str(tmp_path))
+    monkeypatch.setattr(gallery, "run", lambda _out, *, quick: _law_one_report())
+    # With no clean screen (today), --strict passes even though the app breaks law 1 (report only).
+    monkeypatch.setattr(gallery, "CLEAN_SCREENS", frozenset())
+    assert gallery.main([str(out), "--strict"]) == 0
+    # Once "replacements" is redesigned, a law 1 finding on it fails --strict.
+    monkeypatch.setattr(gallery, "CLEAN_SCREENS", frozenset({"replacements"}))
+    assert gallery.main([str(out), "--strict"]) == 1
+    # A clean screen that stays within law 1 passes.
+    monkeypatch.setattr(gallery, "CLEAN_SCREENS", frozenset({"library"}))
+    assert gallery.main([str(out), "--strict"]) == 0
