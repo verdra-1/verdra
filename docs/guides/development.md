@@ -5,9 +5,10 @@ it, run the checks, and understand how it is put together. It gathers what is sp
 [CONTRIBUTING.md](../../CONTRIBUTING.md), [architecture.md](../architecture.md) and
 [run-from-source.md](run-from-source.md); read those for the detail.
 
-Verdra targets **Windows only** for now (decision record 0018). A session's own machine may be
-Linux — the checks still run there, with the Windows-only tests skipped — but only Windows CI
-counts, and the app is run and tested for real on Windows.
+Verdra targets **Windows only** for now; Linux is paused and macOS is deferred (decision records
+0018 and 0014). A session's own machine may run Linux, which is unsupported, so the checks run
+there with the Windows-only tests skipped and only Windows CI counts — the app is run and tested
+for real on Windows.
 
 ## How Verdra is put together (the non-engine parts)
 
@@ -65,8 +66,8 @@ uv run python -m verdra
 
 On a headless machine, render off-screen with `QT_QPA_PLATFORM=offscreen`. On the maintainer's
 Windows PC, the real-machine tests run Verdra from source through `tools/run-latest.ps1`; see
-[run-from-source.md](run-from-source.md) for that checklist. On Linux the app starts but does not
-route (Roblox support is Windows-only while Linux is paused).
+[run-from-source.md](run-from-source.md) for that checklist. On Linux (unsupported, paused) the app
+starts but cannot route.
 
 ## Run the checks
 
