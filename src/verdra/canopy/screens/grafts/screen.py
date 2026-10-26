@@ -34,12 +34,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from verdra.canopy.crown import theme
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
 from verdra.canopy.leaves.elide import PathItemDelegate
 from verdra.canopy.leaves.empty import EmptyState, soon
 from verdra.canopy.screens.grafts.editor import Editor
 from verdra.canopy.screens.grafts.preview import PreviewDialog
 from verdra.trunk.branches import grafts
+
+#: A line edit's own horizontal text margin each side (Qt's QLineEdit), and its frame each side.
+_FIELD_TEXT_MARGIN = 2
+_FIELD_FRAME = 6
 
 
 class ReplacementsScreen(QWidget):
@@ -143,6 +148,10 @@ class ReplacementsScreen(QWidget):
         self.new_name.setAccessibleName(self.tr("New profile name"))
         self.new_name.returnPressed.connect(self._create)
         side.addWidget(self.new_name)
+        self._fit_name_field()
+        current = theme.Theme.instance()
+        if current is not None:
+            current.changed.connect(self._fit_name_field)
         self.name_problem = QLabel(host)
         self.name_problem.setWordWrap(True)
         self.name_problem.hide()
@@ -151,6 +160,15 @@ class ReplacementsScreen(QWidget):
         self.add_profile.clicked.connect(self._create)
         side.addWidget(self.add_profile)
         return side
+
+    def _fit_name_field(self) -> None:
+        """Keep the name field at least as wide as its placeholder, so it is never cut (law 1).
+
+        It tracks the text size; a line edit has a small fixed margin each side plus its frame.
+        """
+        metrics = self.new_name.fontMetrics()
+        needed = metrics.horizontalAdvance(self.new_name.placeholderText())
+        self.new_name.setMinimumWidth(needed + 2 * _FIELD_TEXT_MARGIN + 2 * _FIELD_FRAME)
 
     def _build_table(self, host: QWidget) -> QVBoxLayout:
         middle = QVBoxLayout()
@@ -239,6 +257,7 @@ class ReplacementsScreen(QWidget):
         for profile in service.profiles:
             item = QListWidgetItem(profile.name, self.profiles)
             item.setData(Qt.ItemDataRole.UserRole, profile.id)
+            item.setToolTip(profile.name)  # a long name may elide in the narrow list (law 2)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(
                 Qt.CheckState.Checked if profile.enabled else Qt.CheckState.Unchecked

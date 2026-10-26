@@ -591,6 +591,43 @@ def test_the_asset_id_and_kind_columns_never_shorten(
         qapp.setFont(original)
 
 
+@pytest.mark.spec("S-20", 6)
+def test_the_new_profile_field_shows_its_placeholder_and_the_list_has_tooltips(
+    made: tuple[Shell, StubSprout], qtbot: QtBot, qapp: QApplication
+) -> None:
+    """D1 Major 6 (law 1): the "New profile name" placeholder is never cut; a profile name that
+    elides in the narrow list is on its tooltip (law 2)."""
+    from tools import gallery  # noqa: PLC0415
+
+    shell, _stub = made
+    service = shell.services.grafts
+    assert service is not None
+    service.edit("create", "My replacements")
+    screen = ReplacementsScreen(service=service)
+    qtbot.addWidget(screen)
+    original = qapp.font()
+    large = QFont(original)
+    large.setPointSize(16)  # ~180 %
+    qapp.setFont(large)
+    try:
+        screen._fit_name_field()  # pick up the enlarged font (no live theme in this test)
+        screen.resize(520, 400)
+        screen.show()
+        qtbot.waitExposed(screen)
+        for _ in range(3):
+            QApplication.processEvents()
+        placeholders = [
+            f.text
+            for f in gallery.cut_off(screen, "test", "replacements")
+            if f.kind == "placeholder"
+        ]
+        assert placeholders == []  # "New profile name" shows in full
+        item = screen.profiles.item(0)
+        assert item is not None and item.toolTip() == "My replacements"
+    finally:
+        qapp.setFont(original)
+
+
 @pytest.mark.spec("S-22", 2)
 def test_the_right_click_copy_copies_the_whole_path(made: tuple[Shell, StubSprout]) -> None:
     """The table's "Copy" entry copies the full path, not the shortened one (law 2)."""
