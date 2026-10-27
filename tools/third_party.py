@@ -11,8 +11,10 @@ license expression and the full text of every license file its installed metadat
 Qt for Python's wheels carry no license file: Verdra uses Qt under LGPL-3.0 (decision record
 0002), so those packages point to where their source is published and the file ends with the full
 LGPL-3.0 and GPL-3.0 texts (`packaging/licenses/`, the Free Software Foundation's published texts).
-Any other package whose metadata carries no license file is reported and the tool exits 1, so a
-gap is never silent.
+A few packages ship no license file in any of their published distributions (dnspython 2.9.0):
+their text is supplied from `packaging/licenses/`, copied verbatim from the package's own source
+(see VENDORED_LICENSES). Any other package whose metadata carries no license file is reported and
+the tool exits 1, so a gap is never silent.
 
     python tools/third_party.py OUT_FILE
 """
@@ -31,6 +33,13 @@ ROOT: Final = Path(__file__).resolve().parents[1]
 FILE_NAME: Final = "THIRD_PARTY_NOTICES.md"
 #: Qt for Python: used under LGPL-3.0 (decision record 0002); the wheels carry no license file.
 QT_PACKAGES: Final = frozenset({"pyside6", "pyside6-essentials", "pyside6-addons", "shiboken6"})
+#: Packages whose published distributions carry no license file at all, with the text supplied
+#: from `packaging/licenses/`. dnspython 2.9.0 ships none in either its wheel or its sdist (an
+#: upstream packaging change in 2.9.0); its metadata declares License-Expression ISC, and the
+#: vendored text is dnspython's own LICENSE from its v2.9.0 tag, copied verbatim.
+VENDORED_LICENSES: Final = {
+    "dnspython": ("LICENSE", ROOT / "packaging" / "licenses" / "dnspython-LICENSE.txt"),
+}
 #: The full texts LGPL-3.0 needs next to it: LGPL-3.0 adds to GPL-3.0, so both are included.
 GNU_TEXTS: Final = (
     ROOT / "packaging" / "licenses" / "LGPL-3.0.txt",
@@ -126,6 +135,9 @@ def build(packages: list[str]) -> tuple[str, list[str]]:
             parts += ["", QT_NOTE.format(version=version), ""]
             continue
         files = license_files(distribution)
+        if not files and canonical(name) in VENDORED_LICENSES:
+            file_name, path = VENDORED_LICENSES[canonical(name)]
+            files = [(file_name, path.read_text(encoding="utf-8"))]
         if not files:
             missing.append(f"{name} {version}: no license file in its metadata")
         for file_name, content in files:
