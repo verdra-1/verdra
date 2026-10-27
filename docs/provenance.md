@@ -27,6 +27,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/crown/about.py` | Master plan 3.2, 7.7, message catalogue (M-ABOUT-02), spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/dew.py` | Master plan 6.6, 7.1, specs S-01, S-03, S-04 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/header.py` | Master plan 7.1, message catalogue (M-STATUS-03), spec S-01 | PySide6 | 2026-10-01 |
+| `verdra/canopy/crown/profiles.py` | Master plan 7.1, specs S-01 and S-20 (profiles) | PySide6 | 2026-10-27 |
 | `verdra/canopy/crown/seedling.py` | Master plan 7.9, message catalogue (M-ONB-01 to 04), spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/shortcuts.py` | Master plan 7.1, spec S-01 | PySide6 | 2026-10-01 |
 | `verdra/canopy/crown/sidebar.py` | Master plan 6.8, 7.1, spec S-01 | PySide6 | 2026-10-01 |

@@ -43,6 +43,7 @@ from verdra.canopy.screens.rings import ActivityScreen
 from verdra.canopy.screens.seedbank import LibraryScreen
 from verdra.canopy.screens.settings import SettingsScreen
 from verdra.canopy.screens.streams import TrafficScreen
+from verdra.trunk.branches.grafts import Grafts, ProfileError
 from verdra.trunk.branches.sprout import (
     Sprout,
     cache_moved_text,
@@ -364,13 +365,9 @@ class Shell:
             )
             popover.fix_requested.connect(self.fix_routing)
             services.sprout.refresh_others()
-        if services.grafts is not None:
-            grafts = services.grafts
-            # The active profile shows in the sidebar card (D2 screen 1); "Apply now" reaches its
-            # behaviour by Ctrl+Return and the status popover's fix until it gains a toolbar button.
-            self.window.sidebar.set_profile(grafts.profiles)
-            grafts.changed.connect(lambda: self.window.sidebar.set_profile(grafts.profiles))
         replacements = self.window.screens["replacements"]
+        if services.grafts is not None:
+            self._wire_profiles(services.grafts, replacements)
         if isinstance(replacements, ReplacementsScreen):
             replacements.deleted.connect(
                 lambda text: self.window.dew.show(
@@ -492,6 +489,55 @@ class Shell:
 
     def _splash_gone(self) -> None:
         self.splash = None
+
+    def _wire_profiles(self, grafts: Grafts, replacements: QWidget) -> None:
+        """Wire the sidebar card and its popover to the profile service (D3 screen 2).
+
+        The card names the shown profile and opens the popover to switch, create, rename, delete
+        or turn one on or off; "Apply now" still reaches its behaviour by Ctrl+Return and the
+        status popover's fix until it gains a toolbar button.
+        """
+        sidebar = self.window.sidebar
+        popover = sidebar.profiles_popover
+        is_screen = isinstance(replacements, ReplacementsScreen)
+        selected = replacements.selected_id if is_screen else (lambda: None)
+        sidebar.set_profiles(grafts.profiles, selected())
+        grafts.changed.connect(lambda: sidebar.set_profiles(grafts.profiles, selected()))
+        popover.enabled_changed.connect(lambda pid, on: grafts.edit("set_enabled", pid, on))
+        popover.create_requested.connect(self._create_profile)
+        popover.rename_requested.connect(self._rename_profile)
+        if is_screen:
+            replacements.shown.connect(lambda pid: sidebar.set_profiles(grafts.profiles, pid))
+            popover.selected.connect(replacements.select_profile)
+            popover.delete_requested.connect(replacements.delete_profile)
+
+    def _create_profile(self, name: str) -> None:
+        """Make a profile from the sidebar popover, saying why in place if the name is refused."""
+        grafts = self.services.grafts
+        if grafts is None:
+            return
+        popover = self.window.sidebar.profiles_popover
+        try:
+            created = grafts.edit("create", name)
+        except ProfileError as error:
+            popover.show_problem(str(error))
+            return
+        popover.clear_new_name()
+        replacements = self.window.screens["replacements"]
+        if isinstance(replacements, ReplacementsScreen):
+            replacements.select_profile(created.id)
+
+    def _rename_profile(self, profile_id: str, name: str) -> None:
+        """Rename a profile from the sidebar popover; a refused name reverts and says why."""
+        grafts = self.services.grafts
+        if grafts is None:
+            return
+        popover = self.window.sidebar.profiles_popover
+        try:
+            grafts.edit("rename", profile_id, name)
+        except ProfileError as error:
+            popover.show_problem(str(error))
+            popover.show_profiles(grafts.profiles, profile_id)  # revert the typed name
 
     def reset_everything(self) -> None:
         """Open Settings and run Reset everything from there (tray menu item 5, spec S-16)."""

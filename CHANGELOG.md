@@ -194,6 +194,10 @@ All notable changes to Verdra are recorded here. The format follows
   and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
+- The sidebar profile card is now a button: it opens a popover to switch the shown profile, turn
+  one on or off, and create, rename or delete a profile. This replaces the Screen 1 note that
+  profile switching stays on the Replacements screen; the Replacements screen's own profile list
+  stays for now and goes when that screen becomes full-width.
 - The window header now shows only the screen title and the routing status, drawn as a leaf and
   one of five plain words (Working, Waiting for the game, Needs you, Stopped, Off) rather than a
   colored pill. The active profile moved to a card in the sidebar, and the sidebar's Library
