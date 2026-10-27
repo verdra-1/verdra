@@ -383,7 +383,7 @@ def _window_frame(shell: Any) -> Any:
     row.setSpacing(0)
     bar = Sidebar(box)
     if shell.services.grafts is not None:
-        bar.set_profile(shell.services.grafts.profiles)
+        bar.set_profiles(shell.services.grafts.profiles)
     row.addWidget(bar)
     head = Header(box)
     head.set_title(QCoreApplication.translate("Sidebar", "Replacements"))

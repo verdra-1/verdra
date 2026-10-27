@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from types import SimpleNamespace
+from dataclasses import dataclass, field
 
 import pytest
 from PySide6.QtGui import QFont
@@ -16,8 +16,16 @@ from tools import gallery
 from verdra.canopy.crown.sidebar import Sidebar
 
 
-def _profile(name: str, replacements: int, *, enabled: bool = True) -> SimpleNamespace:
-    return SimpleNamespace(
+@dataclass(frozen=True)
+class _Profile:
+    id: str
+    name: str
+    enabled: bool = True
+    replacements: list[int] = field(default_factory=list)
+
+
+def _profile(name: str, replacements: int, *, enabled: bool = True) -> _Profile:
+    return _Profile(
         id=name.lower(), name=name, enabled=enabled, replacements=list(range(replacements))
     )
 
