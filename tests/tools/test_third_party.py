@@ -24,6 +24,15 @@ def test_qt_points_to_its_source_and_brings_the_gnu_texts() -> None:
     assert text.count("GNU GENERAL PUBLIC LICENSE\n") == 1
 
 
+def test_dnspython_uses_its_vendored_license_text() -> None:
+    # dnspython 2.9.0 ships no license file in its wheel or its sdist; the text is vendored from
+    # packaging/licenses/ so the build still carries its attribution (not reported as a gap).
+    text, missing = third_party.build(["dnspython"])
+    assert missing == []
+    assert "License: ISC" in text
+    assert "Copyright (C) Dnspython Contributors" in text
+
+
 def test_a_package_without_license_text_is_reported() -> None:
     _, missing = third_party.build(["no-such-package-verdra"])
     assert missing == ["no-such-package-verdra: not installed"]
