@@ -194,6 +194,7 @@ All notable changes to Verdra are recorded here. The format follows
   and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
+- dnspython 2.9.0 replaces 2.8.0, which had a published security advisory (CVE-2026-114605).
 - filelock 4.2.4 and setuptools 84.2.1 (development and build only) replace versions with
   published security advisories.
 
