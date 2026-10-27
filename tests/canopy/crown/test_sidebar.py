@@ -58,15 +58,22 @@ def test_collapsing_still_goes_to_the_icon_width(qtbot: QtBot, big_font: None) -
     assert bar.width() == bar.expanded_width > bar._base_width
 
 
-def test_small_text_keeps_the_design_width(qtbot: QtBot, qapp: QApplication) -> None:
-    """When the labels fit, the sidebar keeps its design width and never shrinks below it."""
+def test_small_text_never_shrinks_below_the_design_width_or_clips(
+    qtbot: QtBot, qapp: QApplication
+) -> None:
+    """At small text the sidebar never shrinks below its design width, and never clips a label
+    (including Library's "coming later" note, whose width the sidebar accounts for). It may sit a
+    little above the design width where a row's widget minimums need it; exact widths are the
+    platform's to decide, so this checks the invariants, not a pixel count."""
     original = qapp.font()
     small = QFont(original)
-    small.setPointSize(6)  # labels fit comfortably within the 220 px design width
+    small.setPointSize(6)
     qapp.setFont(small)
     try:
         bar = shown(qtbot, Sidebar())
-        assert bar.width() == bar._base_width
+        assert bar.width() >= bar._base_width  # never narrower than the design width
+        clipped = [f.text for f in gallery.cut_off(bar, "test", "sidebar") if f.kind != "cell"]
+        assert clipped == []
     finally:
         qapp.setFont(original)
 
