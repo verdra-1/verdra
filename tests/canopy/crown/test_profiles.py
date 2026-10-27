@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
@@ -12,8 +12,15 @@ from pytestqt.qtbot import QtBot
 from verdra.canopy.crown.profiles import ProfilePopover
 
 
-def _profile(pid: str, name: str, *, enabled: bool = True) -> SimpleNamespace:
-    return SimpleNamespace(id=pid, name=name, enabled=enabled)
+@dataclass(frozen=True)
+class _Profile:
+    id: str
+    name: str
+    enabled: bool = True
+
+
+def _profile(pid: str, name: str, *, enabled: bool = True) -> _Profile:
+    return _Profile(id=pid, name=name, enabled=enabled)
 
 
 def _shown(qtbot: QtBot) -> ProfilePopover:
