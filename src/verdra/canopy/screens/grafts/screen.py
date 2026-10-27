@@ -58,6 +58,8 @@ class ReplacementsScreen(QWidget):
     """
 
     deleted = Signal(str)
+    #: The shown profile changed; the sidebar card follows it (D3 screen 2).
+    shown = Signal(str)
 
     def __init__(self, parent: QWidget | None = None, service: grafts.Grafts | None = None) -> None:
         super().__init__(parent)
@@ -137,13 +139,13 @@ class ReplacementsScreen(QWidget):
         self.profile_menu.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self.profile_menu)
         self.delete_action = QAction(self.tr("Delete this profile…"), menu)
-        self.delete_action.triggered.connect(self._delete)
+        self.delete_action.triggered.connect(lambda: self.delete_profile(self.selected_id()))
         menu.addAction(self.delete_action)
         self.profile_menu.setMenu(menu)
         side.addWidget(self.profile_menu, 0, Qt.AlignmentFlag.AlignLeft)
         self.profiles = QListWidget(host)
         self.profiles.setAccessibleName(self.tr("Profiles"))
-        self.profiles.currentRowChanged.connect(lambda _row: self._show_replacements())
+        self.profiles.currentRowChanged.connect(self._selection_changed)
         self.profiles.itemChanged.connect(self._profile_switched)
         side.addWidget(self.profiles, 1)
         self.new_name = QLineEdit(host)
@@ -292,6 +294,20 @@ class ReplacementsScreen(QWidget):
         item = self.profiles.currentItem()
         return None if item is None else str(item.data(Qt.ItemDataRole.UserRole))
 
+    def _selection_changed(self, _row: int) -> None:
+        """Show the newly selected profile and tell the sidebar card which one it is."""
+        self._show_replacements()
+        selected = self.selected_id()
+        if selected is not None:
+            self.shown.emit(selected)
+
+    def select_profile(self, profile_id: str) -> None:
+        """Show a profile by its ID (the sidebar popover switched to it)."""
+        for row in range(self.profiles.count()):
+            if str(self.profiles.item(row).data(Qt.ItemDataRole.UserRole)) == profile_id:
+                self.profiles.setCurrentRow(row)
+                return
+
     def _show_replacements(self) -> None:
         service, profile_id = self.service, self.selected_id()
         self.table.setRowCount(0)
@@ -356,8 +372,8 @@ class ReplacementsScreen(QWidget):
         self.new_name.clear()
         self.profiles.setCurrentRow([p.id for p in self.service.profiles].index(created.id))  # type: ignore[union-attr]
 
-    def _delete(self) -> None:
-        profile_id = self.selected_id()
+    def delete_profile(self, profile_id: str | None) -> None:
+        """Delete a profile after confirming; the window shows "Undo" (also the sidebar popover)."""
         if profile_id is None or self.service is None:
             return
         profile = self.service.store.get(profile_id)

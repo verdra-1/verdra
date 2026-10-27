@@ -243,6 +243,8 @@ QToolTip {
     border: {border-width}px solid {divider};
     border-radius: {radius-m}px;
 }
+#profileCard:hover { border: {border-width}px solid {border-strong}; }
+#profileCard:focus { border: {focus-width}px solid {focus-ring}; }
 
 #header { background: {bg}; border-bottom: {border-width}px solid {divider}; }
 #statusLight {
@@ -346,6 +348,7 @@ QFrame[toast="true"] {
 }
 QLabel[muted="true"] { color: {ink-muted}; }
 QLabel[link="true"] { color: {primary}; }
+QLabel[danger="true"] { color: {danger-ink}; }
 """
 
 

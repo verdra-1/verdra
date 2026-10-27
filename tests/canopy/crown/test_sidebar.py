@@ -17,7 +17,9 @@ from verdra.canopy.crown.sidebar import Sidebar
 
 
 def _profile(name: str, replacements: int, *, enabled: bool = True) -> SimpleNamespace:
-    return SimpleNamespace(name=name, enabled=enabled, replacements=list(range(replacements)))
+    return SimpleNamespace(
+        id=name.lower(), name=name, enabled=enabled, replacements=list(range(replacements))
+    )
 
 
 @pytest.fixture
@@ -80,7 +82,7 @@ def test_small_text_never_shrinks_below_the_design_width_or_clips(
 
 def test_the_profile_card_names_the_active_profile(qtbot: QtBot) -> None:
     bar = shown(qtbot, Sidebar())
-    bar.set_profile([_profile("My replacements", 5), _profile("Night", 2)])
+    bar.set_profiles([_profile("My replacements", 5), _profile("Night", 2)])
     assert bar.profile_name.text() == "My replacements"  # the first (active) one
     assert bar.profile_count.text() == "5 replacements"
     assert bar.profile_count.isVisibleTo(bar)
@@ -88,7 +90,7 @@ def test_the_profile_card_names_the_active_profile(qtbot: QtBot) -> None:
 
 def test_the_profile_card_has_an_empty_state(qtbot: QtBot) -> None:
     bar = shown(qtbot, Sidebar())
-    bar.set_profile([])
+    bar.set_profiles([])
     assert bar.profile_name.text() == "No profile yet"
     assert bar.profile_count.text() == ""
     assert not bar.profile_count.isVisibleTo(bar)
@@ -103,7 +105,7 @@ def test_library_is_marked_coming_later(qtbot: QtBot) -> None:
 
 def test_collapsing_hides_the_profile_card_and_the_coming_later_note(qtbot: QtBot) -> None:
     bar = shown(qtbot, Sidebar())
-    bar.set_profile([_profile("My replacements", 5)])
+    bar.set_profiles([_profile("My replacements", 5)])
     bar.set_collapsed(True)
     assert not bar.profile_card.isVisibleTo(bar)
     assert not bar.later_caption.isVisibleTo(bar)

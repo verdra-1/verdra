@@ -5,8 +5,9 @@
 Master plan 7.1: the sidebar is 220 px wide and collapses to 64 px of icons with a chevron at the
 bottom. The Verdra mark sits at the top; main screens follow (Traffic only in Advanced mode);
 Activity, Settings and About sit at the foot. Library carries a muted "coming later" note (D2
-screen 1, honest: it isn't built yet), and a read-only card above the chevron names the active
-profile (switching lives on the Replacements screen). Both are text, so they hide when collapsed.
+screen 1, honest: it isn't built yet), and a card above the chevron names the shown profile and
+opens the profile popover to switch, create, rename, delete or turn one on or off (D3 screen 2).
+Both are text, so they hide when collapsed.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from PySide6.QtCore import QCoreApplication, QSize, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPoint, QSize, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -27,6 +29,36 @@ from PySide6.QtWidgets import (
 )
 
 from verdra.canopy.crown import theme
+from verdra.canopy.crown.profiles import ProfilePopover, ProfileView
+
+
+class _ProfileCard(QFrame):
+    """The sidebar's profile card: a click or Space/Enter opens the profile popover.
+
+    Signals:
+        clicked(): The card was activated with the mouse or keyboard.
+    """
+
+    clicked = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("profileCard")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - Qt API
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
+            event.position().toPoint()
+        ):
+            self.clicked.emit()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt API
+        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.clicked.emit()
+        else:
+            super().keyPressEvent(event)
+
 
 MARK_SIZE = 28
 
@@ -98,17 +130,7 @@ class Sidebar(QFrame):
         layout.setContentsMargins(margin, tokens.length("space-4"), margin, margin)
         layout.setSpacing(tokens.length("space-1"))
 
-        brand = QHBoxLayout()
-        brand.setSpacing(tokens.length("space-2"))
-        self.mark = QLabel(self)
-        self.mark.setFixedSize(QSize(MARK_SIZE, MARK_SIZE))
-        self.mark.setAccessibleName(self.tr("Verdra"))
-        brand.addWidget(self.mark)
-        self.name = QLabel("Verdra", self)  # noqa: VT001 - the product name is never translated
-        theme.set_text_style(self.name, "title-m")
-        brand.addWidget(self.name)
-        brand.addStretch()
-        layout.addLayout(brand)
+        layout.addLayout(self._build_brand(tokens))
         layout.addSpacing(tokens.length("space-4"))
 
         for entry in ENTRIES:
@@ -121,9 +143,13 @@ class Sidebar(QFrame):
             else:
                 layout.addWidget(button)
 
+        self._profiles: list[ProfileView] = []
+        self._selected_profile: str | None = None
+        self.profiles_popover = ProfilePopover(self)
         self.profile_card = self._profile_card()
         layout.addSpacing(tokens.length("space-2"))
         layout.addWidget(self.profile_card)
+        self.set_profiles((), None)
 
         self.toggle = QToolButton(self)
         self.toggle.setIconSize(QSize(20, 20))
@@ -136,6 +162,20 @@ class Sidebar(QFrame):
             current.changed.connect(self.refresh_icons)
         self.refresh_icons()
         self.set_collapsed(False)
+
+    def _build_brand(self, tokens: theme.Tokens) -> QHBoxLayout:
+        """The Verdra mark and wordmark at the top of the sidebar."""
+        brand = QHBoxLayout()
+        brand.setSpacing(tokens.length("space-2"))
+        self.mark = QLabel(self)
+        self.mark.setFixedSize(QSize(MARK_SIZE, MARK_SIZE))
+        self.mark.setAccessibleName(self.tr("Verdra"))
+        brand.addWidget(self.mark)
+        self.name = QLabel("Verdra", self)  # noqa: VT001 - the product name is never translated
+        theme.set_text_style(self.name, "title-m")
+        brand.addWidget(self.name)
+        brand.addStretch()
+        return brand
 
     def _later_row(self, button: QToolButton) -> QWidget:
         """The Library row with a muted "coming later" note beside it (honest: it isn't built)."""
@@ -153,12 +193,12 @@ class Sidebar(QFrame):
         button.setAccessibleName(note)
         return row
 
-    def _profile_card(self) -> QFrame:
-        """A read-only card naming the active profile; switching is on the Replacements screen."""
+    def _profile_card(self) -> _ProfileCard:
+        """The card naming the active profile; a click opens the profile popover (D3 screen 2)."""
         tokens = theme.Tokens.load()
         pad = tokens.length("space-3")
-        card = QFrame(self)
-        card.setObjectName("profileCard")
+        card = _ProfileCard(self)
+        card.setAccessibleName(self.tr("Profiles"))
         box = QVBoxLayout(card)
         box.setContentsMargins(pad, pad, pad, pad)
         box.setSpacing(tokens.length("space-1"))
@@ -174,23 +214,42 @@ class Sidebar(QFrame):
         self.profile_count.setProperty("muted", True)
         theme.set_text_style(self.profile_count, "caption")
         box.addWidget(self.profile_count)
-        self.set_profile(())
+        card.clicked.connect(self.open_profiles)
         return card
 
-    def set_profile(self, profiles: Sequence[object]) -> None:
-        """Name the active profile in the card (the first, as the header used to list)."""
-        active = next((p for p in profiles if getattr(p, "enabled", True)), None)
+    def open_profiles(self) -> None:
+        """Open the profile popover above the card (it is near the foot of the sidebar)."""
+        self.profiles_popover.show_profiles(self._profiles, self._selected_profile)
+        anchor = self.profile_card.mapToGlobal(
+            QPoint(0, -self.profiles_popover.sizeHint().height())
+        )
+        self.profiles_popover.move(anchor)
+        self.profiles_popover.show()
+        self.profiles_popover.list.setFocus()
+
+    def set_profiles(self, profiles: Sequence[ProfileView], selected_id: str | None = None) -> None:
+        """Name the shown profile in the card, and keep the popover's list in step.
+
+        The shown profile is `selected_id` when given and present, else the first; the card falls
+        back to an empty state when there is no profile.
+        """
+        self._profiles = list(profiles)
+        ids = [p.id for p in self._profiles]
+        self._selected_profile = selected_id if selected_id in ids else (ids[0] if ids else None)
+        active = next((p for p in self._profiles if p.id == self._selected_profile), None)
         if active is None:
             self.profile_name.setText(self.tr("No profile yet"))
             self.profile_count.setText("")
             self.profile_count.setVisible(False)
-            return
-        self.profile_name.setText(str(getattr(active, "name", "")))
-        count = len(getattr(active, "replacements", ()) or ())
-        self.profile_count.setText(
-            QCoreApplication.translate("Sidebar", "%n replacements", None, count)
-        )
-        self.profile_count.setVisible(True)
+        else:
+            self.profile_name.setText(active.name)
+            count = len(getattr(active, "replacements", ()) or ())
+            self.profile_count.setText(
+                QCoreApplication.translate("Sidebar", "%n replacements", None, count)
+            )
+            self.profile_count.setVisible(True)
+        if self.profiles_popover.isVisible():
+            self.profiles_popover.show_profiles(self._profiles, self._selected_profile)
 
     def _entry_button(self, entry: Entry) -> QToolButton:
         button = QToolButton(self)

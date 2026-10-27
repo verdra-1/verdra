@@ -59,6 +59,7 @@ src/verdra/
 │   ├── crown/               The window frame and app-wide UI.
 │   │   ├── window.py        Main window: sidebar, header, content stack, splitter and geometry memory.
 │   │   ├── header.py        Screen title, the status light and its popover
+│   │   ├── profiles.py      The profile popover under the sidebar card
 │   │   ├── sidebar.py       Navigation, collapse to icons, items shown only in Advanced mode.
 │   │   ├── tray.py          Tray or menu-bar icon, the tray menu (7.10), status-variant icons.
 │   │   ├── theme.py         Turns tokens.json into QPalette and a style sheet; live light/dark switching; text scale; density.

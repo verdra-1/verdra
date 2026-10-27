@@ -1738,6 +1738,37 @@
     </message>
 </context>
 <context>
+    <name>ProfilePopover</name>
+    <message>
+        <source>Profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename this profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete this profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ProgressBar</name>
     <message>
         <source>Progress</source>
@@ -2365,6 +2396,10 @@
     </message>
     <message>
         <source>Library — coming later</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
