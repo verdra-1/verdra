@@ -35,6 +35,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Callable, Collection, Iterator
@@ -58,8 +59,15 @@ PLACEHOLDER_MARGIN = 2
 #: is still report-only while its redesign is pending — D1 left ~334 findings across the
 #: un-redesigned app, and failing on those would block every unrelated change. Each D3 pull
 #: request adds its scene name(s) here as it lands (plan Part C phase 2; decision record 0027).
-#: Names are the exact scene names in `_scenes()`, e.g. "replacements", "status-error".
-CLEAN_SCREENS: frozenset[str] = frozenset()
+#: Names are the base scene names in `_scenes()`, e.g. "window-frame", "status-error".
+CLEAN_SCREENS: frozenset[str] = frozenset({"window-frame"})
+
+
+def _scene_base(scene: str) -> str:
+    """The base name of a scene: without its `NN-` number prefix or `-minimum`/`-default` size."""
+    scene = re.sub(r"^\d+-", "", scene)
+    return re.sub(r"-(minimum|default)$", "", scene)
+
 
 #: Letters with an accent, for the pseudo-language (law 1).
 _ACCENTED = str.maketrans("aceinouyACEINOUY", "áçéîñöüýÁÇÉÎÑÖÜÝ")
@@ -123,9 +131,11 @@ class Report:
         """Law 1 findings on a redesigned screen: what `--strict` fails on (A.7, decision 0027).
 
         Every other screen stays report-only while its redesign (D3) is pending; each D3 pull
-        request adds its scene to `clean` (CLEAN_SCREENS) as it lands.
+        request adds its scene's base name to `clean` (CLEAN_SCREENS) as it lands. Scenes are
+        matched by base name (without the `NN-` number prefix or `-minimum`/`-default` size
+        suffix), so the set keeps working as scenes are added and renumbered.
         """
-        return [f for f in self.law_one() if f.scene in clean]
+        return [f for f in self.law_one() if _scene_base(f.scene) in clean]
 
 
 def cut_off(root: Any, config: str, scene: str) -> list[Finding]:
@@ -356,6 +366,33 @@ def _sample_data(services: Any) -> None:
 Scene = Callable[[Any], Any]
 
 
+def _window_frame(shell: Any) -> Any:
+    """The window frame on its own (D3 screen 1): the sidebar and the header, so law 1 is
+    enforced on the chrome without the un-redesigned screen bodies the window otherwise carries."""
+    from PySide6.QtCore import QCoreApplication  # noqa: PLC0415
+    from PySide6.QtWidgets import QHBoxLayout, QWidget  # noqa: PLC0415
+
+    from verdra.canopy.crown.header import Header  # noqa: PLC0415
+    from verdra.canopy.crown.sidebar import Sidebar  # noqa: PLC0415
+    from verdra.roots.gardener import RoutingStatus, State  # noqa: PLC0415
+
+    box = QWidget()
+    box.resize(960, 680)
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(0)
+    bar = Sidebar(box)
+    if shell.services.grafts is not None:
+        bar.set_profile(shell.services.grafts.profiles)
+    row.addWidget(bar)
+    head = Header(box)
+    head.set_title(QCoreApplication.translate("Sidebar", "Replacements"))
+    head.set_routing(RoutingStatus(State.ROUTING))
+    row.addWidget(head, 1)
+    box.show()
+    return box
+
+
 def _scenes() -> list[tuple[str, str, Scene]]:
     """(name, window size or "dialog", how to show it) for every scene, in gallery order."""
     from PySide6.QtWidgets import QApplication  # noqa: PLC0415
@@ -461,6 +498,7 @@ def _scenes() -> list[tuple[str, str, Scene]]:
         ),
     ]
     made: list[tuple[str, str, Scene]] = [
+        ("window-frame", "frame", _window_frame),
         ("replacements", "window", screen("replacements")),
         ("replacements-editor", "window", editor),
         ("replacements-banner-toast", "window", banner_and_toasts),

@@ -194,6 +194,10 @@ All notable changes to Verdra are recorded here. The format follows
   and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
+- The window header now shows only the screen title and the routing status, drawn as a leaf and
+  one of five plain words (Working, Waiting for the game, Needs you, Stopped, Off) rather than a
+  colored pill. The active profile moved to a card in the sidebar, and the sidebar's Library
+  entry is marked "coming later". "Apply now" stays on Ctrl+Return and in the status popover.
 - filelock 4.2.4 and setuptools 84.2.1 (development and build only) replace versions with
   published security advisories.
 

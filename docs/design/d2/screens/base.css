@@ -32,25 +32,41 @@ body {
 
 /* --- Sidebar --- */
 .sidebar {
-  width: var(--sidebar-width); flex: none; background: var(--color-bg);
+  /* The real sidebar grows past its design width so no label is cut at larger text (law 1,
+     sidebar.py _expanded_width); the mock-up grows the same way instead of a fixed width. */
+  width: auto; min-width: var(--sidebar-width); flex: none; background: var(--color-bg);
   border-right: 1px solid var(--color-divider);
   display: flex; flex-direction: column; padding: var(--space-3);
 }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a {
-  display: flex; align-items: center; gap: var(--space-3);
+  display: flex; align-items: center; gap: var(--space-3); white-space: nowrap;
   height: var(--hit-target-text); padding: 0 var(--space-3); border-radius: var(--radius-m);
   color: var(--color-ink); text-decoration: none; font-size: var(--text-body-size);
 }
+.nav .later { margin-left: var(--space-4); }
 .nav a .ico { width: 20px; height: 20px; flex: none; color: var(--color-ink-muted); }
 .nav a.active { background: var(--color-primary-tint); color: var(--color-ink); font-weight: 600; }
 .nav a.active .ico { color: var(--color-primary); }
 .nav .later { color: var(--color-ink-muted); }
 .sidebar .spacer { flex: 1; }
+.brand {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);
+}
+.brand .mark { width: 28px; height: 28px; flex: none; }
+.brand .name { font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-title-m-size); line-height: var(--text-title-m-line); }
 .profilecard {
   border: 1px solid var(--color-divider); border-radius: var(--radius-m);
-  padding: var(--space-3); background: var(--color-surface);
+  padding: var(--space-3); background: var(--color-surface); margin-top: var(--space-3);
 }
+.chevron {
+  margin-top: var(--space-2); width: 36px; height: 36px; display: flex;
+  align-items: center; justify-content: center; background: none; border: none;
+  color: var(--color-ink-muted); border-radius: var(--radius-m); cursor: pointer;
+}
+.chevron svg { width: 20px; height: 20px; }
 .profilecard .label {
   font-size: var(--text-label-size); letter-spacing: var(--text-label-tracking);
   text-transform: uppercase; color: var(--color-ink-muted);

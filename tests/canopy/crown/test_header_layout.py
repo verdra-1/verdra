@@ -54,8 +54,15 @@ def test_narrow_window_wraps_to_a_taller_header(qtbot: QtBot, big_font: None) ->
     header = Header()
     header.set_title("Replacements")
     one_row = Header()
+    one_row.set_title("Replacements")
     shown(qtbot, one_row, 1200)
-    shown(qtbot, header, 620)
+    # The window pins the header narrower than the title and status light need side by side.
+    qtbot.addWidget(header)
+    header.setFixedWidth(300)
+    header.show()
+    qtbot.waitExposed(header)
+    for _ in range(3):
+        QApplication.processEvents()
     assert header._two_row is True
     assert header.height() > one_row.height()  # it grew taller for the second row
     assert clipped(header) == []  # title and controls both fit now

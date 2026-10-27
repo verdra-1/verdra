@@ -58,7 +58,7 @@ src/verdra/
 ├── canopy/                  Everything the user sees. Qt widgets only: no network, disk or OS calls of its own.
 │   ├── crown/               The window frame and app-wide UI.
 │   │   ├── window.py        Main window: sidebar, header, content stack, splitter and geometry memory.
-│   │   ├── header.py        Screen title, status pill and its popover, profile selector, Apply now button.
+│   │   ├── header.py        Screen title, the status light and its popover
 │   │   ├── sidebar.py       Navigation, collapse to icons, items shown only in Advanced mode.
 │   │   ├── tray.py          Tray or menu-bar icon, the tray menu (7.10), status-variant icons.
 │   │   ├── theme.py         Turns tokens.json into QPalette and a style sheet; live light/dark switching; text scale; density.
@@ -70,6 +70,7 @@ src/verdra/
 │   ├── leaves/              Reusable widgets built only from tokens.
 │   │   ├── switch.py        Pill switch with the leaf glyph on the thumb when on.
 │   │   ├── status_leaf.py   The status light: the whole Verdra leaf, one colour and shape per state (0027 item 4).
+│   │   ├── status_light.py  The header's status light: the status leaf and its word
 │   │   ├── progress.py      Progress bar with leading leaf, arc spinner.
 │   │   ├── badge.py         Risk badges (four levels) and status pills (four states).
 │   │   ├── notice.py        Inline notices: info, success, warning, danger.

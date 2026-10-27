@@ -238,8 +238,19 @@ QToolTip {
 }
 #sidebar QToolButton:hover { background: {primary-tint-60}; color: {ink}; }
 #sidebar QToolButton:checked { background: {primary-tint}; color: {ink}; }
+#profileCard {
+    background: {surface};
+    border: {border-width}px solid {divider};
+    border-radius: {radius-m}px;
+}
 
 #header { background: {bg}; border-bottom: {border-width}px solid {divider}; }
+#statusLight {
+    background: {surface};
+    border: {border-width}px solid {divider};
+    border-radius: {radius-full}px;
+}
+#statusLight:focus { border: {focus-width}px solid {focus-ring}; }
 #content { background: {bg}; }
 #panel {
     background: {surface};

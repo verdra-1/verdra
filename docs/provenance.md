@@ -51,6 +51,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/leaves/notice.py` | Master plan 5.4, message catalogue (kind Notice) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/progress.py` | Design system brand book ("UI language": progress), Master plan 5.4, 6.6 | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/status_leaf.py` | Decision record 0027 item 4 (the leaf as the status light); the generated `leaf-<state>-<theme>.svg` brand assets; Qt documentation of QSvgRenderer, QVariantAnimation and QPainter | PySide6 (QtSvg, QtCore, QtGui, QtWidgets) | 2026-10-26 |
+| `verdra/canopy/leaves/status_light.py` | Decision record 0027 items 3-4 (the status words and the status leaf); spec S-14 (the routing states and their fixes); message catalogue (M-STATUS-10); Qt documentation of QWidget focus and key events | PySide6 (QtCore, QtGui, QtWidgets) | 2026-10-27 |
 | `verdra/canopy/leaves/switch.py` | Brand system UI language (switches), Master plan 6.6 | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/tables.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |

@@ -4,11 +4,14 @@
 
 Master plan 7.1: the sidebar is 220 px wide and collapses to 64 px of icons with a chevron at the
 bottom. The Verdra mark sits at the top; main screens follow (Traffic only in Advanced mode);
-Activity, Settings and About sit at the foot.
+Activity, Settings and About sit at the foot. Library carries a muted "coming later" note (D2
+screen 1, honest: it isn't built yet), and a read-only card above the chevron names the active
+profile (switching lives on the Replacements screen). Both are text, so they hide when collapsed.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QCoreApplication, QSize, Qt, Signal
@@ -111,8 +114,16 @@ class Sidebar(QFrame):
         for entry in ENTRIES:
             if entry.key == "activity":
                 layout.addStretch()
-            self.buttons[entry.key] = self._entry_button(entry)
-            layout.addWidget(self.buttons[entry.key])
+            button = self._entry_button(entry)
+            self.buttons[entry.key] = button
+            if entry.key == "library":
+                layout.addWidget(self._later_row(button))
+            else:
+                layout.addWidget(button)
+
+        self.profile_card = self._profile_card()
+        layout.addSpacing(tokens.length("space-2"))
+        layout.addWidget(self.profile_card)
 
         self.toggle = QToolButton(self)
         self.toggle.setIconSize(QSize(20, 20))
@@ -125,6 +136,61 @@ class Sidebar(QFrame):
             current.changed.connect(self.refresh_icons)
         self.refresh_icons()
         self.set_collapsed(False)
+
+    def _later_row(self, button: QToolButton) -> QWidget:
+        """The Library row with a muted "coming later" note beside it (honest: it isn't built)."""
+        row = QWidget(self)
+        box = QHBoxLayout(row)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(theme.Tokens.load().length("space-1"))
+        box.addWidget(button, 1)
+        self.later_caption = QLabel(self.tr("coming later"), row)
+        self.later_caption.setProperty("muted", True)
+        theme.set_text_style(self.later_caption, "caption")
+        box.addWidget(self.later_caption)
+        note = self.tr("Library — coming later")
+        button.setToolTip(note)
+        button.setAccessibleName(note)
+        return row
+
+    def _profile_card(self) -> QFrame:
+        """A read-only card naming the active profile; switching is on the Replacements screen."""
+        tokens = theme.Tokens.load()
+        pad = tokens.length("space-3")
+        card = QFrame(self)
+        card.setObjectName("profileCard")
+        box = QVBoxLayout(card)
+        box.setContentsMargins(pad, pad, pad, pad)
+        box.setSpacing(tokens.length("space-1"))
+        label = QLabel(self.tr("Profile"), card)
+        theme.set_text_style(label, "label")
+        label.setProperty("muted", True)
+        box.addWidget(label)
+        self.profile_name = QLabel(card)
+        self.profile_name.setWordWrap(True)
+        theme.set_text_style(self.profile_name, "body-strong")
+        box.addWidget(self.profile_name)
+        self.profile_count = QLabel(card)
+        self.profile_count.setProperty("muted", True)
+        theme.set_text_style(self.profile_count, "caption")
+        box.addWidget(self.profile_count)
+        self.set_profile(())
+        return card
+
+    def set_profile(self, profiles: Sequence[object]) -> None:
+        """Name the active profile in the card (the first, as the header used to list)."""
+        active = next((p for p in profiles if getattr(p, "enabled", True)), None)
+        if active is None:
+            self.profile_name.setText(self.tr("No profile yet"))
+            self.profile_count.setText("")
+            self.profile_count.setVisible(False)
+            return
+        self.profile_name.setText(str(getattr(active, "name", "")))
+        count = len(getattr(active, "replacements", ()) or ())
+        self.profile_count.setText(
+            QCoreApplication.translate("Sidebar", "%n replacements", None, count)
+        )
+        self.profile_count.setVisible(True)
 
     def _entry_button(self, entry: Entry) -> QToolButton:
         button = QToolButton(self)
@@ -161,6 +227,10 @@ class Sidebar(QFrame):
         current text size; it is only read while expanded, when that style is set.
         """
         widest = max((button.sizeHint().width() for button in self.buttons.values()), default=0)
+        # The Library row also carries its "coming later" note, so it is wider than its button.
+        library = self.buttons["library"].sizeHint().width()
+        library += self.later_caption.sizeHint().width() + theme.Tokens.load().length("space-1")
+        widest = max(widest, library)
         return max(self._base_width, widest + 2 * self._side_margin)
 
     def select(self, key: str) -> None:
@@ -180,6 +250,9 @@ class Sidebar(QFrame):
         changed = collapsed != self.collapsed
         self.collapsed = collapsed
         self.name.setVisible(not collapsed)
+        # The "coming later" note and the profile card are text; they hide with the labels.
+        self.later_caption.setVisible(not collapsed)
+        self.profile_card.setVisible(not collapsed)
         style = (
             Qt.ToolButtonStyle.ToolButtonIconOnly
             if collapsed

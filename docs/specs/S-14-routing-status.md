@@ -62,6 +62,26 @@ Always show whether routing works, and why not.
   Routing.
 - M-STATUS-07 (Activity, new) "Routing status changed from <old> to <new>: <reason>" A change to
   Degraded or Error, with its reason.
+- M-STATUS-10 (Status word, 0027 §3) "Waiting for the game"
+
+## Interface words (0027 §3)
+
+The window and tray show the status as one of five plain words beside the leaf, never by colour
+alone. The four internal states map to them by whether the user has something to do:
+
+| State | Word | Leaf |
+| --- | --- | --- |
+| Routing | Working | solid, breathing in the window |
+| Idle | Off | an empty outline |
+| Degraded, with a fix to offer | Needs you | solid amber with a "!" |
+| Degraded, nothing for the user to do | Waiting for the game | outline, lower half filled |
+| Error | Stopped | solid red with a "×" |
+
+A change shows only after the new state has lasted 5 seconds (0027 §5); the shell holds that timer
+so the window and the tray always agree (rule 1). Every change is still logged at once (rule 2).
+The split of Degraded into "Needs you" and "Waiting for the game" follows the popover's fix table
+above: a status that offers the user a fix reads "Needs you"; one that only waits reads "Waiting
+for the game". (This mapping warrants its own decision record; flagged, not yet written.)
 
 ## Acceptance tests
 
