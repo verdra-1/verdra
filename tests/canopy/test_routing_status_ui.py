@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-"""Spec S-14: the pill, its popover and the tray render the one published routing status."""
+"""Spec S-14: the status light, its popover and the tray render the one published status."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from verdra.canopy.crown.tray import Tray, tray_icon
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.badge import Status
 from verdra.canopy.leaves.empty import soon
+from verdra.canopy.leaves.status_light import StatusWord, word_for
 from verdra.roots.gardener import RoutingStatus, RoutingStatusSource, State, Trigger
 from verdra.trunk.sapwood.startup import Services
 
@@ -70,9 +71,10 @@ def test_pill_popover_and_tray_agree_in_every_state(
     header.set_routing(view)
     tray.set_status(Status(view.state.value), reason=view.reason)
     status = Status(view.state.value)
-    assert header.pill.status is status
-    assert header.pill.accessibleName() == f"Routing status: {status.label()}"
-    assert header.popover.title.text() == status.label()
+    word = word_for(view.state.value, has_fix=fix is not None)
+    assert header.light.status_word is word
+    assert header.light.accessibleName() == f"Routing status: {word.label()}"
+    assert header.popover.title.text() == word.label()
     if view.reason:
         assert header.popover.reason.text() == view.reason
     assert header.popover.others.text() == "\n".join(view.others)
@@ -136,15 +138,15 @@ def test_the_shell_follows_every_published_change(
     source = services.routing
     assert source is not None
     header = shell.window.header
-    assert header.pill.status is Status.IDLE
+    assert header.light.status_word is StatusWord.OFF
     source.started()
-    assert header.pill.status is Status.ROUTING
+    assert header.light.status_word is StatusWord.WORKING
     source.launched()
     advance(20)
-    assert header.pill.status is Status.DEGRADED
+    assert header.light.status_word is StatusWord.NEEDS_YOU
     assert header.popover.fix.text() == "Restart Roblox through Verdra"
     source.error(Trigger.OTHER_TOOL, "Another tool routes Roblox.")
-    assert header.pill.status is Status.ERROR
+    assert header.light.status_word is StatusWord.STOPPED
     assert header.popover.reason.text() == "Another tool routes Roblox."
     assert header.popover.others.text() == (
         "Roblox isn't routed through Verdra yet. Restart it from here."
@@ -154,7 +156,7 @@ def test_the_shell_follows_every_published_change(
 
 
 def test_without_a_status_source_the_shell_shows_idle(shell: Shell, qapp: QApplication) -> None:
-    assert shell.window.header.pill.status is Status.IDLE
+    assert shell.window.header.light.status_word is StatusWord.OFF
     assert shell.window.header.popover.reason.text() == "Routing is off."
 
 

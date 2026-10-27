@@ -139,7 +139,7 @@ def test_tab_reaches_every_control_in_order(shell: Shell) -> None:
         interactive = [
             widget
             for widget in window.findChildren(QWidget)
-            if isinstance(widget, (QAbstractButton, QComboBox)) or widget is window.header.pill
+            if isinstance(widget, (QAbstractButton, QComboBox)) or widget is window.header.light
             if widget.isVisibleTo(window)
             and widget.isEnabled()
             and widget.focusPolicy() & Qt.FocusPolicy.TabFocus

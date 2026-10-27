@@ -1,23 +1,24 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-"""Screen title, status pill and its popover, profile selector, Apply now button.
+"""Screen title, the status light and its popover (0027 §3, D3 screen 1).
 
-Master plan 7.1. The header is 56 px tall. The pill and its popover render the one routing
-status (spec S-14): its state, its reason, the other active reasons and at most one fix button,
-which emits `fix_requested` with the fix's key. A fix nobody handles yet is disabled with a
-tooltip saying why, as are the profile selector and "Apply now" until replacements exist (M2;
-plan 5.4, rule 5).
+Master plan 7.1. The header is 56 px tall and carries the screen title and, on the right, the
+status light: the one routing status (spec S-14) as a leaf and a word. Clicking the light opens
+the popover, which shows the reason, the other active reasons and at most one fix button that
+emits `fix_requested` with the fix's key; a fix nobody handles yet is disabled with a tooltip
+saying why (plan 5.4, rule 5). The approved D2 frame keeps the header to the title and the status
+alone: the active profile is shown in the sidebar card, and "Apply now" lives with the
+replacements it applies (Ctrl+Return and the popover fix reach it meanwhile).
 """
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
 from typing import Protocol
 
 from PySide6.QtCore import QCoreApplication, QPoint, QSize, Qt, Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -29,8 +30,9 @@ from PySide6.QtWidgets import (
 )
 
 from verdra.canopy.crown import theme
-from verdra.canopy.leaves.badge import Status, StatusPill
+from verdra.canopy.leaves.badge import Status
 from verdra.canopy.leaves.empty import soon
+from verdra.canopy.leaves.status_light import StatusLight, word_for
 
 POPOVER_WIDTH = 300
 
@@ -131,7 +133,10 @@ class StatusPopover(QFrame):
         """Fill the popover for a published routing status."""
         self.view = view
         status = status_of(view)
-        self.title.setText(status.label())
+        word = word_for(
+            str(getattr(view.state, "value", view.state)), has_fix=fix_for(view) is not None
+        )
+        self.title.setText(word.label())
         reason = view.reason
         if status is Status.IDLE:
             # M-STATUS-03: "Idle. Routing is off." Button "Start routing".
@@ -231,32 +236,17 @@ class Header(QFrame):
         self.title = QLabel(self)
         theme.set_text_style(self.title, "title-l")
 
-        # The status pill, profile selector and "Apply now" travel together between the one-row
-        # layout (right of the title) and the second row, so they stay a group.
+        # The status light sits on the right of the title, and drops to a second row when the two
+        # don't fit side by side (law 1). It is kept in its own container so the wrapping logic
+        # has one widget to move.
         self.controls = QWidget(self)
         controls = QHBoxLayout(self.controls)
         controls.setContentsMargins(0, 0, 0, 0)
         controls.setSpacing(self._gap)
 
-        self.pill = StatusPill(self.controls)
-        self.pill.clicked.connect(self.open_popover)
-        controls.addWidget(self.pill)
-
-        not_yet = soon()
-        self.profiles = QComboBox(self.controls)
-        self.profiles.setMinimumWidth(180)
-        self.profiles.setPlaceholderText(self.tr("No profile yet"))
-        self.profiles.setAccessibleName(self.tr("Active profile"))
-        self.profiles.setEnabled(False)
-        self.profiles.setToolTip(not_yet)
-        controls.addWidget(self.profiles)
-
-        self.apply_now = QPushButton(self.tr("Apply now"), self.controls)
-        self.apply_now.setProperty("primary", True)
-        self.apply_now.setAccessibleName(self.tr("Apply now"))
-        self.apply_now.setEnabled(False)
-        self.apply_now.setToolTip(not_yet)
-        controls.addWidget(self.apply_now)
+        self.light = StatusLight(self.controls)
+        self.light.clicked.connect(self.open_popover)
+        controls.addWidget(self.light)
 
         self.popover = StatusPopover(self)
         self._two_row: bool | None = None
@@ -312,31 +302,22 @@ class Header(QFrame):
         if available > 0:
             self._apply_rows(two_row=needed > available)
 
-    def show_profiles(self, profiles: Sequence[object]) -> None:
-        """List the profiles that apply (switching from here comes later, M-SOON-01)."""
-        names = [str(getattr(p, "name", "")) for p in profiles if getattr(p, "enabled", True)]
-        self.profiles.clear()
-        self.profiles.addItems(names)
-        self.profiles.setCurrentIndex(0 if names else -1)
-
-    def enable_apply(self) -> None:
-        """Replacements exist (M2): "Apply now" works (spec S-24)."""
-        self.apply_now.setEnabled(True)
-        self.apply_now.setToolTip(self.tr("Use the replacements now"))
-
     def set_title(self, title: str) -> None:
         """Show the current screen's title."""
         self.title.setText(title)
 
     def set_routing(self, view: StatusView) -> None:
-        """Show a published routing status in the pill and its popover (spec S-14 rule 1)."""
-        self.pill.set_status(status_of(view))
+        """Show a published routing status in the light and its popover (spec S-14 rule 1)."""
+        has_fix = fix_for(view) is not None
+        self.light.set_word(
+            word_for(str(getattr(view.state, "value", view.state)), has_fix=has_fix)
+        )
         self.popover.show_view(view)
 
     def open_popover(self) -> None:
-        """Open the status popover under the pill."""
-        anchor = self.pill.mapToGlobal(
-            QPoint(self.pill.width() - POPOVER_WIDTH, self.pill.height() + 4)
+        """Open the status popover under the light."""
+        anchor = self.light.mapToGlobal(
+            QPoint(self.light.width() - POPOVER_WIDTH, self.light.height() + 4)
         )
         self.popover.move(anchor)
         self.popover.show()

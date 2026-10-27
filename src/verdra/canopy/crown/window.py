@@ -365,11 +365,11 @@ class Shell:
             popover.fix_requested.connect(self.fix_routing)
             services.sprout.refresh_others()
         if services.grafts is not None:
-            self.window.header.enable_apply()
-            self.window.header.apply_now.clicked.connect(self.apply_now)
             grafts = services.grafts
-            grafts.changed.connect(lambda: self.window.header.show_profiles(grafts.profiles))
-            self.window.header.show_profiles(grafts.profiles)
+            # The active profile shows in the sidebar card (D2 screen 1); "Apply now" reaches its
+            # behaviour by Ctrl+Return and the status popover's fix until it gains a toolbar button.
+            self.window.sidebar.set_profile(grafts.profiles)
+            grafts.changed.connect(lambda: self.window.sidebar.set_profile(grafts.profiles))
         replacements = self.window.screens["replacements"]
         if isinstance(replacements, ReplacementsScreen):
             replacements.deleted.connect(

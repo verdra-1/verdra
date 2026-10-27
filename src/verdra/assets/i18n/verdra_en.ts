@@ -262,25 +262,6 @@
     </message>
 </context>
 <context>
-    <name>Header</name>
-    <message>
-        <source>No profile yet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Active profile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Apply now</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Use the replacements now</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>M-ABOUT-02</name>
     <message>
         <source>Verdra is an independent project and is not affiliated with or endorsed by Roblox Corporation. Roblox is a trademark of Roblox Corporation.</source>
@@ -1666,6 +1647,13 @@
     </message>
 </context>
 <context>
+    <name>M-STATUS-10</name>
+    <message>
+        <source>Waiting for the game</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Notice</name>
     <message>
         <source>Dismiss</source>
@@ -2372,6 +2360,26 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>coming later</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library — coming later</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No profile yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%n replacements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Expand the sidebar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2425,6 +2433,29 @@
     </message>
     <message>
         <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Needs you</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>StatusLight</name>
+    <message>
+        <source>Routing status: {status}</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
