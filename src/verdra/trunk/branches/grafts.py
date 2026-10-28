@@ -884,10 +884,12 @@ class Grafts(QObject):
     Signals:
         changed(): The profiles changed (an edit, undo or redo), or a link finished downloading.
         settled(): No link is downloading any more (the last one finished or failed).
+        applied(): A snapshot was published (Apply now), so what is live may have changed.
     """
 
     changed = Signal()
     settled = Signal()
+    applied = Signal()
 
     def __init__(
         self,
@@ -924,6 +926,11 @@ class Grafts(QObject):
     def downloading(self) -> int:
         """How many links are downloading now."""
         return sum(1 for reason in self._links.values() if not reason)
+
+    @property
+    def live(self) -> frozenset[str]:
+        """The IDs of the replacements in the published snapshot (what is live now, S-21)."""
+        return frozenset(graft.replacement for graft in self.holder.current.grafts.values())
 
     def lookup(self, asset_id: int, done: Callable[[str | None, str], None]) -> None:
         """Ask Roblox what asset `asset_id` is (S-22), on a worker; answer on the Qt thread.
@@ -981,6 +988,7 @@ class Grafts(QObject):
                 del self._links[link]
         count = self._publish()
         self._log_left_out()
+        self.applied.emit()
         return count
 
     def _log_left_out(self) -> None:

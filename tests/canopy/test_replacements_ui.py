@@ -21,6 +21,7 @@ from verdra.bark import rain
 from verdra.canopy.crown.dew import Toast
 from verdra.canopy.crown.window import Shell
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
+from verdra.canopy.screens.grafts import specimen
 from verdra.canopy.screens.grafts.screen import ReplacementsScreen
 from verdra.roots import hyphae, rules
 from verdra.roots.symbionts.grafter import Grafter
@@ -154,9 +155,11 @@ def test_a_first_replacement_from_the_empty_state_with_the_keyboard(
     assert [(r.original.asset_id, r.target.value) for r in profile.replacements] == [
         (1111111, "2222222")
     ]
-    assert screen.table.rowCount() == 1
-    cell = screen.table.item(0, 1)
-    assert cell is not None and cell.text() == "2222222"
+    assert screen.rows.count() == 1
+    item = screen.rows.item(0)
+    assert item is not None
+    assert item.data(specimen.NAME) == "1111111"
+    assert "2222222" in item.text()  # the target is in the caption line
     saved = json.loads((terrain.config_dir() / "profiles" / "My replacements.json").read_bytes())
     assert saved["replacements"][0]["target"] == {"kind": "asset_id", "value": "2222222"}
 
@@ -194,14 +197,15 @@ def test_a_local_file_dropped_on_the_drawer_is_saved_relative_to_the_profile(
     saved = json.loads((folder.parent / "My replacements.json").read_bytes())
     assert saved["replacements"][0]["target"] == {"kind": "file", "value": "./sky/top.png"}
     assert saved["replacements"][0]["asset_type"] == "Image"
-    note = screen.table.item(0, 3)
+    item = screen.rows.item(0)
     # Only a PNG signature, not a picture: it is saved, but can't be used in game, and says why.
-    assert note is not None and note.text().startswith("This file couldn't be used:")
+    assert item is not None and "This file couldn't be used:" in item.text()
     picture.write_bytes(ochre.to_png(ochre.Pixels(1, 1, b"\0\0\0\xff")))
     service.publish()
     screen.refresh()
-    note = screen.table.item(0, 3)
-    assert note is None or note.text() == ""  # a real picture: used in game, nothing to say
+    item = screen.rows.item(0)
+    assert item is not None
+    assert "This file couldn't be used:" not in item.text()  # a real picture: nothing to say
 
 
 @pytest.mark.spec("S-22", 1)
@@ -259,34 +263,30 @@ def drop(widget: QWidget, path: Path) -> None:
 
 
 @pytest.mark.spec("S-20", 4)
-def test_profiles_switch_undo_and_delete_from_the_screen(
-    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch, qtbot: QtBot
+def test_the_screen_follows_the_popover_and_undoes_redoes_and_deletes(
+    made: tuple[Shell, StubSprout], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The profile is chosen in the sidebar popover (PR A); the screen follows it, its Undo/Redo
+    act on the service, and a delete from the popover runs through the screen with Undo."""
     shell, _stub = made
     screen = screen_of(shell)
     service = shell.services.grafts
     assert service is not None
-    screen.empty.buttons[0].click()
-    screen.editor.hide()
-    qtbot.keyClicks(screen.new_name, "Night")
-    qtbot.keyClick(screen.new_name, Qt.Key.Key_Return)
-    assert [p.name for p in service.profiles] == ["Night", "My replacements"]
-    current = screen.profiles.currentItem()
-    assert current is not None and current.text() == "Night"
-    qtbot.keyClicks(screen.new_name, "night")  # same name, other case
-    qtbot.keyClick(screen.new_name, Qt.Key.Key_Return)
-    assert screen.name_problem.text() == "A profile named night already exists."
-    current = screen.profiles.currentItem()
-    assert current is not None
-    current.setCheckState(Qt.CheckState.Unchecked)
-    assert not service.profiles[0].enabled
+    night = service.edit("create", "Night")
+    mine = service.edit("create", "My replacements")
+    # Switching in the sidebar popover shows that profile on the screen (D3 screen 2, PR A).
+    shell.window.sidebar.profiles_popover.selected.emit(night.id)
+    assert screen.selected_id() == night.id
+    # Turning a profile off in the popover is undoable from the screen's Undo.
+    service.edit("set_enabled", night.id, False)
+    assert not service.store.get(night.id).enabled
     screen.undo.click()
-    assert service.profiles[0].enabled
+    assert service.store.get(night.id).enabled
     screen.redo.click()
-    assert not service.profiles[0].enabled
+    assert not service.store.get(night.id).enabled
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    screen.delete_action.trigger()
-    assert [p.name for p in service.profiles] == ["My replacements"]
+    screen.delete_profile(night.id)  # the popover asks the screen to delete
+    assert [p.id for p in service.profiles] == [mine.id]
 
 
 def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
@@ -306,9 +306,10 @@ def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
         )
     before = service.store.get(profile.id)
     buttons = [b.text() for b in screen.findChildren(QPushButton)]
-    # Deleting a *profile* is only in "Profile options"; the row "Delete" removes a replacement.
+    # The toolbar's "Delete" removes a replacement row; deleting a *profile* is in the sidebar
+    # popover, which asks the screen to do it (so a profile is never deleted by a row button).
     assert not any("delete" in text.lower() and "profile" in text.lower() for text in buttons)
-    assert screen.delete_action in screen.profile_menu.menu().actions()
+    assert screen.remove.text() == "Delete"
     asked: list[tuple[str, str, str]] = []
 
     def answer(self: DestructiveConfirmation) -> int:
@@ -316,7 +317,7 @@ def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
         return QDialog.DialogCode.Rejected
 
     monkeypatch.setattr(DestructiveConfirmation, "exec", answer)
-    screen.delete_action.trigger()
+    screen.delete_profile(profile.id)
     assert asked == [
         (
             "Delete profile My replacements?",
@@ -326,7 +327,7 @@ def test_deleting_a_profile_is_apart_from_the_row_buttons_and_can_be_undone(
     ]
     assert len(service.profiles) == 1  # canceled: nothing deleted
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    screen.delete_action.trigger()
+    screen.delete_profile(profile.id)
     assert service.profiles == []
     # The empty state says what happened and offers Undo; the header says there's no profile.
     assert screen.stack.currentWidget() is screen.empty_page
@@ -352,9 +353,9 @@ def test_undo_from_the_empty_state_brings_the_profile_back(
     assert service is not None
     screen = screen_of(shell)
     assert not screen.restore.isVisibleTo(screen)  # never had a profile: nothing to undo
-    service.edit("create", "Night")
+    night = service.edit("create", "Night")
     monkeypatch.setattr(DestructiveConfirmation, "exec", lambda _self: QDialog.DialogCode.Accepted)
-    screen.delete_action.trigger()
+    screen.delete_profile(night.id)
     screen.restore.click()
     assert [p.name for p in service.profiles] == ["Night"]
     assert screen.stack.currentWidget() is screen.main
@@ -521,10 +522,8 @@ def test_without_the_service_the_screen_says_why_and_apply_now_does_nothing(shel
 def test_a_path_is_shortened_in_the_middle_with_the_full_text_on_hover_and_copyable(
     made: tuple[Shell, StubSprout],
 ) -> None:
-    """Design law 2 (D1 blocker 3): the "Replace with" path keeps its file name, shows in full
-    on hover, and the cell copies whole."""
-    from verdra.canopy.leaves.elide import PathItemDelegate  # noqa: PLC0415
-
+    """Design law 2 (D1 blocker 3): the target caption keeps the whole path in the model (the
+    delegate shortens it in the middle when it paints), shows in full on hover, and copies whole."""
     shell, _stub = made
     screen = screen_of(shell)
     service = shell.services.grafts
@@ -538,26 +537,23 @@ def test_a_path_is_shortened_in_the_middle_with_the_full_text_on_hover_and_copya
         grafts.Target(kind="file", value=path),
     )
     screen.refresh()
-    # The "Replace with" and "Note" columns elide in the middle (law 2); the others don't.
-    assert isinstance(screen.table.itemDelegateForColumn(1), PathItemDelegate)
-    assert isinstance(screen.table.itemDelegateForColumn(3), PathItemDelegate)
-    assert not isinstance(screen.table.itemDelegateForColumn(0), PathItemDelegate)
-    cell = screen.table.item(0, 1)
-    assert cell is not None
-    assert cell.text() == path  # the model keeps the whole path; only the painter shortens it
-    assert cell.toolTip() == path  # the full text is on hover
-    # Copyable: the current cell's whole text goes to the clipboard.
-    screen.table.setCurrentItem(cell)
-    screen._copy_cell()
-    assert QApplication.clipboard().text() == path
+    assert isinstance(screen.rows.itemDelegate(), specimen.RowDelegate)
+    item = screen.rows.item(0)
+    assert item is not None
+    assert path in item.text()  # the model keeps the whole path; only the painter shortens it
+    assert item.toolTip() == item.text()  # the full caption is on hover
+    # Copyable: the current row's whole caption goes to the clipboard.
+    screen.rows.setCurrentItem(item)
+    screen._copy_current()
+    assert QApplication.clipboard().text() == item.text()
 
 
 @pytest.mark.spec("S-20", 5)
-def test_the_asset_id_and_kind_columns_never_shorten(
+def test_the_rows_obey_the_laws_at_large_text(
     made: tuple[Shell, StubSprout], qtbot: QtBot, qapp: QApplication
 ) -> None:
-    """D1 blockers 5 and 7 (law 1): the asset ID and kind are not free-length, so their columns
-    size to their contents and are never cut; their headers are never cut either."""
+    """Law 1 and law 2 on the specimen rows: the only thing that shortens is the free-length
+    target caption (reported as a law-2 "cell"); nothing else is cut, even at ~200 % text."""
     from tools import gallery  # noqa: PLC0415
 
     shell, _stub = made
@@ -583,15 +579,76 @@ def test_the_asset_id_and_kind_columns_never_shorten(
         for _ in range(3):
             QApplication.processEvents()
         findings = gallery.cut_off(screen, "test", "replacements")
-        fixed = {"15553230204", "Local file", "Asset ID", "URL", "Remove"}
-        cut_cells = [f.text for f in findings if f.kind == "cell" and f.text in fixed]
-        cut_headers = [
-            f.text for f in findings if f.kind == "header" and f.text in {"Original", "Kind"}
-        ]
-        assert cut_cells == []  # the asset ID and kind are shown in full
-        assert cut_headers == []  # their headers are shown in full
+        law_one = [f for f in findings if f.kind != "cell"]
+        assert law_one == []  # nothing is cut off (law 1): the toolbar wraps, nothing clips
     finally:
         qapp.setFont(original)
+
+
+@pytest.mark.spec("S-21", 1)
+def test_a_rows_pill_is_draft_until_apply_then_live(made: tuple[Shell, StubSprout]) -> None:
+    """The pill reads the real state: a saved replacement is Draft until Apply now publishes it,
+    then Live; the pill never stands on colour alone, it carries its word (0027 §4)."""
+    shell, _stub = made
+    screen = screen_of(shell)
+    service = shell.services.grafts
+    assert service is not None
+    profile = service.edit("create", "A")
+    service.edit(
+        "add_replacement",
+        profile.id,
+        grafts.Original(asset_id=1111111),
+        grafts.Target(kind="asset_id", value="2222222"),
+    )
+    item = screen.rows.item(0)
+    assert item is not None and item.data(specimen.STATE) == specimen.Pill.DRAFT.value
+    shell.apply_now()  # publishes the snapshot; the service's `applied` refreshes the pills
+    item = screen.rows.item(0)
+    assert item is not None and item.data(specimen.STATE) == specimen.Pill.LIVE.value
+
+
+def test_the_pill_reads_off_draft_or_live_from_the_replacement(
+    made: tuple[Shell, StubSprout],
+) -> None:
+    """A disabled replacement is Off; an enabled one is Live when it's in the published snapshot,
+    else Draft (per-row on/off arrives with Editor 2.0, but the pill already reads it)."""
+    off = grafts.Replacement(
+        id="r1",
+        original=grafts.Original(asset_id=1),
+        target=grafts.Target(kind="remove", value=""),
+        enabled=False,
+    )
+    on = grafts.Replacement(
+        id="r2",
+        original=grafts.Original(asset_id=2),
+        target=grafts.Target(kind="asset_id", value="3"),
+    )
+    assert ReplacementsScreen._pill(off, frozenset()) is specimen.Pill.OFF
+    assert ReplacementsScreen._pill(on, frozenset()) is specimen.Pill.DRAFT
+    assert ReplacementsScreen._pill(on, frozenset({"r2"})) is specimen.Pill.LIVE
+
+
+@pytest.mark.spec("S-22", 2)
+def test_dropping_a_file_anywhere_on_the_screen_opens_the_editor(
+    made: tuple[Shell, StubSprout],
+) -> None:
+    """Drop anywhere (0027): a picture dropped on the screen opens the editor ready to save it,
+    without first opening the editor by hand."""
+    shell, _stub = made
+    screen = screen_of(shell)
+    service = shell.services.grafts
+    assert service is not None
+    service.edit("create", "A")
+    screen.refresh()
+    assert screen.editor.isHidden()  # the editor is closed until something is dropped
+    folder = terrain.config_dir() / "profiles" / "A"
+    folder.mkdir(parents=True, exist_ok=True)
+    picture = folder / "wall.png"
+    picture.write_bytes(b"\x89PNG\r\n\x1a\n")
+    drop(screen, picture)
+    assert not screen.editor.isHidden()  # the editor opened on the dropped file
+    assert screen.editor.kind() == "file"
+    assert screen.editor.target.text() == "./wall.png"
 
 
 def test_the_row_action_is_named_delete_apart_from_the_remove_kind(
@@ -606,45 +663,53 @@ def test_the_row_action_is_named_delete_apart_from_the_remove_kind(
 
 
 @pytest.mark.spec("S-20", 6)
-def test_the_new_profile_field_shows_its_placeholder_and_the_list_has_tooltips(
+def test_the_new_profile_field_in_the_popover_shows_its_placeholder(
     made: tuple[Shell, StubSprout], qtbot: QtBot, qapp: QApplication
 ) -> None:
-    """D1 Major 6 (law 1): the "New profile name" placeholder is never cut; a profile name that
-    elides in the narrow list is on its tooltip (law 2)."""
+    """D1 Major 6 (law 1): the "New profile name" placeholder is never cut; the field lives in
+    the sidebar card's popover now (D3 screen 2, PR A), and a long profile name is on its tooltip
+    (law 2) in that popover's list."""
     from tools import gallery  # noqa: PLC0415
 
     shell, _stub = made
-    service = shell.services.grafts
-    assert service is not None
-    service.edit("create", "My replacements")
-    screen = ReplacementsScreen(service=service)
-    qtbot.addWidget(screen)
+    popover = shell.window.sidebar.profiles_popover
+    qtbot.addWidget(popover)
+    from dataclasses import dataclass  # noqa: PLC0415
+
+    @dataclass(frozen=True)
+    class _Profile:
+        id: str
+        name: str
+        enabled: bool
+
+    popover.show_profiles([_Profile(id="a", name="My replacements", enabled=True)], "a")
     original = qapp.font()
     large = QFont(original)
     large.setPointSize(16)  # ~180 %
     qapp.setFont(large)
     try:
-        screen._fit_name_field()  # pick up the enlarged font (no live theme in this test)
-        screen.resize(520, 400)
-        screen.show()
-        qtbot.waitExposed(screen)
+        popover.adjustSize()
+        popover.show()
+        qtbot.waitExposed(popover)
         for _ in range(3):
             QApplication.processEvents()
         placeholders = [
             f.text
-            for f in gallery.cut_off(screen, "test", "replacements")
+            for f in gallery.cut_off(popover, "test", "replacements")
             if f.kind == "placeholder"
         ]
         assert placeholders == []  # "New profile name" shows in full
-        item = screen.profiles.item(0)
+        item = popover.list.item(0)
         assert item is not None and item.toolTip() == "My replacements"
     finally:
         qapp.setFont(original)
+        popover.hide()
 
 
 @pytest.mark.spec("S-22", 2)
-def test_the_right_click_copy_copies_the_whole_path(made: tuple[Shell, StubSprout]) -> None:
-    """The table's "Copy" entry copies the full path, not the shortened one (law 2)."""
+def test_the_keyboard_copy_copies_the_whole_caption(made: tuple[Shell, StubSprout]) -> None:
+    """Ctrl+C on a row copies the full target caption, not the shortened one (law 2); a
+    right-click on empty space opens no menu and copies nothing."""
     shell, _stub = made
     screen = screen_of(shell)
     service = shell.services.grafts
@@ -659,14 +724,15 @@ def test_the_right_click_copy_copies_the_whole_path(made: tuple[Shell, StubSprou
     )
     screen.refresh()
     QApplication.clipboard().setText("something else")
-    # The menu is modal (its exec can't run headless); build it and trigger its only action.
-    menu = screen.copy_menu(path)
-    assert [action.text() for action in menu.actions()] == ["Copy"]
-    menu.actions()[0].trigger()
-    assert QApplication.clipboard().text() == path
-    # A right-click on empty space (no cell) opens no menu and copies nothing.
-    screen._table_menu(QPoint(-1, -1))
-    assert QApplication.clipboard().text() == path  # unchanged
+    item = screen.rows.item(0)
+    assert item is not None and path in item.text()
+    screen.rows.setCurrentItem(item)
+    screen._copy_current()
+    assert QApplication.clipboard().text() == item.text()
+    # A right-click on empty space (no row) opens no menu and copies nothing.
+    before = QApplication.clipboard().text()
+    screen._row_menu(QPoint(-1, -1))
+    assert QApplication.clipboard().text() == before  # unchanged
 
 
 def test_startup_publishes_saved_replacements(home: Path, services: Services) -> None:
@@ -772,13 +838,11 @@ def test_the_first_texture_swap_guide_steps_6_to_9_with_real_size_ids(
     assert editor.save.isEnabled(), editor.save.toolTip()
     qtbot.mouseClick(editor.save, Qt.MouseButton.LeftButton)
     assert editor.isHidden()
-    assert screen.table.rowCount() == 1
-    cells = [screen.table.item(0, column) for column in range(3)]
-    assert [c.text() if c else None for c in cells] == [
-        str(ABOVE_UINT32),
-        str(ABOVE_INT32),
-        "Asset ID",
-    ]
+    assert screen.rows.count() == 1
+    item = screen.rows.item(0)
+    assert item is not None
+    assert item.data(specimen.NAME) == str(ABOVE_UINT32)  # the original asset ID (primary line)
+    assert str(ABOVE_INT32) in item.text()  # the target in the caption
     saved = json.loads((terrain.config_dir() / "profiles" / "My replacements.json").read_bytes())
     assert saved["replacements"][0]["original"] == {"asset_id": ABOVE_UINT32, "slot": None}
     assert saved["replacements"][0]["target"] == {"kind": "asset_id", "value": str(ABOVE_INT32)}

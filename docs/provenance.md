@@ -49,6 +49,7 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/leaves/empty.py` | Master plan 7.2, 7.3, message catalogue (M-SOON-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/elide.py` | docs/design/laws.md (law 2), D1 audit blocker 3 | PySide6 | 2026-10-25 |
 | `verdra/canopy/leaves/fields.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
+| `verdra/canopy/leaves/flow.py` | docs/design/laws.md (law 1), D1 #16; the standard flow-layout algorithm (Qt's documented FlowLayout example) | PySide6 | 2026-10-28 |
 | `verdra/canopy/leaves/notice.py` | Master plan 5.4, message catalogue (kind Notice) | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/progress.py` | Design system brand book ("UI language": progress), Master plan 5.4, 6.6 | PySide6 | 2026-10-01 |
 | `verdra/canopy/leaves/status_leaf.py` | Decision record 0027 item 4 (the leaf as the status light); the generated `leaf-<state>-<theme>.svg` brand assets; Qt documentation of QSvgRenderer, QVariantAnimation and QPainter | PySide6 (QtSvg, QtCore, QtGui, QtWidgets) | 2026-10-26 |
@@ -62,7 +63,8 @@ module by its path relative to `src/` in backticks; a package's `__init__.py` ma
 | `verdra/canopy/screens/grafts/imports.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/grafts/presets.py` | Reference R1 (job line only; no code yet) | — | 2026-10-01 |
 | `verdra/canopy/screens/grafts/preview.py` | Master plan 7.2 (Preview changes); spec S-23 | PySide6 | 2026-10-04 |
-| `verdra/canopy/screens/grafts/screen.py` | Master plan 7.2 (Replacements screen); specs S-20, S-22 (profiles list, table, empty state) | PySide6 | 2026-10-04 |
+| `verdra/canopy/screens/grafts/screen.py` | Master plan 7.2 (Replacements screen); specs S-20, S-22, S-23, S-24 (full-width specimen rows, toolbar, empty state) | PySide6 | 2026-10-04 |
+| `verdra/canopy/screens/grafts/specimen.py` | Master plan 7.1; decision record 0027 §4; specs S-20, S-22; docs/design/laws.md (laws 1 and 2) | PySide6 | 2026-10-28 |
 | `verdra/canopy/screens/hive.py` | Message catalogue (M-SOON-01); placeholder | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/rings.py` | Master plan 7.7, 13.9, spec S-03, message catalogue (M-LOG-01) | PySide6 | 2026-10-01 |
 | `verdra/canopy/screens/seedbank.py` | Master plan 7.3 (empty state), message catalogue (M-EMPTY-02) | PySide6 | 2026-10-01 |

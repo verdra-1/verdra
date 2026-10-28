@@ -63,6 +63,8 @@ Organize replacements into named profiles that can be switched on and off.
   replacement".
 - M-PROF-06 (Activity error, new) "The profile file <file> couldn't be read, so Verdra set it
   aside as <moved>."
+- M-PROF-11 (Replacements drop hint, new) "Drop a picture, mesh or a link anywhere to add a
+  replacement." (shown under the full-width list; dropping a file or link opens the editor.)
 
 ## Acceptance tests
 

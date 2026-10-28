@@ -1228,6 +1228,13 @@
     </message>
 </context>
 <context>
+    <name>M-PROF-11</name>
+    <message>
+        <source>Drop a picture, mesh or a link anywhere to add a replacement.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>M-PROXY-01</name>
     <message>
         <source>Verdra couldn&apos;t start routing: port {port} is in use and no other port was free.</source>
@@ -1780,33 +1787,40 @@
     </message>
 </context>
 <context>
+    <name>Replacements</name>
+    <message>
+        <source>Asset {value}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Local file — {value}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Link — {value}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove — shows nothing in game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Draft</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ReplacementsScreen</name>
     <message>
-        <source>Profiles</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Profile options</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Delete this profile…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>New profile name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>New profile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Add replacement</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1826,19 +1840,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Original</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Replace with</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Kind</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Note</source>
+        <source>Apply now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1846,19 +1848,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Asset {id}: {target} — {state}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copy</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Asset ID</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Local file</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>URL</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">

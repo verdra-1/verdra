@@ -376,6 +376,7 @@ class Shell:
                     (QCoreApplication.translate("M-PROF-09", "Undo"), replacements.undo_delete),
                 )
             )
+            replacements.apply_requested.connect(self.apply_now)
         if Tray.available():
             self.tray = Tray(self.window)  # destroyed with the window, its menu with it
             self.tray.open_requested.connect(lambda: self.activate(""))
