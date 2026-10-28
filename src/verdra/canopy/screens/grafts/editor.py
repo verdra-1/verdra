@@ -16,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import QCoreApplication, QTimer, QUrl, Signal
+from PySide6.QtCore import QCoreApplication, QMimeData, QTimer, QUrl, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -161,6 +161,18 @@ class Editor(QFrame):
         """Make `path` the Local file target (Choose file…, or a file dropped on the drawer)."""
         self.choose("file")
         self.target.setText(grafts.stored_path(path, self.folder))
+
+    def use_url(self, url: str) -> None:
+        """Make `url` the Link target (a link dropped on the screen)."""
+        self.choose("url")
+        self.target.setText(url)
+
+    def use_dropped(self, kind: str, value: str) -> None:
+        """Fill the target from something dropped anywhere on the screen (a file or a link)."""
+        if kind == "file":
+            self.use_file(Path(value))
+        else:
+            self.use_url(value)
 
     def value(self) -> str:
         """Return the target value as it will be saved."""
@@ -320,4 +332,22 @@ class Editor(QFrame):
 def _dropped_file(urls: list[QUrl]) -> Path | None:
     if len(urls) == 1 and urls[0].isLocalFile():
         return Path(urls[0].toLocalFile())
+    return None
+
+
+def dropped_target(mime: QMimeData) -> tuple[str, str] | None:
+    """What a drop offers as a replacement target: ("file", path) or ("url", link), or None.
+
+    A single local file is a Local file target; a single HTTPS link (dropped as a URL or as text)
+    is a Link target. The editor then checks it like anything typed, so nothing is trusted here.
+    """
+    urls = mime.urls()
+    local = _dropped_file(urls)
+    if local is not None:
+        return ("file", str(local))
+    if len(urls) == 1 and urls[0].scheme() in ("http", "https"):
+        return ("url", urls[0].toString())
+    text = mime.text().strip() if mime.hasText() else ""
+    if text.startswith(("http://", "https://")) and " " not in text:
+        return ("url", text)
     return None

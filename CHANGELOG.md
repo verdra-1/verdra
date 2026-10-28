@@ -194,10 +194,17 @@ All notable changes to Verdra are recorded here. The format follows
   and Verdra says so, with "Try again". It only reads; it never changes another tool's files.
 
 ### Changed
+- The Replacements screen is now full-width: one specimen row per replacement, with a placeholder
+  before/after thumbnail pair, the asset ID as the primary line and its target as the caption
+  (shortened in the middle, kept whole on hover and copyable), and a Live/Draft/Off pill from the
+  real state. The toolbar — Add replacement; Delete, Undo, Redo; Preview changes; Apply now —
+  wraps instead of clipping at a narrow window or large text. Drop a picture, mesh or link
+  anywhere on the screen to add a replacement. The left profile column is gone; the profile is
+  chosen in the sidebar card's popover. The thumbnails are placeholders: a rendered preview of an
+  asset isn't written yet (Editor 2.0 Part B).
 - The sidebar profile card is now a button: it opens a popover to switch the shown profile, turn
   one on or off, and create, rename or delete a profile. This replaces the Screen 1 note that
-  profile switching stays on the Replacements screen; the Replacements screen's own profile list
-  stays for now and goes when that screen becomes full-width.
+  profile switching stays on the Replacements screen.
 - The window header now shows only the screen title and the routing status, drawn as a leaf and
   one of five plain words (Working, Waiting for the game, Needs you, Stopped, Off) rather than a
   colored pill. The active profile moved to a card in the sidebar, and the sidebar's Library

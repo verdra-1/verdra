@@ -78,6 +78,7 @@ src/verdra/
 │   │   ├── dialogs.py       Risk warning, explanation and destructive confirmation dialogs (7.8).
 │   │   ├── empty.py         Empty states with illustration, heading, sentence and up to two buttons.
 │   │   ├── elide.py         Middle-elides a path or link in a table column, keeping the file name (law 2).
+│   │   ├── flow.py          A layout that lays items left to right and wraps to a new line when they run out of room.
 │   │   ├── tables.py        Virtualised table view, filter proxy models, column memory.
 │   │   ├── fields.py        Asset-ID field, file picker, HTTPS-only URL field, all with live validation.
 │   │   └── drawer.py        Right-hand drawer container with Save / Cancel footer.
@@ -90,7 +91,8 @@ src/verdra/
 │   │   └── model.py         Instance tree with a property table.
 │   └── screens/             One package or module per sidebar entry.
 │       ├── grafts/          Replacements screen.
-│       │   ├── screen.py    Profiles list, replacements table, toolbar.
+│       │   ├── screen.py    Full-width specimen rows, a wrapping toolbar, and the editor drawer.
+│       │   ├── specimen.py  Paints a replacement as a specimen row
 │       │   ├── editor.py    Editor drawer (Asset ID · Local file · URL · Remove).
 │       │   ├── preview.py   Preview changes dialog.
 │       │   ├── presets.py   Presets dialog (catalogue cards).

@@ -60,7 +60,7 @@ PLACEHOLDER_MARGIN = 2
 #: un-redesigned app, and failing on those would block every unrelated change. Each D3 pull
 #: request adds its scene name(s) here as it lands (plan Part C phase 2; decision record 0027).
 #: Names are the base scene names in `_scenes()`, e.g. "window-frame", "status-error".
-CLEAN_SCREENS: frozenset[str] = frozenset({"window-frame"})
+CLEAN_SCREENS: frozenset[str] = frozenset({"window-frame", "replacements"})
 
 
 def _scene_base(scene: str) -> str:

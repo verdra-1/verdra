@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: 2026 q0f7
 # SPDX-License-Identifier: Apache-2.0
-"""Profiles list, replacements table, toolbar.
+"""Full-width specimen rows, a wrapping toolbar, and the editor drawer.
 
-Specs S-20 and S-22. The profiles are listed highest first, each with its switch (a check box);
-the table shows the selected profile's replacements, and "Add replacement" opens the editor
-drawer beside it. With no profile yet, the empty state (M-EMPTY-01) offers "Add replacement",
-which makes a first profile. Presets arrive with the catalogue (M7), so "Browse presets" stays
-disabled with M-SOON-01.
+Specs S-20, S-22, S-23, S-24 (D3 screen 2). The screen fills its width with one row per
+replacement: before/after thumbnails (placeholders, not a preview Verdra can draw yet), the asset
+ID as the primary line with its target as the caption (shortened in the middle, kept on hover and
+copyable, law 2), and a Live/Draft/Off pill from the real state. The profile is chosen in the
+sidebar card's popover (D3 screen 2, PR A); this screen follows it and tells it back. The toolbar
+wraps rather than clip (law 1, D1 #16): Add replacement; Delete, Undo, Redo; Preview changes;
+Apply now (also Ctrl+Return). With no profile yet, the empty state (M-EMPTY-01) offers "Add
+replacement", which makes a first profile. Presets arrive with the catalogue (M7), so "Browse
+presets" stays disabled with M-SOON-01.
 """
 
 from __future__ import annotations
@@ -14,40 +18,30 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMenu,
     QPushButton,
     QStackedLayout,
-    QStyle,
-    QStyleOptionFrame,
-    QTableWidget,
-    QTableWidgetItem,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from verdra.canopy.crown import theme
 from verdra.canopy.leaves.dialogs import DestructiveConfirmation
-from verdra.canopy.leaves.elide import PathItemDelegate
 from verdra.canopy.leaves.empty import EmptyState, soon
-from verdra.canopy.screens.grafts.editor import Editor
+from verdra.canopy.leaves.flow import FlowLayout
+from verdra.canopy.screens.grafts import specimen
+from verdra.canopy.screens.grafts.editor import Editor, dropped_target
 from verdra.canopy.screens.grafts.preview import PreviewDialog
+from verdra.canopy.screens.grafts.specimen import KIND, NAME, RID, STATE, Pill
 from verdra.trunk.branches import grafts
-
-#: A line edit's own horizontal text margin each side (Qt's QLineEdit). One pixel of slack on top,
-#: for the rounding the gallery's law-1 check allows.
-_FIELD_TEXT_MARGIN = 2
-_FIELD_SLACK = 1
 
 
 class ReplacementsScreen(QWidget):
@@ -55,15 +49,19 @@ class ReplacementsScreen(QWidget):
 
     Signals:
         deleted(str): A profile was deleted (M-PROF-09); the window shows it with "Undo".
+        shown(str): The shown profile changed; the sidebar card follows it (D3 screen 2).
+        apply_requested(): Apply now was pressed (the window runs it, spec S-24).
     """
 
     deleted = Signal(str)
-    #: The shown profile changed; the sidebar card follows it (D3 screen 2).
     shown = Signal(str)
+    apply_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None, service: grafts.Grafts | None = None) -> None:
         super().__init__(parent)
         self.service = service
+        #: The profile shown now (chosen in the sidebar popover); the rows follow it.
+        self._shown_id: str | None = None
         #: The profile deleted last and where it was, for "Undo" (M-PROF-09, M-PROF-10).
         self._deleted: tuple[grafts.Profile, int] | None = None
         self.stack = QStackedLayout(self)
@@ -89,8 +87,10 @@ class ReplacementsScreen(QWidget):
         self.main = QWidget(self)
         self.stack.addWidget(self.main)
         self._build(self.main)
+        self.setAcceptDrops(True)
         if service is not None:
             service.changed.connect(self.refresh)
+            service.applied.connect(self._show_replacements)
         self.refresh()
 
     # --- Layout -----------------------------------------------------------------------------
@@ -119,141 +119,81 @@ class ReplacementsScreen(QWidget):
         return page
 
     def _build(self, host: QWidget) -> None:
-        row = QHBoxLayout(host)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.addLayout(self._build_profiles(host), 1)
-        row.addLayout(self._build_table(host), 3)
+        column = QVBoxLayout(host)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(theme.Tokens.load().length("space-4"))
+        column.addWidget(self._build_toolbar(host))
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(theme.Tokens.load().length("space-4"))
+        body.addWidget(self._build_list(host), 1)
         self.editor = Editor(host, self.service.lookup if self.service is not None else None)
         self.editor.saved.connect(self._save)
         self.editor.hide()
-        row.addWidget(self.editor, 2)
-
-    def _build_profiles(self, host: QWidget) -> QVBoxLayout:
-        side = QVBoxLayout()
-        side.addWidget(QLabel(self.tr("Profiles"), host))
-        # Deleting a profile sits in a menu, apart from the buttons used every day (a profile
-        # was deleted by accident when a row was meant, Guide B on the maintainer's PC).
-        self.profile_menu = QToolButton(host)
-        self.profile_menu.setText(self.tr("Profile options"))
-        self.profile_menu.setAccessibleName(self.tr("Profile options"))
-        self.profile_menu.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        menu = QMenu(self.profile_menu)
-        self.delete_action = QAction(self.tr("Delete this profile…"), menu)
-        self.delete_action.triggered.connect(lambda: self.delete_profile(self.selected_id()))
-        menu.addAction(self.delete_action)
-        self.profile_menu.setMenu(menu)
-        side.addWidget(self.profile_menu, 0, Qt.AlignmentFlag.AlignLeft)
-        self.profiles = QListWidget(host)
-        self.profiles.setAccessibleName(self.tr("Profiles"))
-        self.profiles.currentRowChanged.connect(self._selection_changed)
-        self.profiles.itemChanged.connect(self._profile_switched)
-        side.addWidget(self.profiles, 1)
-        self.new_name = QLineEdit(host)
-        self.new_name.setPlaceholderText(self.tr("New profile name"))
-        self.new_name.setAccessibleName(self.tr("New profile name"))
-        self.new_name.returnPressed.connect(self._create)
-        side.addWidget(self.new_name)
-        self._fit_name_field()
-        current = theme.Theme.instance()
-        if current is not None:
-            current.changed.connect(self._fit_name_field)
-        self.name_problem = QLabel(host)
-        self.name_problem.setWordWrap(True)
-        self.name_problem.hide()
-        side.addWidget(self.name_problem)
-        self.add_profile = QPushButton(self.tr("New profile"), host)
-        self.add_profile.clicked.connect(self._create)
-        side.addWidget(self.add_profile)
-        return side
-
-    def _fit_name_field(self) -> None:
-        """Keep the name field at least as wide as its placeholder, so it is never cut (law 1).
-
-        The frame width around the text area is taken from the style (it differs per platform),
-        so the placeholder fits whatever the text size.
-        """
-        field = self.new_name
-        text = field.fontMetrics().horizontalAdvance(field.placeholderText())
-        option = QStyleOptionFrame()
-        field.initStyleOption(option)
-        option.rect = QRect(0, 0, text + 200, field.sizeHint().height())
-        contents = field.style().subElementRect(
-            QStyle.SubElement.SE_LineEditContents, option, field
+        body.addWidget(self.editor, 0)
+        column.addLayout(body, 1)
+        self.drop_hint = QLabel(
+            QCoreApplication.translate(
+                "M-PROF-11", "Drop a picture, mesh or a link anywhere to add a replacement."
+            ),
+            host,
         )
-        frame = option.rect.width() - contents.width()  # the frame and padding, both sides
-        field.setMinimumWidth(text + 2 * _FIELD_TEXT_MARGIN + frame + _FIELD_SLACK)
+        self.drop_hint.setObjectName("dropHint")
+        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_hint.setWordWrap(True)
+        column.addWidget(self.drop_hint)
 
-    def _build_table(self, host: QWidget) -> QVBoxLayout:
-        middle = QVBoxLayout()
-        tools = QVBoxLayout()
-        self.add = QPushButton(self.tr("Add replacement"), host)
-        self.add.setProperty("primary", True)
-        self.add.clicked.connect(self._open_editor)
+    def _toolbar_button(self, text: str, slot: Any, *, primary: bool = False) -> QPushButton:
+        button = QPushButton(text, self)
+        if primary:
+            button.setProperty("primary", True)
+        button.clicked.connect(slot)
+        return button
+
+    def _group(self, *buttons: QPushButton) -> QWidget:
+        """A labelled toolbar group: its buttons in a row (D1 #16); the flow wraps whole groups."""
+        box = QWidget(self)
+        row = QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(theme.Tokens.load().length("space-2"))
+        for button in buttons:
+            row.addWidget(button)
+        return box
+
+    def _build_toolbar(self, host: QWidget) -> QWidget:
+        self.add = self._toolbar_button(self.tr("Add replacement"), self._open_editor, primary=True)
         # "Delete" removes the selected replacement row; "Remove" is a replacement kind (show
         # nothing in game), so the row action uses a different word to tell the two apart (D1 #22).
-        self.remove = QPushButton(self.tr("Delete"), host)
-        self.remove.clicked.connect(self._remove)
-        self.undo = QPushButton(self.tr("Undo"), host)
-        self.undo.clicked.connect(lambda: self._edit("undo"))
-        self.redo = QPushButton(self.tr("Redo"), host)
-        self.redo.clicked.connect(lambda: self._edit("redo"))
-        self.preview = QPushButton(self.tr("Preview changes"), host)
-        self.preview.clicked.connect(self.show_preview)
-        # Two rows, so every label fits at the smallest window with the editor open and the
-        # largest text size (a toolbar on one row was cut to "replacem", Guide B on Windows).
-        for buttons in ((self.add, self.remove), (self.undo, self.redo, self.preview)):
-            row = QHBoxLayout()
-            for button in buttons:
-                row.addWidget(button)
-            row.addStretch(1)
-            tools.addLayout(row)
-        middle.addLayout(tools)
-        self.table = QTableWidget(0, 4, host)
-        self.table.setHorizontalHeaderLabels(
-            [self.tr("Original"), self.tr("Replace with"), self.tr("Kind"), self.tr("Note")]
-        )
-        self.table.setAccessibleName(self.tr("Replacements"))
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.verticalHeader().hide()
-        header = self.table.horizontalHeader()
-        # The asset ID and the kind are not free-length data, so they are sized to their contents
-        # and never shorten (law 1, D1 blockers 5 and 7). "Replace with" (a path or link) and
-        # "Note" (a message that may name a path) may shorten, so they stretch and middle-elide,
-        # keeping the file name whole with the full text on hover and copyable (law 2).
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        for column in (1, 3):
-            self.table.setItemDelegateForColumn(column, PathItemDelegate(self.table))
-        copy = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
-        copy.activated.connect(self._copy_cell)
-        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self._table_menu)
-        middle.addWidget(self.table, 1)
-        return middle
+        self.remove = self._toolbar_button(self.tr("Delete"), self._remove)
+        self.undo = self._toolbar_button(self.tr("Undo"), lambda: self._edit("undo"))
+        self.redo = self._toolbar_button(self.tr("Redo"), lambda: self._edit("redo"))
+        self.preview = self._toolbar_button(self.tr("Preview changes"), self.show_preview)
+        self.apply = self._toolbar_button(self.tr("Apply now"), self.apply_requested.emit)
+        bar = QWidget(host)
+        flow = FlowLayout(bar, spacing=theme.Tokens.load().length("space-4"))
+        flow.addWidget(self._group(self.add))
+        flow.addWidget(self._group(self.remove, self.undo, self.redo))
+        flow.addWidget(self._group(self.preview))
+        flow.addWidget(self._group(self.apply))
+        return bar
 
-    def _copy_cell(self) -> None:
-        """Copy the selected cell's full text to the clipboard (law 2: copyable)."""
-        item = self.table.currentItem()
-        if item is not None and item.text():
-            QGuiApplication.clipboard().setText(item.text())
-
-    def _table_menu(self, where: QPoint) -> None:
-        """A "Copy" entry on the replacements table, so a shortened path can be copied whole."""
-        item = self.table.itemAt(where)
-        if item is None or not item.text():
-            return
-        self.copy_menu(item.text()).exec(self.table.viewport().mapToGlobal(where))
-
-    def copy_menu(self, text: str) -> QMenu:
-        """The right-click menu with one "Copy" entry that puts `text` on the clipboard whole."""
-        menu = QMenu(self.table)
-        menu.addAction(self.tr("Copy")).triggered.connect(
-            lambda: QGuiApplication.clipboard().setText(text)
-        )
-        return menu
+    def _build_list(self, host: QWidget) -> QWidget:
+        self.rows = QListWidget(host)
+        self.rows.setObjectName("replacementRows")
+        self.rows.setAccessibleName(self.tr("Replacements"))
+        self.rows.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.rows.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        # Rows fill the width; the free-length caption shortens inside the row (law 2) rather than
+        # push a horizontal scrollbar, so the pill at the right is always in view.
+        self.rows.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.rows.setWordWrap(False)
+        self.rows.setItemDelegate(specimen.RowDelegate(self.rows))
+        self.rows.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.rows.customContextMenuRequested.connect(self._row_menu)
+        self.rows.currentItemChanged.connect(lambda *_: self._update_buttons())
+        copy_rows = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.rows)
+        copy_rows.activated.connect(self._copy_current)
+        return self.rows
 
     # --- Showing ----------------------------------------------------------------------------
 
@@ -261,28 +201,78 @@ class ReplacementsScreen(QWidget):
         """Show the service's profiles (after any edit, undo or redo)."""
         service = self.service
         if service is None or not service.profiles:
+            self._shown_id = None
             self.restore_note.setVisible(self._deleted is not None)
             self.restore.setVisible(self._deleted is not None)
             self.stack.setCurrentWidget(self.empty_page)
             return
         self.stack.setCurrentWidget(self.main)
-        current = self.selected_id()
-        self.profiles.blockSignals(True)  # noqa: FBT003 - Qt's own signature
-        self.profiles.clear()
-        for profile in service.profiles:
-            item = QListWidgetItem(profile.name, self.profiles)
-            item.setData(Qt.ItemDataRole.UserRole, profile.id)
-            item.setToolTip(profile.name)  # a long name may elide in the narrow list (law 2)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked if profile.enabled else Qt.CheckState.Unchecked
-            )
-        self.profiles.blockSignals(False)  # noqa: FBT003
         ids = [p.id for p in service.profiles]
-        self.profiles.setCurrentRow(ids.index(current) if current in ids else 0)
+        previous = self._shown_id
+        if self._shown_id not in ids:
+            self._shown_id = ids[0]
         self._show_replacements()
         self.undo.setEnabled(service.store.can_undo)
         self.redo.setEnabled(service.store.can_redo)
+        if self._shown_id != previous and self._shown_id is not None:
+            self.shown.emit(self._shown_id)
+
+    def _show_replacements(self) -> None:
+        service, profile_id = self.service, self._shown_id
+        self.rows.clear()
+        if service is None or profile_id is None:
+            self._update_buttons()
+            return
+        profile = service.store.get(profile_id)
+        live = service.live
+        warnings = dict(service.store.compile().left_out)
+        for replacement in profile.replacements:
+            self._add_row(replacement, live, warnings)
+        self._update_buttons()
+
+    def _add_row(
+        self, replacement: grafts.Replacement, live: frozenset[str], warnings: dict[str, str]
+    ) -> None:
+        caption = self._caption(replacement, warnings.get(replacement.id, ""))
+        state = self._pill(replacement, live)
+        item = QListWidgetItem(caption, self.rows)
+        item.setData(NAME, str(replacement.original.asset_id))
+        item.setData(KIND, replacement.target.kind)
+        item.setData(RID, replacement.id)
+        item.setData(STATE, state.value)
+        if caption:
+            item.setToolTip(caption)  # the full target on hover (law 2)
+        item.setData(
+            Qt.ItemDataRole.AccessibleTextRole,
+            self.tr("Asset {id}: {target} — {state}").format(
+                id=replacement.original.asset_id,
+                target=caption,
+                state=specimen.pill_word(state),
+            ),
+        )
+
+    @staticmethod
+    def _pill(replacement: grafts.Replacement, live: frozenset[str]) -> Pill:
+        if not replacement.enabled:
+            return Pill.OFF
+        return Pill.LIVE if replacement.id in live else Pill.DRAFT
+
+    @staticmethod
+    def _caption(replacement: grafts.Replacement, warning: str) -> str:
+        """The target line: a short description of what replaces the asset (with any warning)."""
+        target = replacement.target
+        kinds = {
+            "asset_id": QCoreApplication.translate("Replacements", "Asset {value}"),
+            "file": QCoreApplication.translate("Replacements", "Local file — {value}"),
+            "url": QCoreApplication.translate("Replacements", "Link — {value}"),
+            "remove": QCoreApplication.translate("Replacements", "Remove — shows nothing in game"),
+        }
+        text = kinds[target.kind]
+        described = text if target.kind == "remove" else text.format(value=target.value)
+        return f"{described}  ·  {warning}" if warning else described
+
+    def _update_buttons(self) -> None:
+        self.remove.setEnabled(self.rows.currentItem() is not None)
 
     def show_preview(self) -> None:
         """Preview changes (spec S-23)."""
@@ -290,55 +280,38 @@ class ReplacementsScreen(QWidget):
             PreviewDialog(self.service.preview(), self).exec()
 
     def selected_id(self) -> str | None:
-        """Return the selected profile's ID."""
-        item = self.profiles.currentItem()
-        return None if item is None else str(item.data(Qt.ItemDataRole.UserRole))
-
-    def _selection_changed(self, _row: int) -> None:
-        """Show the newly selected profile and tell the sidebar card which one it is."""
-        self._show_replacements()
-        selected = self.selected_id()
-        if selected is not None:
-            self.shown.emit(selected)
+        """Return the shown profile's ID (chosen in the sidebar popover)."""
+        return self._shown_id
 
     def select_profile(self, profile_id: str) -> None:
         """Show a profile by its ID (the sidebar popover switched to it)."""
-        for row in range(self.profiles.count()):
-            if str(self.profiles.item(row).data(Qt.ItemDataRole.UserRole)) == profile_id:
-                self.profiles.setCurrentRow(row)
-                return
-
-    def _show_replacements(self) -> None:
-        service, profile_id = self.service, self.selected_id()
-        self.table.setRowCount(0)
-        if service is None or profile_id is None:
+        if self.service is None or profile_id not in [p.id for p in self.service.profiles]:
             return
-        profile = service.store.get(profile_id)
-        # Why each replacement isn't used, as the next Apply now would publish it.
-        notes = dict(service.store.compile().left_out)
-        kinds = {
-            "asset_id": self.tr("Asset ID"),
-            "file": self.tr("Local file"),
-            "url": self.tr("URL"),
-            "remove": self.tr("Remove"),
-        }
-        for row, replacement in enumerate(profile.replacements):
-            self.table.insertRow(row)
-            original = QTableWidgetItem(str(replacement.original.asset_id))
-            original.setData(Qt.ItemDataRole.UserRole, replacement.id)
-            self.table.setItem(row, 0, original)
-            note = notes.get(replacement.id, "")
-            self.table.setItem(row, 1, self._cell(replacement.target.value))
-            self.table.setItem(row, 2, QTableWidgetItem(kinds[replacement.target.kind]))
-            self.table.setItem(row, 3, self._cell(note))
+        if profile_id != self._shown_id:
+            self._shown_id = profile_id
+            self._show_replacements()
+            self.shown.emit(profile_id)
 
-    @staticmethod
-    def _cell(text: str) -> QTableWidgetItem:
-        """A cell whose full text is on hover, for a value that may be shortened (law 2)."""
-        item = QTableWidgetItem(text)
-        if text:
-            item.setToolTip(text)
-        return item
+    def _current_rid(self) -> str | None:
+        item = self.rows.currentItem()
+        return None if item is None else str(item.data(RID))
+
+    # --- Copy (law 2: a shortened target stays copyable) ------------------------------------
+
+    def _copy_current(self) -> None:
+        item = self.rows.currentItem()
+        if item is not None and item.text():
+            QGuiApplication.clipboard().setText(item.text())
+
+    def _row_menu(self, where: QPoint) -> None:
+        item = self.rows.itemAt(where)
+        if item is None or not item.text():
+            return
+        menu = QMenu(self.rows)
+        menu.addAction(self.tr("Copy")).triggered.connect(
+            lambda: QGuiApplication.clipboard().setText(item.text())
+        )
+        menu.exec(self.rows.viewport().mapToGlobal(where))
 
     # --- Editing ----------------------------------------------------------------------------
 
@@ -357,20 +330,9 @@ class ReplacementsScreen(QWidget):
         """The empty state's "Add replacement": make a first profile, then open the editor."""
         if self.service is None:
             return
-        self._edit("create", QCoreApplication.translate("M-PROF-07", "My replacements"))
+        created = self._edit("create", QCoreApplication.translate("M-PROF-07", "My replacements"))
+        self._shown_id = created.id
         self._open_editor()
-
-    def _create(self) -> None:
-        name = self.new_name.text().strip()
-        try:
-            created = self._edit("create", name)
-        except grafts.ProfileError as error:
-            self.name_problem.setText(str(error))
-            self.name_problem.show()
-            return
-        self.name_problem.hide()
-        self.new_name.clear()
-        self.profiles.setCurrentRow([p.id for p in self.service.profiles].index(created.id))  # type: ignore[union-attr]
 
     def delete_profile(self, profile_id: str | None) -> None:
         """Delete a profile after confirming; the window shows "Undo" (also the sidebar popover)."""
@@ -394,6 +356,8 @@ class ReplacementsScreen(QWidget):
             return
         index = [p.id for p in self.service.profiles].index(profile_id)
         self._deleted = (copy.deepcopy(profile), index)
+        if profile_id == self._shown_id:
+            self._shown_id = None
         self._edit("delete", profile_id)
         self.deleted.emit(
             QCoreApplication.translate("M-PROF-09", "Deleted profile {name}.").format(
@@ -411,37 +375,48 @@ class ReplacementsScreen(QWidget):
         except grafts.ProfileError as error:
             self.restore_note.setText(str(error))
             return
+        self._shown_id = profile.id
         self._deleted = None
         self.refresh()
 
-    def _profile_switched(self, item: QListWidgetItem) -> None:
-        enabled = item.checkState() == Qt.CheckState.Checked
-        self._edit("set_enabled", str(item.data(Qt.ItemDataRole.UserRole)), enabled)
-
     def _open_editor(self) -> None:
-        if self.selected_id() is None and self.service is not None and self.service.profiles:
-            self.profiles.setCurrentRow(0)
-        profile_id = self.selected_id()
-        if self.service is not None and profile_id is not None:
-            profile = self.service.store.get(profile_id)
+        if self._shown_id is None and self.service is not None and self.service.profiles:
+            self._shown_id = self.service.profiles[0].id
+        if self.service is not None and self._shown_id is not None:
+            profile = self.service.store.get(self._shown_id)
             self.editor.start(self.service.store.folder / profile.name)
         else:
             self.editor.start()
 
     def _save(self, original: grafts.Original, target: grafts.Target, family: str) -> None:
-        profile_id = self.selected_id()
-        if profile_id is None:
+        if self._shown_id is None:
             return
         try:
-            self._edit("add_replacement", profile_id, original, target, family)
+            self._edit("add_replacement", self._shown_id, original, target, family)
         except grafts.ProfileError as error:  # a refusal the user can act on: say it in place
             self.editor.problem.setText(str(error))
             return
         self.editor.hide()
 
     def _remove(self) -> None:
-        profile_id, row = self.selected_id(), self.table.currentRow()
-        item = self.table.item(row, 0) if row >= 0 else None
-        if profile_id is None or item is None:
+        rid = self._current_rid()
+        if self._shown_id is None or rid is None:
             return
-        self._edit("remove_replacement", profile_id, str(item.data(Qt.ItemDataRole.UserRole)))
+        self._edit("remove_replacement", self._shown_id, rid)
+
+    # --- Drop anywhere (Qt API) -------------------------------------------------------------
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802 - Qt API
+        """Accept a dropped local file or a link anywhere on the screen."""
+        if self.service is not None and dropped_target(event.mimeData()) is not None:
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802 - Qt API
+        """Open the editor on the dropped file or link, ready to save (drop anywhere)."""
+        target = dropped_target(event.mimeData())
+        if self.service is None or target is None:
+            return
+        self._open_editor()
+        kind, value = target
+        self.editor.use_dropped(kind, value)
+        event.acceptProposedAction()

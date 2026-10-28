@@ -29,7 +29,10 @@ yet in `tokens.json`; the mock-ups use today's `bg`/`surface` so they stay hones
    220px botanical sidebar with the active screen marked, the profile as a card (D1 #17), the
    header carrying the status leaf and its word.
 2. **Replacements** — before→after specimen rows, drop-anywhere, the row action "Delete" apart
-   from the "Remove" kind (D1 #22), the toolbar grouped into labelled sections (D1 #16).
+   from the "Remove" kind (D1 #22), the toolbar grouped into labelled sections (D1 #16). The
+   before/after thumbnails are **placeholders**: Verdra has no rendered preview of an asset yet,
+   so a row shows an empty frame rather than imply a preview it can't draw. Real previews are
+   Editor 2.0 Part B; nothing here means they already exist.
 3. **Status / popover** — the five leaves (Working · Waiting for the game · Needs you · Stopped ·
    Off), each its own shape so it reads in grayscale; the word always beside the leaf; a change
    shows only after 5 seconds, every change logged (0027 §3–5).
